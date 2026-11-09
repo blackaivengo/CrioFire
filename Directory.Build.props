@@ -1,0 +1,27 @@
+<Project>
+  <!-- Shared settings for every CrioFire project. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Lets the Windows-only projects compile on Linux/macOS dev machines. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+    <Version Condition="'$(Version)' == ''">0.1.0-dev</Version>
+    <Company>CrioSoft LLC</Company>
+    <Product>CrioFire Private Firewall</Product>
+    <Authors>CrioSoft LLC</Authors>
+    <Copyright>Copyright (C) 2026 CrioSoft LLC</Copyright>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <NeutralLanguage>en-US</NeutralLanguage>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

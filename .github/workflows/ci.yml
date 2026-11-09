@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+          - arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore CrioFire.slnx
+
+      - name: Build
+        run: dotnet build CrioFire.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test CrioFire.slnx --configuration Release --no-build
+
+      - name: Publish (unsigned, for inspection)
+        shell: pwsh
+        run: ./build/publish.ps1 -Arch ${{ matrix.arch }} -Version "0.0.0-ci.${{ github.run_number }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: criofire-ci-${{ matrix.arch }}
+          path: out/${{ matrix.arch }}
+          retention-days: 7

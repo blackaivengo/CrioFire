@@ -1,0 +1,20 @@
+name: Blocked something it should not
+description: An app or Windows component lost network access because of CrioFire
+labels: [false-block]
+body:
+  - type: input
+    id: app
+    attributes:
+      label: Program or Windows component
+      placeholder: e.g. C:\Windows\System32\svchost.exe (Windows Update)
+    validations:
+      required: true
+  - type: textarea
+    id: rules
+    attributes:
+      label: Output of `criofire list`
+      render: text
+  - type: textarea
+    id: details
+    attributes:
+      label: What were you doing when it happened?

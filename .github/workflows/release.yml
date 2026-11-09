@@ -1,0 +1,130 @@
+name: Release
+
+# Pushing a tag like v0.1.0 on main builds both architectures, then waits.
+# Nothing is signed until the "release" environment's required reviewer approves the run.
+# See docs/RELEASING.md for the one-time GitHub and Azure setup.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+          - arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag points at a commit on main
+        shell: pwsh
+        run: |
+          git fetch origin main --quiet
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw "Tag $env:GITHUB_REF_NAME is not on main; refusing to release." }
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test
+        run: dotnet test CrioFire.slnx --configuration Release
+
+      - name: Publish
+        shell: pwsh
+        run: ./build/publish.ps1 -Arch ${{ matrix.arch }} -Version "${{ github.ref_name }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ matrix.arch }}
+          path: out/${{ matrix.arch }}
+          retention-days: 3
+
+  sign-and-draft-release:
+    name: Sign (needs approval) and draft release
+    needs: build
+    runs-on: windows-2025
+    # The "release" environment requires your approval before this job starts,
+    # and only this environment can obtain an Azure token for signing.
+    environment: release
+    permissions:
+      contents: write   # create the draft GitHub Release
+      id-token: write   # OpenID Connect token for Azure (no stored signing secret)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unsigned-*
+          path: out
+
+      - name: Azure login (OpenID Connect)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign CrioFire binaries with Azure Artifact Signing
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\out
+          files-folder-recurse: true
+          # Only our own files; the bundled .NET runtime is already signed by Microsoft.
+          files-folder-filter: criofire*.exe,criofire*.dll,CrioFire.*.dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Verify signatures
+        shell: pwsh
+        env:
+          # The publisher name exactly as it appears on the certificate (set in the environment's variables).
+          EXPECTED_PUBLISHER: ${{ vars.EXPECTED_PUBLISHER || 'CrioSoft LLC' }}
+        run: |
+          $files = Get-ChildItem out -Recurse -Include 'criofire*.exe', 'criofire*.dll', 'CrioFire.*.dll'
+          if ($files.Count -eq 0) { throw 'No CrioFire binaries found.' }
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            if ($sig.Status -ne 'Valid') { throw "$($f.Name): signature status $($sig.Status)" }
+            if ($sig.SignerCertificate.Subject -notmatch [regex]::Escape($env:EXPECTED_PUBLISHER)) { throw "$($f.Name): unexpected signer $($sig.SignerCertificate.Subject)" }
+            Write-Host "OK  $($f.Name)  $($sig.SignerCertificate.Subject)"
+          }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ver = '${{ github.ref_name }}'.TrimStart('v')
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($arch in 'x64', 'arm64') {
+            Compress-Archive -Path "out/unsigned-$arch/*" -DestinationPath "dist/criofire-$ver-$arch.zip"
+          }
+          Get-ChildItem dist -Filter *.zip | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+
+      - name: Create draft GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ github.ref_name }}' (Get-ChildItem dist).FullName `
+            --repo '${{ github.repository }}' `
+            --draft --verify-tag --generate-notes `
+            --title 'CrioFire Private Firewall ${{ github.ref_name }}'

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>CrioFire.Core</RootNamespace>
+    <AssemblyName>CrioFire.Core</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- 64-bit only (x64 and ARM64): WfpEngine refuses to run in a 32-bit process. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CrioFire.Tests" />
+  </ItemGroup>
+
+</Project>

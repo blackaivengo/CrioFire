@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in CrioFire does not work as expected
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: CrioFire version
+      description: Output of `criofire --version`
+    validations:
+      required: true
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows
+      options: [Windows 11 x64, Windows 11 ARM64, Windows 10 x64, Windows 10 ARM64]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: markdown
+    attributes:
+      value: "Lost network access? Run `criofire panic` from an administrator prompt to remove every CrioFire rule. Security problems: use private reporting (see SECURITY.md), not this form."
