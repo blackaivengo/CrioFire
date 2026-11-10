@@ -17,7 +17,7 @@
     <Product>CrioFire Private Firewall</Product>
     <Authors>CrioSoft LLC</Authors>
     <Copyright>Copyright (C) 2026 CrioSoft LLC</Copyright>
-    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>PolyForm-Noncommercial-1.0.0</PackageLicenseExpression>
     <NeutralLanguage>en-US</NeutralLanguage>
   </PropertyGroup>
 

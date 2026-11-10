@@ -33,7 +33,9 @@ public partial class SettingsPage : UserControl, IPage
         var app = typeof(SettingsPage).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
         var service = _model.Status is { } s ? s.Version : "not running";
         AboutText.Text =
-            $"CrioFire Private Firewall by CrioSoft LLC. Free and open source under the GNU GPL v3.\n" +
+            $"CrioFire Private Firewall by CrioSoft LLC.\n" +
+            $"Free for personal use, non-profits, schools, government, and businesses on up to 3 computers. " +
+            $"Other business use needs a CrioSoft commercial license (see LICENSING.md).\n" +
             $"App {app} · Service {service}\n" +
             $"Blocked-connection log: {TrafficLog.DefaultPath}";
     }

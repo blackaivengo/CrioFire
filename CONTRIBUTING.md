@@ -47,4 +47,7 @@ See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License
 
-Contributions are licensed under GPL-3.0-or-later, the project's license.
+CrioFire is source-available under the PolyForm Noncommercial License 1.0.0 with CrioSoft's additional
+permissions (see [LICENSE](LICENSE) and [LICENSING.md](LICENSING.md)). Because CrioSoft also sells commercial
+licenses, contributors agree to the [Contributor License Agreement](CLA.md): state in your first pull request
+"I have read the CrioFire Contributor License Agreement and agree to it."

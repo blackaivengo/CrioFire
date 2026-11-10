@@ -1,11 +1,13 @@
 # CrioFire Private Firewall
 
-A free, open source application firewall for Windows 10 and 11 (x64 and ARM64) that puts every
-network connection under your control. Built by CrioSoft LLC with C# and .NET 10, licensed under GPL-3.0.
+An application firewall for Windows 10 and 11 (x64 and ARM64) that puts every network connection
+under your control. Built by CrioSoft LLC with C# and .NET 10. Source-available: free for personal
+use, non-profits, schools, government and businesses on up to 3 computers; other business use needs
+a yearly license per computer (see [LICENSING.md](LICENSING.md)).
 
-> **Status: Phase 0 prototype.** The command line can block individual programs through the
-> Windows Filtering Platform (WFP). Alerts, the rule editor and the background service's local API
-> arrive in Phase 1. Do not rely on it for protection yet.
+> **Status: pre-release.** The service, command line and desktop app work end to end through the
+> Windows Filtering Platform (WFP), but there is no signed release or installer yet. Do not rely on
+> it for protection yet.
 
 ## What's here
 
@@ -130,6 +132,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately as desc
 
 ## License
 
-CrioFire Private Firewall is free software: you can redistribute it and/or modify it under the
-terms of the GNU General Public License version 3 or later. See [LICENSE](LICENSE).
-Copyright (C) 2026 CrioSoft LLC.
+Copyright (C) 2026 CrioSoft LLC. CrioFire is licensed under the
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0) with
+CrioSoft's additional permissions for small businesses (up to 3 computers) and a 30-day business
+evaluation; see [LICENSE](LICENSE). It is free for personal use, charities, schools, public research,
+public safety, health and environmental organizations, and government institutions.
+
+Other business or commercial use needs a CrioSoft Commercial License, priced per protected computer
+per year: see [LICENSING.md](LICENSING.md) for who pays and [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)
+for the terms. Versions published before November 2026 remain available under GPL-3.0 to those who
+received them.
