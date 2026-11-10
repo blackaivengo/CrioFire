@@ -29,7 +29,7 @@ internal sealed partial class ApiService(ILogger<ApiService> logger) : Backgroun
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Local API listening on \\\\.\\pipe\\{PipeName}.")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Local API listening on named pipe {PipeName}.")]
     private static partial void LogListening(ILogger logger, string pipeName);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The local API could not start.")]
