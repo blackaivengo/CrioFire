@@ -39,6 +39,9 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe list                                      # show CrioFire's filters
 .\criofire.exe events                                    # connections CrioFire blocked (last 10 min)
 .\criofire.exe unblock "C:\Path\To\SomeApp.exe"          # undo
+.\criofire.exe allow "C:\Path\To\Browser.exe"             # allow a program (matters in ask/allowlist)
+.\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
+.\criofire.exe mode learning                             # back to allowing programs without a rule
 .\criofire.exe panic                                     # recovery: remove every CrioFire rule
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
@@ -46,8 +49,22 @@ From an **administrator** terminal, in the published folder:
 While the `criofire` service runs, every connection CrioFire blocks is also appended to
 `%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB).
 
-Safety by design: rules only ever match a single program, so the prototype cannot cut the
-whole PC off the network. Filters are persistent and survive reboots until you remove them.
+### Modes
+
+| Mode | Programs without a rule | Notes |
+| --- | --- | --- |
+| `learning` (default) | may connect | nothing is blocked unless a rule says so |
+| `ask` | blocked outbound | alerts asking you arrive with the app (Phase 1, step 5) |
+| `allowlist` | blocked outbound, silently | only programs with an allow rule connect |
+
+In `ask` and `allowlist` CrioFire always lets through loopback (connections that stay on this PC),
+Windows services hosted in `svchost.exe` (DNS, DHCP, Windows Update) and the Windows kernel.
+Inbound traffic stays under Windows Firewall plus any per-app inbound rules you add.
+`--allow-running` first gives every program running now an allow rule, a quick way to start.
+
+Safety by design: switching to `ask` or `allowlist` asks you to confirm within 60 seconds that
+your network still works, and switches back if you don't. `criofire panic` always removes every
+CrioFire filter, the mode included. Filters are persistent and survive reboots until you remove them.
 You can inspect them with `netsh wfp show filters`.
 
 ## How it works

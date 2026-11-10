@@ -20,6 +20,13 @@ internal enum FWP_DATA_TYPE : uint
 internal enum FWP_MATCH_TYPE : uint
 {
     FWP_MATCH_EQUAL = 0,
+    FWP_MATCH_FLAGS_NONE_SET = 8,
+}
+
+internal static class FwpConditionFlags
+{
+    /// <summary>FWP_CONDITION_FLAG_IS_LOOPBACK: the connection stays on this machine.</summary>
+    public const uint FWP_CONDITION_FLAG_IS_LOOPBACK = 0x00000001;
 }
 
 internal static class FwpActionType

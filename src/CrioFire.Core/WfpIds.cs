@@ -27,6 +27,9 @@ public static class WfpIds
     /// <summary>FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6.</summary>
     public static readonly Guid LayerAleAuthRecvAcceptV6 = new("a3b42c97-9f04-4672-b87e-cee9c483257f");
 
+    /// <summary>FWPM_CONDITION_FLAGS: per-connection flags such as FWP_CONDITION_FLAG_IS_LOOPBACK.</summary>
+    public static readonly Guid ConditionFlags = new("632ce23b-5167-435c-86d7-e903684aa80c");
+
     /// <summary>FWPM_CONDITION_ALE_APP_ID: the application's NT device path.</summary>
     public static readonly Guid ConditionAleAppId = new("d78e1e87-8644-4ea5-9437-d809ecefc971");
 }

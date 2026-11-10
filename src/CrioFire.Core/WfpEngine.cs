@@ -30,6 +30,12 @@ public sealed unsafe class WfpEngine : IDisposable
     /// </summary>
     private const ushort SubLayerWeight = 0x8000;
 
+    // Filter weights inside CrioFire's sublayer (0-15): a user's rule beats the built-in permits,
+    // which beat the catch-all block of Ask/Allow-list mode.
+    private const byte RuleWeight = 10;
+    private const byte BuiltInWeight = 5;
+    private const byte DefaultBlockWeight = 0;
+
     private IntPtr _handle;
 
     private WfpEngine(IntPtr handle) => _handle = handle;
@@ -259,60 +265,96 @@ public sealed unsafe class WfpEngine : IDisposable
             throw new FileNotFoundException("No program at that path.", fullPath);
         }
 
+        using var appId = AppId.FromFile(fullPath);
+        using var tx = BeginTransaction();
         var layers = FilterLayers.For(direction);
-        var description = new RuleDescription(action, direction, fullPath).Format();
-        var name = $"CrioFire: {RuleDescription.ActionText(action)} {Path.GetFileName(fullPath)}";
-        var added = new List<ulong>();
+        RemoveAppRulesInternal(fullPath, layers);
+        var added = AddAppRuleFilters(appId, fullPath, action, direction);
+        tx.Commit();
+        return added;
+    }
 
-        FWP_BYTE_BLOB* appId = null;
-        fixed (char* pPath = fullPath)
-        {
-            Check("FwpmGetAppIdFromFileName0", Fwpuclnt.FwpmGetAppIdFromFileName0(pPath, &appId));
-        }
+    /// <summary>The current mode, read from the filters themselves (no default block = Learning).</summary>
+    public FirewallMode GetMode()
+    {
+        ThrowIfDisposed();
+        return ListFilters().FirstOrDefault(f => f.Kind == FilterKind.DefaultBlock)?.Mode ?? FirewallMode.Learning;
+    }
 
+    /// <summary>
+    /// Switches the firewall mode. Ask and Allow-list add a catch-all outbound block (loopback is
+    /// exempt) below the user's rules, plus built-in permits so Windows keeps working: services
+    /// hosted in svchost.exe (DNS, DHCP, Windows Update) and the kernel ("System"). Learning removes
+    /// them. Inbound traffic is left to Windows Firewall and per-app inbound rules.
+    /// </summary>
+    /// <param name="alsoAllow">
+    /// Programs to give an outbound allow rule at the same time (programs that already have a
+    /// CrioFire rule are left alone), e.g. the programs running right now.
+    /// </param>
+    public void SetMode(FirewallMode mode, IEnumerable<string>? alsoAllow = null)
+    {
+        ThrowIfDisposed();
+        var existingRules = ListFilters()
+            .Where(f => f.Rule is not null)
+            .Select(f => f.Rule!.AppPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var extraApps = new List<(AppId Id, string Path)>();
         try
         {
-            using var tx = BeginTransaction();
+            foreach (var path in (alsoAllow ?? []).Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                RemoveAppRulesInternal(fullPath, layers);
-
-                var providerKey = WfpIds.ProviderKey;
-                fixed (char* pName = name)
-                fixed (char* pDesc = description)
+                if (!existingRules.Contains(path) && File.Exists(path))
                 {
-                    foreach (var layer in layers)
+                    try
                     {
-                        var condition = new FWPM_FILTER_CONDITION0
-                        {
-                            fieldKey = WfpIds.ConditionAleAppId,
-                            matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL,
-                            conditionValue = new FWP_VALUE0
-                            {
-                                type = FWP_DATA_TYPE.FWP_BYTE_BLOB_TYPE,
-                                value = new FWP_VALUE_UNION { byteBlob = appId },
-                            },
-                        };
-
-                        var filter = new FWPM_FILTER0
-                        {
-                            displayData = new FWPM_DISPLAY_DATA0 { name = pName, description = pDesc },
-                            flags = FwpmFlags.FWPM_FILTER_FLAG_PERSISTENT,
-                            providerKey = &providerKey,
-                            layerKey = layer.Key,
-                            subLayerKey = WfpIds.SubLayerKey,
-                            weight = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_EMPTY },
-                            numFilterConditions = 1,
-                            filterCondition = &condition,
-                            action = new FWPM_ACTION0
-                            {
-                                type = action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT,
-                            },
-                        };
-
-                        ulong id;
-                        Check("FwpmFilterAdd0", Fwpuclnt.FwpmFilterAdd0(_handle, &filter, null, &id));
-                        added.Add(id);
+                        extraApps.Add((AppId.FromFile(path), path));
                     }
+                    catch (WfpException)
+                    {
+                        // A program we cannot resolve (e.g. on a removed drive) just gets no rule.
+                    }
+                }
+            }
+
+            using var tx = BeginTransaction();
+            foreach (var filter in ListFilters().Where(f => f.Kind is FilterKind.DefaultBlock or FilterKind.BuiltInAllow))
+            {
+                DeleteFilter(filter.FilterId, ignoreMissing: true);
+            }
+
+            foreach (var (id, path) in extraApps)
+            {
+                AddAppRuleFilters(id, path, RuleAction.Allow, TrafficDirection.Outbound);
+            }
+
+            if (mode != FirewallMode.Learning)
+            {
+                var svchost = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "svchost.exe");
+                using (var svchostId = AppId.FromFile(svchost))
+                using (var systemId = AppId.ForKernel())
+                {
+                    foreach (var layer in new[] { FilterLayers.ConnectV4, FilterLayers.ConnectV6 })
+                    {
+                        AddAppIdFilter(layer, svchostId, "CrioFire: allow Windows services", FilterDescriptions.BuiltInAllow("svchost"), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
+                        AddAppIdFilter(layer, systemId, "CrioFire: allow Windows kernel", FilterDescriptions.BuiltInAllow("system"), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
+                    }
+                }
+
+                foreach (var layer in new[] { FilterLayers.ConnectV4, FilterLayers.ConnectV6 })
+                {
+                    var notLoopback = new FWPM_FILTER_CONDITION0
+                    {
+                        fieldKey = WfpIds.ConditionFlags,
+                        matchType = FWP_MATCH_TYPE.FWP_MATCH_FLAGS_NONE_SET,
+                        conditionValue = new FWP_VALUE0
+                        {
+                            type = FWP_DATA_TYPE.FWP_UINT32,
+                            value = new FWP_VALUE_UNION { uint32 = FwpConditionFlags.FWP_CONDITION_FLAG_IS_LOOPBACK },
+                        },
+                    };
+                    var name = mode == FirewallMode.Ask ? "CrioFire: block programs without a rule (ask)" : "CrioFire: block programs without a rule (allow-list)";
+                    AddFilter(layer, name, FilterDescriptions.DefaultBlock(mode), FwpActionType.FWP_ACTION_BLOCK, DefaultBlockWeight, &notLoopback, 1);
                 }
             }
 
@@ -320,10 +362,11 @@ public sealed unsafe class WfpEngine : IDisposable
         }
         finally
         {
-            Fwpuclnt.FwpmFreeMemory0((void**)&appId);
+            foreach (var (id, _) in extraApps)
+            {
+                id.Dispose();
+            }
         }
-
-        return added;
     }
 
     /// <summary>Removes CrioFire's rules for one application in the given direction.</summary>
@@ -395,7 +438,8 @@ public sealed unsafe class WfpEngine : IDisposable
                         var name = f->displayData.name == null ? string.Empty : new string(f->displayData.name);
                         var description = f->displayData.description == null ? null : new string(f->displayData.description);
                         var rule = RuleDescription.TryParse(description, out var parsed) ? parsed : null;
-                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule));
+                        var (kind, mode) = FilterDescriptions.Classify(description);
+                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode));
                     }
                 }
                 finally
@@ -426,6 +470,60 @@ public sealed unsafe class WfpEngine : IDisposable
         {
             _ = Fwpuclnt.FwpmEngineClose0(_handle);
             _handle = IntPtr.Zero;
+        }
+    }
+
+    private List<ulong> AddAppRuleFilters(AppId appId, string fullPath, RuleAction action, TrafficDirection direction)
+    {
+        var description = new RuleDescription(action, direction, fullPath).Format();
+        var name = $"CrioFire: {RuleDescription.ActionText(action)} {Path.GetFileName(fullPath)}";
+        var type = action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT;
+        var added = new List<ulong>();
+        foreach (var layer in FilterLayers.For(direction))
+        {
+            added.Add(AddAppIdFilter(layer, appId, name, description, type, RuleWeight));
+        }
+
+        return added;
+    }
+
+    private ulong AddAppIdFilter(FilterLayer layer, AppId appId, string name, string description, uint action, byte weight)
+    {
+        var condition = new FWPM_FILTER_CONDITION0
+        {
+            fieldKey = WfpIds.ConditionAleAppId,
+            matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL,
+            conditionValue = new FWP_VALUE0
+            {
+                type = FWP_DATA_TYPE.FWP_BYTE_BLOB_TYPE,
+                value = new FWP_VALUE_UNION { byteBlob = appId.Blob },
+            },
+        };
+        return AddFilter(layer, name, description, action, weight, &condition, 1);
+    }
+
+    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, byte weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount)
+    {
+        var providerKey = WfpIds.ProviderKey;
+        fixed (char* pName = name)
+        fixed (char* pDesc = description)
+        {
+            var filter = new FWPM_FILTER0
+            {
+                displayData = new FWPM_DISPLAY_DATA0 { name = pName, description = pDesc },
+                flags = FwpmFlags.FWPM_FILTER_FLAG_PERSISTENT,
+                providerKey = &providerKey,
+                layerKey = layer.Key,
+                subLayerKey = WfpIds.SubLayerKey,
+                weight = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT8, value = new FWP_VALUE_UNION { uint8 = weight } },
+                numFilterConditions = conditionCount,
+                filterCondition = conditions,
+                action = new FWPM_ACTION0 { type = action },
+            };
+
+            ulong id;
+            Check("FwpmFilterAdd0", Fwpuclnt.FwpmFilterAdd0(_handle, &filter, null, &id));
+            return id;
         }
     }
 
@@ -500,6 +598,68 @@ public sealed unsafe class WfpEngine : IDisposable
                 _ = Fwpuclnt.FwpmTransactionAbort0(handle);
                 _done = true;
             }
+        }
+    }
+
+    /// <summary>A WFP application ID (FWP_BYTE_BLOB) that frees itself.</summary>
+    private sealed class AppId : IDisposable
+    {
+        private readonly bool _fromWfp;
+
+        private AppId(FWP_BYTE_BLOB* blob, bool fromWfp)
+        {
+            Blob = blob;
+            _fromWfp = fromWfp;
+        }
+
+        public FWP_BYTE_BLOB* Blob { get; private set; }
+
+        /// <summary>The NT-path app ID Windows uses for a program file.</summary>
+        public static AppId FromFile(string fullPath)
+        {
+            FWP_BYTE_BLOB* blob = null;
+            fixed (char* pPath = fullPath)
+            {
+                Check("FwpmGetAppIdFromFileName0", Fwpuclnt.FwpmGetAppIdFromFileName0(pPath, &blob));
+            }
+
+            return new AppId(blob, fromWfp: true);
+        }
+
+        /// <summary>The app ID of kernel-mode traffic: the UTF-16 string "System" with its terminator.</summary>
+        public static AppId ForKernel()
+        {
+            const string text = "System\0";
+            var size = text.Length * sizeof(char);
+            var blob = (FWP_BYTE_BLOB*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(sizeof(FWP_BYTE_BLOB) + size));
+            blob->size = (uint)size;
+            blob->data = (byte*)(blob + 1);
+            fixed (char* p = text)
+            {
+                Buffer.MemoryCopy(p, blob->data, size, size);
+            }
+
+            return new AppId(blob, fromWfp: false);
+        }
+
+        public void Dispose()
+        {
+            if (Blob == null)
+            {
+                return;
+            }
+
+            if (_fromWfp)
+            {
+                var p = Blob;
+                Fwpuclnt.FwpmFreeMemory0((void**)&p);
+            }
+            else
+            {
+                System.Runtime.InteropServices.NativeMemory.Free(Blob);
+            }
+
+            Blob = null;
         }
     }
 }

@@ -73,6 +73,19 @@ try
             Console.WriteLine("Undo with: criofire unblock \"" + Path.GetFullPath(command.AppPath!) + "\"");
             return 0;
 
+        case CommandKind.Allow:
+            EnsureInstalled(engine);
+            var allowIds = engine.SetAppRule(command.AppPath!, RuleAction.Allow, command.Direction);
+            Console.WriteLine($"Allowed {RuleDescription.DirectionText(command.Direction)} traffic for {Path.GetFullPath(command.AppPath!)} ({allowIds.Count} filters).");
+            return 0;
+
+        case CommandKind.ModeShow:
+            Console.WriteLine($"Mode: {FilterDescriptions.ModeText(engine.GetMode())}");
+            return 0;
+
+        case CommandKind.ModeSet:
+            return SetMode(engine, command);
+
         case CommandKind.Unblock:
             var removed = engine.RemoveAppRules(command.AppPath!, command.Direction);
             Console.WriteLine(removed == 0 ? "No CrioFire rules matched that program." : $"Removed {removed} filters.");
@@ -119,6 +132,47 @@ catch (WfpException ex)
 catch (Exception ex) when (ex is FileNotFoundException or InvalidOperationException or PlatformNotSupportedException or ArgumentException)
 {
     Console.Error.WriteLine(ex.Message);
+    return 1;
+}
+
+static int SetMode(WfpEngine engine, Command command)
+{
+    EnsureInstalled(engine);
+    var previous = engine.GetMode();
+    var running = command.AllowRunning ? RunningPrograms.Paths() : [];
+    engine.SetMode(command.Mode, running);
+    var text = FilterDescriptions.ModeText(command.Mode);
+    if (running.Count > 0)
+    {
+        Console.WriteLine($"Allowed {running.Count} running programs (those without a rule already).");
+    }
+
+    if (command.Mode == FirewallMode.Learning || command.Yes)
+    {
+        Console.WriteLine($"Mode: {text}");
+        return 0;
+    }
+
+    // Blocking mode: keep it only if the user confirms the network still works.
+    if (Console.IsInputRedirected)
+    {
+        engine.SetMode(previous);
+        Console.Error.WriteLine($"Switched back to {FilterDescriptions.ModeText(previous)}: confirm interactively, or pass --yes.");
+        return 1;
+    }
+
+    Console.WriteLine($"Mode is now {text}. Programs without an allow rule can no longer connect out.");
+    Console.Write("Is your network still working? Type 'yes' within 60 seconds to keep it: ");
+    var answer = Task.Run(Console.ReadLine);
+    if (answer.Wait(TimeSpan.FromSeconds(60)) && string.Equals(answer.Result?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine($"Keeping {text}. To undo: criofire mode learning   (or criofire panic)");
+        return 0;
+    }
+
+    engine.SetMode(previous);
+    Console.WriteLine();
+    Console.WriteLine($"No confirmation: switched back to {FilterDescriptions.ModeText(previous)}.");
     return 1;
 }
 

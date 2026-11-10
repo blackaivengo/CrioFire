@@ -15,11 +15,26 @@ public enum CommandKind
     Remove,
     Panic,
     Events,
+    Allow,
+    ModeShow,
+    ModeSet,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
 /// <param name="All">events: include drops by other firewalls, not only CrioFire's.</param>
-public sealed record Command(CommandKind Kind, string? AppPath = null, TrafficDirection Direction = TrafficDirection.Outbound, ulong FilterId = 0, int Minutes = 10, bool All = false);
+/// <param name="Mode">mode: the mode to switch to.</param>
+/// <param name="Yes">mode: keep the new mode without the "is your network still working?" check.</param>
+/// <param name="AllowRunning">mode: also allow every program running right now.</param>
+public sealed record Command(
+    CommandKind Kind,
+    string? AppPath = null,
+    TrafficDirection Direction = TrafficDirection.Outbound,
+    ulong FilterId = 0,
+    int Minutes = 10,
+    bool All = false,
+    FirewallMode Mode = FirewallMode.Learning,
+    bool Yes = false,
+    bool AllowRunning = false);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -33,8 +48,18 @@ internal static class CommandLine
           criofire list                        List CrioFire's rules
           criofire block <app.exe> [--out|--in|--both]
                                                Block one program (default: outbound)
+          criofire allow <app.exe> [--out|--in|--both]
+                                               Allow one program (default: outbound); matters in ask/allowlist mode
           criofire unblock <app.exe> [--out|--in|--both]
                                                Remove CrioFire's rules for one program (default: both)
+          criofire mode                        Show the current mode
+          criofire mode <learning|ask|allowlist> [--allow-running] [--yes]
+                                               learning: programs without a rule may connect
+                                               ask / allowlist: they are blocked (outbound; loopback and
+                                               Windows services stay allowed)
+                                               --allow-running: first allow every program running now
+                                               Asks you to confirm the network still works within 60 s,
+                                               otherwise switches back (--yes skips the check)
           criofire remove <filter-id>          Remove one CrioFire filter by ID
           criofire events [--minutes N] [--all]
                                                Show connections CrioFire blocked (default: last 10 minutes;
@@ -84,7 +109,10 @@ internal static class CommandLine
                 });
             case "block":
             case "unblock":
-                return ParseAppCommand(verb == "block" ? CommandKind.Block : CommandKind.Unblock, rest, out error);
+            case "allow":
+                return ParseAppCommand(verb switch { "block" => CommandKind.Block, "allow" => CommandKind.Allow, _ => CommandKind.Unblock }, rest, out error);
+            case "mode":
+                return ParseMode(rest, out error);
             case "events":
                 return ParseEvents(rest, out error);
             case "remove":
@@ -99,6 +127,41 @@ internal static class CommandLine
                 error = $"Unknown command '{args[0]}'.";
                 return new Command(CommandKind.Help);
         }
+    }
+
+    private static Command ParseMode(string[] rest, out string? error)
+    {
+        error = null;
+        if (rest.Length == 0)
+        {
+            return new Command(CommandKind.ModeShow);
+        }
+
+        if (!FilterDescriptions.TryParseMode(rest[0], out var mode))
+        {
+            error = $"Unknown mode '{rest[0]}'. Use learning, ask or allowlist.";
+            return new Command(CommandKind.Help);
+        }
+
+        var yes = false;
+        var allowRunning = false;
+        foreach (var option in rest.Skip(1))
+        {
+            switch (option.ToLowerInvariant())
+            {
+                case "--yes":
+                    yes = true;
+                    break;
+                case "--allow-running":
+                    allowRunning = true;
+                    break;
+                default:
+                    error = "Usage: criofire mode <learning|ask|allowlist> [--allow-running] [--yes]";
+                    return new Command(CommandKind.Help);
+            }
+        }
+
+        return new Command(CommandKind.ModeSet, Mode: mode, Yes: yes, AllowRunning: allowRunning);
     }
 
     private static Command ParseEvents(string[] rest, out string? error)
@@ -170,11 +233,11 @@ internal static class CommandLine
 
         if (path is null)
         {
-            error = $"Usage: criofire {(kind == CommandKind.Block ? "block" : "unblock")} <app.exe> [--out|--in|--both]";
+            error = $"Usage: criofire {kind.ToString().ToLowerInvariant()} <app.exe> [--out|--in|--both]";
             return new Command(CommandKind.Help);
         }
 
-        var defaultDirection = kind == CommandKind.Block ? TrafficDirection.Outbound : TrafficDirection.Both;
+        var defaultDirection = kind == CommandKind.Unblock ? TrafficDirection.Both : TrafficDirection.Outbound;
         return new Command(kind, path, direction ?? defaultDirection);
     }
 }

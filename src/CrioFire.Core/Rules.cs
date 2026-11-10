@@ -14,6 +14,94 @@ public enum TrafficDirection
     Both = Outbound | Inbound,
 }
 
+/// <summary>What CrioFire does with outbound connections from programs that have no rule.</summary>
+public enum FirewallMode
+{
+    /// <summary>Allow them (nothing is blocked unless a rule says so).</summary>
+    Learning,
+
+    /// <summary>Block them; the app will ask the user (alerts arrive in a later step).</summary>
+    Ask,
+
+    /// <summary>Block them silently: only programs with an allow rule may connect.</summary>
+    AllowList,
+}
+
+/// <summary>What a CrioFire filter is for.</summary>
+public enum FilterKind
+{
+    /// <summary>A user rule for one program (block or allow).</summary>
+    AppRule,
+
+    /// <summary>The catch-all block that Ask and Allow-list modes add (outbound, loopback exempt).</summary>
+    DefaultBlock,
+
+    /// <summary>A permit CrioFire adds in Ask/Allow-list modes so Windows keeps working (Windows services, kernel).</summary>
+    BuiltInAllow,
+
+    /// <summary>A CrioFire filter whose description this version does not understand.</summary>
+    Unknown,
+}
+
+/// <summary>Descriptions for CrioFire's non-rule filters, e.g. <c>criofire:v1|default|ask</c>.</summary>
+public static class FilterDescriptions
+{
+    public static string DefaultBlock(FirewallMode mode) => $"{RuleDescription.Prefix}|default|{ModeText(mode)}";
+
+    public static string BuiltInAllow(string name) => $"{RuleDescription.Prefix}|builtin|{name}";
+
+    public static (FilterKind Kind, FirewallMode? Mode) Classify(string? description)
+    {
+        if (RuleDescription.TryParse(description, out _))
+        {
+            return (FilterKind.AppRule, null);
+        }
+
+        var parts = description?.Split('|') ?? [];
+        if (parts.Length == 3 && parts[0] == RuleDescription.Prefix)
+        {
+            if (parts[1] == "default" && TryParseMode(parts[2], out var mode) && mode != FirewallMode.Learning)
+            {
+                return (FilterKind.DefaultBlock, mode);
+            }
+
+            if (parts[1] == "builtin" && parts[2].Length > 0)
+            {
+                return (FilterKind.BuiltInAllow, null);
+            }
+        }
+
+        return (FilterKind.Unknown, null);
+    }
+
+    public static string ModeText(FirewallMode mode) => mode switch
+    {
+        FirewallMode.Learning => "learning",
+        FirewallMode.Ask => "ask",
+        FirewallMode.AllowList => "allowlist",
+        _ => throw new ArgumentOutOfRangeException(nameof(mode)),
+    };
+
+    public static bool TryParseMode(string? text, out FirewallMode mode)
+    {
+        switch (text?.Trim().ToLowerInvariant())
+        {
+            case "learning":
+                mode = FirewallMode.Learning;
+                return true;
+            case "ask":
+                mode = FirewallMode.Ask;
+                return true;
+            case "allowlist" or "allow-list":
+                mode = FirewallMode.AllowList;
+                return true;
+            default:
+                mode = default;
+                return false;
+        }
+    }
+}
+
 /// <summary>What a rule does with matching traffic.</summary>
 public enum RuleAction
 {
@@ -113,4 +201,6 @@ public sealed record CrioFireFilter(
     ulong FilterId,
     string Name,
     FilterLayer? Layer,
-    RuleDescription? Rule);
+    RuleDescription? Rule,
+    FilterKind Kind = FilterKind.AppRule,
+    FirewallMode? Mode = null);
