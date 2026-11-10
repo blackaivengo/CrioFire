@@ -96,7 +96,8 @@ static int Run(Backend api, Command command)
             Console.WriteLine($"{"Filter ID",-12} {"Action",-7} {"Kind",-13} {"Layer",-14} Program");
             foreach (var r in rules.OrderBy(r => r.Kind, StringComparer.Ordinal).ThenBy(r => r.App, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.FilterId))
             {
-                Console.WriteLine($"{r.FilterId,-12} {r.Action ?? "?",-7} {r.Kind,-13} {r.Layer ?? "?",-14} {r.App ?? r.Name}");
+                var until = r.ExpiresUtc is DateTime t ? $"  (until {t.ToLocalTime():HH:mm})" : string.Empty;
+                Console.WriteLine($"{r.FilterId,-12} {r.Action ?? "?",-7} {r.Kind,-13} {r.Layer ?? "?",-14} {r.App ?? r.Name}{until}");
             }
 
             return 0;
@@ -106,8 +107,9 @@ static int Run(Backend api, Command command)
         {
             var path = Path.GetFullPath(command.AppPath!);
             var action = command.Kind == CommandKind.Block ? "block" : "allow";
-            var result = api.Call(new ApiRequest { Op = ApiOps.SetRule, App = path, Action = action, Direction = RuleDescription.DirectionText(command.Direction) });
-            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for {path} ({result.Count} filters).");
+            var result = api.Call(new ApiRequest { Op = ApiOps.SetRule, App = path, Action = action, Direction = RuleDescription.DirectionText(command.Direction), ExpiresMinutes = command.ExpiresMinutes });
+            var until = command.ExpiresMinutes is int m ? $" for {m} minutes" : string.Empty;
+            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for {path}{until} ({result.Count} filters).");
             if (action == "block")
             {
                 Console.WriteLine($"Undo with: criofire unblock \"{path}\"");
@@ -216,7 +218,8 @@ internal sealed class Backend : IDisposable
     private Backend(WfpEngine engine)
     {
         _engine = engine;
-        _handler = new ApiHandler(engine);
+        // Same store as the service, which removes the rules when they expire.
+        _handler = new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath));
         Description = "direct, administrator";
     }
 

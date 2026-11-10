@@ -1,23 +1,86 @@
 <Window x:Class="CrioFire.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CrioFire Private Firewall" Height="480" Width="820"
+        Title="CrioFire Private Firewall" Height="560" Width="960"
         WindowStartupLocation="CenterScreen">
   <DockPanel Margin="16">
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
-      <TextBlock Text="Rules" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
-      <Button x:Name="RefreshButton" Content="Refresh" Margin="16,0,0,0" Padding="12,4" Click="OnRefresh" />
+      <TextBlock Text="CrioFire" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+      <TextBlock Text="Mode:" Margin="24,0,8,0" VerticalAlignment="Center" />
+      <ComboBox x:Name="ModeBox" Width="230" VerticalAlignment="Center" SelectionChanged="OnModeChanged">
+        <ComboBoxItem Tag="learning" Content="Learning (allow programs without a rule)" />
+        <ComboBoxItem Tag="ask" Content="Ask (block and ask me)" />
+        <ComboBoxItem Tag="allowlist" Content="Allow-list only (block silently)" />
+      </ComboBox>
+      <Button Content="Refresh" Margin="16,0,0,0" Padding="12,4" Click="OnRefresh" />
     </StackPanel>
+
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Margin="0,12,0,0" TextWrapping="Wrap" />
-    <ListView x:Name="RulesList">
-      <ListView.View>
-        <GridView>
-          <GridViewColumn Header="Filter ID" Width="100" DisplayMemberBinding="{Binding FilterId}" />
-          <GridViewColumn Header="Action" Width="80" DisplayMemberBinding="{Binding Action}" />
-          <GridViewColumn Header="Layer" Width="120" DisplayMemberBinding="{Binding Layer}" />
-          <GridViewColumn Header="Program" Width="480" DisplayMemberBinding="{Binding Program}" />
-        </GridView>
-      </ListView.View>
-    </ListView>
+
+    <TabControl x:Name="Tabs" SelectionChanged="OnTabChanged">
+      <TabItem Header="Rules">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="Allow a program..." Padding="10,3" Click="OnAddAllow" />
+            <Button Content="Block a program..." Padding="10,3" Margin="8,0,0,0" Click="OnAddBlock" />
+            <Button Content="Remove selected" Padding="10,3" Margin="8,0,0,0" Click="OnRemoveRule" />
+          </StackPanel>
+          <ListView x:Name="RulesList">
+            <ListView.View>
+              <GridView>
+                <GridViewColumn Header="Action" Width="70" DisplayMemberBinding="{Binding Action}" />
+                <GridViewColumn Header="Direction" Width="80" DisplayMemberBinding="{Binding Direction}" />
+                <GridViewColumn Header="Program" Width="560" DisplayMemberBinding="{Binding Program}" />
+                <GridViewColumn Header="Until" Width="90" DisplayMemberBinding="{Binding Until}" />
+                <GridViewColumn Header="Kind" Width="110" DisplayMemberBinding="{Binding Kind}" />
+              </GridView>
+            </ListView.View>
+          </ListView>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem Header="Blocked">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="Allow this program" Padding="10,3" Click="OnAllowBlocked" />
+            <Button Content="Keep it blocked (add rule)" Padding="10,3" Margin="8,0,0,0" Click="OnBlockBlocked" />
+            <TextBlock Text="Last 60 minutes" Margin="16,0,0,0" VerticalAlignment="Center" Foreground="Gray" />
+          </StackPanel>
+          <ListView x:Name="BlockedList">
+            <ListView.View>
+              <GridView>
+                <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time}" />
+                <GridViewColumn Header="Why" Width="110" DisplayMemberBinding="{Binding Why}" />
+                <GridViewColumn Header="Dir" Width="40" DisplayMemberBinding="{Binding Direction}" />
+                <GridViewColumn Header="Proto" Width="55" DisplayMemberBinding="{Binding Protocol}" />
+                <GridViewColumn Header="Remote" Width="200" DisplayMemberBinding="{Binding Remote}" />
+                <GridViewColumn Header="Program" Width="420" DisplayMemberBinding="{Binding Program}" />
+              </GridView>
+            </ListView.View>
+          </ListView>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem Header="Connections">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <CheckBox x:Name="ShowListeningBox" Content="Show listening and bound sockets" VerticalAlignment="Center" Click="OnShowListening" />
+            <TextBlock Text="Updates every 3 seconds while this tab is open" Margin="16,0,0,0" VerticalAlignment="Center" Foreground="Gray" />
+          </StackPanel>
+          <ListView x:Name="ConnectionsList">
+            <ListView.View>
+              <GridView>
+                <GridViewColumn Header="Proto" Width="55" DisplayMemberBinding="{Binding Protocol}" />
+                <GridViewColumn Header="State" Width="95" DisplayMemberBinding="{Binding State}" />
+                <GridViewColumn Header="Local" Width="190" DisplayMemberBinding="{Binding Local}" />
+                <GridViewColumn Header="Remote" Width="190" DisplayMemberBinding="{Binding Remote}" />
+                <GridViewColumn Header="PID" Width="60" DisplayMemberBinding="{Binding ProcessId}" />
+                <GridViewColumn Header="Program" Width="330" DisplayMemberBinding="{Binding Program}" />
+              </GridView>
+            </ListView.View>
+          </ListView>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
   </DockPanel>
 </Window>

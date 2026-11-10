@@ -45,6 +45,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var paths = NtPathMapper.FromSystem();
             var started = DateTime.UtcNow;
             var recent = new RecentEvents(Overlap);
+            var temporaryRules = new TemporaryRuleStore(TemporaryRuleStore.DefaultPath);
 
             using var timer = new PeriodicTimer(PollInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -60,6 +61,13 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     {
                         log.Append(blocked);
                         LogBlocked(logger, blocked.Count);
+                    }
+
+                    // "Allow for 1 hour" and similar: remove rules whose time is up.
+                    var expired = temporaryRules.ExpireDue(engine, now);
+                    if (expired > 0)
+                    {
+                        LogExpired(logger, expired);
                     }
                 }
                 catch (Exception ex) when (ex is WfpException or IOException or UnauthorizedAccessException)
@@ -81,6 +89,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Logged {Count} blocked connections.")]
     private static partial void LogBlocked(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} expired temporary rules.")]
+    private static partial void LogExpired(ILogger logger, int count);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reading blocked connections failed; will retry.")]
     private static partial void LogPollError(ILogger logger, Exception exception);

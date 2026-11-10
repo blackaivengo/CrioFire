@@ -7,7 +7,7 @@ namespace CrioFire.Core.Api;
 /// and directly by criofire.exe when it runs elevated (so both paths behave identically).
 /// Thread-safe: requests are handled one at a time.
 /// </summary>
-public sealed class ApiHandler(WfpEngine engine)
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -29,13 +29,13 @@ public sealed class ApiHandler(WfpEngine engine)
                 return request.Op switch
                 {
                     ApiOps.Status => Status(),
-                    ApiOps.List => new ApiResponse { Ok = true, Rules = engine.ListFilters().Select(RuleInfo.From).ToList() },
+                    ApiOps.List => List(),
                     ApiOps.Events => Events(request),
                     ApiOps.SetRule => SetRule(request),
-                    ApiOps.RemoveRules => new ApiResponse { Ok = true, Count = engine.RemoveAppRules(Required(request.App, "app"), ParseDirection(request.Direction, TrafficDirection.Both)) },
+                    ApiOps.RemoveRules => RemoveRules(request),
                     ApiOps.RemoveFilter => RemoveFilter(request),
                     ApiOps.SetMode => SetMode(request),
-                    ApiOps.Panic => new ApiResponse { Ok = true, Count = engine.RemoveAllFilters() },
+                    ApiOps.Panic => Panic(),
                     _ => ApiResponse.Failure($"Unknown operation '{request.Op}'."),
                 };
             }
@@ -75,9 +75,54 @@ public sealed class ApiHandler(WfpEngine engine)
             "allow" => RuleAction.Allow,
             _ => throw new ArgumentException("action must be block or allow."),
         };
+        var app = Path.GetFullPath(Required(request.App, "app"));
+        var direction = ParseDirection(request.Direction, TrafficDirection.Outbound);
+        if (request.ExpiresMinutes is not null && (request.ExpiresMinutes < 1 || request.ExpiresMinutes > 7 * 24 * 60))
+        {
+            throw new ArgumentException("expiresMinutes must be between 1 and 10080.");
+        }
+
+        if (request.ExpiresMinutes is not null && temporaryRules is null)
+        {
+            throw new InvalidOperationException("Temporary rules need the criofire service.");
+        }
+
         EnsureInstalled();
-        var ids = engine.SetAppRule(Required(request.App, "app"), action, ParseDirection(request.Direction, TrafficDirection.Outbound));
+        var ids = engine.SetAppRule(app, action, direction);
+        temporaryRules?.Remove(app);
+        if (request.ExpiresMinutes is int minutes)
+        {
+            temporaryRules!.Add(new TemporaryRule(app, RuleDescription.DirectionText(direction), DateTime.UtcNow.AddMinutes(minutes)));
+        }
+
         return new ApiResponse { Ok = true, Count = ids.Count };
+    }
+
+    private ApiResponse Panic()
+    {
+        var count = engine.RemoveAllFilters();
+        temporaryRules?.Clear();
+        return new ApiResponse { Ok = true, Count = count };
+    }
+
+    private ApiResponse List()
+    {
+        var expiries = temporaryRules?.All() ?? [];
+        var rules = engine.ListFilters().Select(f =>
+        {
+            var info = RuleInfo.From(f);
+            var expiry = expiries.FirstOrDefault(t => string.Equals(t.App, info.App, StringComparison.OrdinalIgnoreCase));
+            return expiry is null ? info : info with { ExpiresUtc = expiry.ExpiresUtc };
+        });
+        return new ApiResponse { Ok = true, Rules = rules.ToList() };
+    }
+
+    private ApiResponse RemoveRules(ApiRequest request)
+    {
+        var app = Required(request.App, "app");
+        var count = engine.RemoveAppRules(app, ParseDirection(request.Direction, TrafficDirection.Both));
+        temporaryRules?.Remove(Path.GetFullPath(app));
+        return new ApiResponse { Ok = true, Count = count };
     }
 
     private ApiResponse RemoveFilter(ApiRequest request)

@@ -49,6 +49,9 @@ public sealed record ApiRequest
 
     /// <summary>removeFilter: the filter ID.</summary>
     public ulong? FilterId { get; init; }
+
+    /// <summary>setRule: make the rule temporary; CrioFire removes it after this many minutes.</summary>
+    public int? ExpiresMinutes { get; init; }
 }
 
 public sealed record ApiResponse
@@ -74,7 +77,7 @@ public sealed record ApiResponse
 
 public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version);
 
-public sealed record RuleInfo(ulong FilterId, string Kind, string? Action, string? Direction, string? App, string? Layer, string Name)
+public sealed record RuleInfo(ulong FilterId, string Kind, string? Action, string? Direction, string? App, string? Layer, string Name, DateTime? ExpiresUtc = null)
 {
     public static RuleInfo From(CrioFireFilter f) => new(
         f.FilterId,
@@ -86,7 +89,8 @@ public sealed record RuleInfo(ulong FilterId, string Kind, string? Action, strin
         f.Name);
 }
 
-public sealed record EventInfo(DateTime TimeUtc, string? App, string Protocol, string? Local, string? Remote, string? Direction, bool CrioFire, ulong FilterId)
+/// <param name="Kind">The kind of CrioFire filter that blocked it (e.g. DefaultBlock in Ask mode), or null for other firewalls.</param>
+public sealed record EventInfo(DateTime TimeUtc, string? App, string Protocol, string? Local, string? Remote, string? Direction, bool CrioFire, ulong FilterId, string? Kind = null)
 {
     public static EventInfo From(BlockedConnection e) => new(
         e.TimeUtc,
@@ -96,7 +100,8 @@ public sealed record EventInfo(DateTime TimeUtc, string? App, string Protocol, s
         e.Remote?.ToString(),
         e.Direction switch { TrafficDirection.Outbound => "out", TrafficDirection.Inbound => "in", _ => null },
         e.IsCrioFire,
-        e.FilterId);
+        e.FilterId,
+        e.Rule?.Kind.ToString());
 }
 
 /// <summary>One-line JSON encoding for the pipe protocol (source-generated, no reflection).</summary>

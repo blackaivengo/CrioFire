@@ -14,8 +14,9 @@ network connection under your control. Built by CrioSoft LLC with C# and .NET 10
 | `src/CrioFire.Core` | `CrioFire.Core.dll` | WFP bindings and the rule model: provider, sublayer, per-app filters |
 | `src/CrioFire.Cli` | `criofire.exe` | Command line for scripting and recovery |
 | `src/CrioFire.Service` | `criofire-svc.exe` | Windows service (service name `criofire`), runs as LocalSystem |
-| `src/CrioFire.App` | `criofire-ui.exe` | WPF desktop app (prototype window) |
-| `tests/CrioFire.Tests` | | Unit tests, including struct-layout checks for the WFP bindings |
+| `src/CrioFire.App` | `criofire-ui.exe` | WPF desktop app: alerts, rules, blocked and live connections, mode |
+| `tests/CrioFire.Tests` | | Unit tests, including struct-layout checks for the WFP and IP Helper bindings |
+| `tests/CrioFire.IntegrationTests` | | Tests against the real filtering engine (admin, `CRIOFIRE_INTEGRATION=1`) |
 | `build/publish.ps1` | | Publishes all three apps, self-contained, per architecture |
 | `.github/workflows` | | CI on x64 + ARM64; approval-gated signed releases |
 
@@ -40,6 +41,7 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe events                                    # connections CrioFire blocked (last 10 min)
 .\criofire.exe unblock "C:\Path\To\SomeApp.exe"          # undo
 .\criofire.exe allow "C:\Path\To\Browser.exe"             # allow a program (matters in ask/allowlist)
+.\criofire.exe allow "C:\Path\To\Tool.exe" --for 60       # allow for an hour, then the rule is removed
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
 .\criofire.exe mode learning                             # back to allowing programs without a rule
 .\criofire.exe panic                                     # recovery: remove every CrioFire rule
@@ -48,6 +50,27 @@ From an **administrator** terminal, in the published folder:
 
 While the `criofire` service runs, every connection CrioFire blocks is also appended to
 `%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB).
+
+### The desktop app
+
+Start `criofire-ui.exe` from the published folder while the `criofire` service runs. It needs no
+administrator rights.
+
+- **Mode** picker at the top. Switching to `ask` or `allowlist` offers to allow everything running
+  now, then asks you to confirm within 60 seconds that your network still works.
+- **Rules**: every allow and block rule, with the time a temporary rule ends. Add a program to
+  allow or block, or remove a rule.
+- **Blocked**: connections CrioFire stopped in the last hour, and whether your rule or the mode
+  stopped them. Allow or keep blocking a program from here.
+- **Connections**: live TCP and UDP connections with the program that owns each, updated every 3
+  seconds.
+- **Alerts** in `ask` mode: a small window in the corner for each program the mode stopped.
+  *Allow* and *Block* add a permanent rule; *Allow for 1 hour* adds one that CrioFire removes
+  again (`criofire allow <app> --for 60` does the same). Closing the alert means "not now": the
+  program stays blocked and you aren't asked again until the app restarts.
+
+Temporary rules are kept in `%ProgramData%\criofire\temporary-rules.json`, so they expire on
+time even if the service restarts; the service removes them within a few seconds of expiry.
 
 ### Without administrator rights
 
@@ -68,7 +91,7 @@ commands such as `criofire panic` work even when the service is stopped.
 | Mode | Programs without a rule | Notes |
 | --- | --- | --- |
 | `learning` (default) | may connect | nothing is blocked unless a rule says so |
-| `ask` | blocked outbound | alerts asking you arrive with the app (Phase 1, step 5) |
+| `ask` | blocked outbound | the app shows an alert for each one: Allow, Allow for 1 hour, or Block |
 | `allowlist` | blocked outbound, silently | only programs with an allow rule connect |
 
 In `ask` and `allowlist` CrioFire always lets through loopback (connections that stay on this PC),

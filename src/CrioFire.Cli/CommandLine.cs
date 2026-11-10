@@ -25,6 +25,7 @@ public enum CommandKind
 /// <param name="Mode">mode: the mode to switch to.</param>
 /// <param name="Yes">mode: keep the new mode without the "is your network still working?" check.</param>
 /// <param name="AllowRunning">mode: also allow every program running right now.</param>
+/// <param name="ExpiresMinutes">allow/block --for N: the rule is removed again after N minutes.</param>
 public sealed record Command(
     CommandKind Kind,
     string? AppPath = null,
@@ -34,7 +35,8 @@ public sealed record Command(
     bool All = false,
     FirewallMode Mode = FirewallMode.Learning,
     bool Yes = false,
-    bool AllowRunning = false);
+    bool AllowRunning = false,
+    int? ExpiresMinutes = null);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -46,10 +48,11 @@ internal static class CommandLine
           criofire status                      Show whether CrioFire is installed and how many rules exist
           criofire install                     Register CrioFire with the Windows Filtering Platform
           criofire list                        List CrioFire's rules
-          criofire block <app.exe> [--out|--in|--both]
+          criofire block <app.exe> [--out|--in|--both] [--for <minutes>]
                                                Block one program (default: outbound)
-          criofire allow <app.exe> [--out|--in|--both]
-                                               Allow one program (default: outbound); matters in ask/allowlist mode
+          criofire allow <app.exe> [--out|--in|--both] [--for <minutes>]
+                                               Allow one program (default: outbound); matters in ask/allowlist mode.
+                                               --for makes it temporary (needs the criofire service running)
           criofire unblock <app.exe> [--out|--in|--both]
                                                Remove CrioFire's rules for one program (default: both)
           criofire mode                        Show the current mode
@@ -197,8 +200,23 @@ internal static class CommandLine
         string? path = null;
         TrafficDirection? direction = null;
 
-        foreach (var arg in rest)
+        int? expires = null;
+        for (var i = 0; i < rest.Length; i++)
         {
+            var arg = rest[i];
+            if (arg.Equals("--for", StringComparison.OrdinalIgnoreCase) && kind != CommandKind.Unblock)
+            {
+                if (i + 1 >= rest.Length || !int.TryParse(rest[i + 1], out var minutes) || minutes is < 1 or > 10080)
+                {
+                    error = "--for needs a number of minutes from 1 to 10080.";
+                    return new Command(CommandKind.Help);
+                }
+
+                expires = minutes;
+                i++;
+                continue;
+            }
+
             TrafficDirection? flag = arg.ToLowerInvariant() switch
             {
                 "--out" => TrafficDirection.Outbound,
@@ -240,6 +258,6 @@ internal static class CommandLine
         }
 
         var defaultDirection = kind == CommandKind.Unblock ? TrafficDirection.Both : TrafficDirection.Outbound;
-        return new Command(kind, path, direction ?? defaultDirection);
+        return new Command(kind, path, direction ?? defaultDirection, ExpiresMinutes: expires);
     }
 }
