@@ -59,8 +59,30 @@ foreach ($row in ($rows | Sort-Object @{ e = { $_.Outcome -ne 'Failed' } }, Proj
 if ($env:GITHUB_STEP_SUMMARY) { $md.ToString() | Add-Content $env:GITHUB_STEP_SUMMARY -Encoding utf8 }
 Write-Host $md.ToString()
 
+# Annotations: shown on the run page even to people who are not signed in (logs and summaries are not).
+function Annotate([string] $level, [string] $title, [string] $text) {
+    $clean = ($text -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A')
+    if ($clean.Length -gt 900) { $clean = $clean.Substring(0, 900) + '...' }
+    Write-Host "::$level title=$($title -replace '[:,]', ' ')::$clean"
+}
+
+$byProject = $rows | Group-Object Project | ForEach-Object {
+    $p = @($_.Group | Where-Object Outcome -eq 'Passed').Count
+    $f = @($_.Group | Where-Object Outcome -eq 'Failed').Count
+    "$($_.Name): $p passed, $f failed, $($_.Count - $p - $f) skipped"
+}
+Annotate 'notice' $Title (($byProject -join '; ') + " ($($files.Count) result files)")
+foreach ($row in ($failed | Select-Object -First 10)) {
+    Annotate 'error' "FAIL $($row.Project) $($row.Test)" $row.Message
+}
+
 if ($failed.Count -gt 0) { throw "$($failed.Count) test(s) failed." }
 if ($RequireProject) {
     $ran = @($passed | Where-Object Project -eq $RequireProject)
-    if ($ran.Count -eq 0) { throw "No $RequireProject tests passed: they were skipped or missing." }
+    if ($ran.Count -eq 0) {
+        $why = @($rows | Where-Object Project -eq $RequireProject | Select-Object -First 3 | ForEach-Object { "$($_.Test): $($_.Outcome) $($_.Message)" })
+        $detail = if ($why.Count -gt 0) { $why -join ' / ' } else { "no results for it among: $(($rows.Project | Sort-Object -Unique) -join ', ')" }
+        Annotate 'error' "No $RequireProject tests passed" $detail
+        throw "No $RequireProject tests passed: they were skipped or missing."
+    }
 }

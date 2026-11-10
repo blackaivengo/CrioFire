@@ -37,16 +37,7 @@ jobs:
       - name: Build
         run: dotnet build CrioFire.slnx --configuration Release --no-restore
 
-      - name: Test (unit tests and real firewall tests)
-        env:
-          CRIOFIRE_INTEGRATION: '1'   # runners are administrators, so the WFP tests really run
-        run: dotnet test CrioFire.slnx --configuration Release --no-build --logger "trx" --results-directory TestResults
-
-      - name: Test report
-        if: always()
-        shell: pwsh
-        run: ./build/test-report.ps1 -ResultsDir TestResults -Title "Tests (${{ matrix.arch }})" -RequireProject CrioFire.IntegrationTests
-
+      # Published before testing, so the installer job can build MSIs even if a test fails.
       - name: Publish (unsigned, for inspection)
         shell: pwsh
         run: ./build/publish.ps1 -Arch ${{ matrix.arch }} -Version "0.0.0-ci.${{ github.run_number }}"
@@ -57,9 +48,30 @@ jobs:
           path: out/${{ matrix.arch }}
           retention-days: 7
 
+      # One project at a time, each with its own results file (two .trx files written in the same
+      # second can otherwise overwrite each other).
+      - name: Test (unit tests and real firewall tests)
+        env:
+          CRIOFIRE_INTEGRATION: '1'   # runners are administrators, so the WFP tests really run
+        shell: pwsh
+        run: |
+          $code = 0
+          foreach ($project in 'CrioFire.Tests', 'CrioFire.IntegrationTests') {
+            dotnet test "tests/$project" --configuration Release --no-build --logger "trx;LogFileName=$project.trx" --results-directory "TestResults/$project"
+            if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE }
+          }
+          exit $code
+
+      - name: Test report
+        if: always()
+        shell: pwsh
+        run: ./build/test-report.ps1 -ResultsDir TestResults -Title "Tests (${{ matrix.arch }})" -RequireProject CrioFire.IntegrationTests
+
   installer:
     name: Build and test installers (MSI)
     needs: build-and-test
+    # Also when tests failed: the published apps are uploaded before testing.
+    if: ${{ !cancelled() }}
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v5
