@@ -52,6 +52,11 @@ public sealed record BlockedConnection(
             });
             w.WriteNumber("filterId", FilterId);
             w.WriteBoolean("criofire", IsCrioFire);
+            if (Rule is not null)
+            {
+                w.WriteString("kind", Rule.Kind.ToString());   // DefaultBlock = stopped by the mode, AppRule = by a rule
+            }
+
             w.WriteEndObject();
         }
 

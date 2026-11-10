@@ -54,23 +54,29 @@ While the `criofire` service runs, every connection CrioFire blocks is also appe
 ### The desktop app
 
 Start `criofire-ui.exe` from the published folder while the `criofire` service runs. It needs no
-administrator rights.
+administrator rights. Its look is ice and fire: light blue means allowed or safe, fire red means
+blocked, on glass panels that glow softly in their color. Light and dark themes follow Windows by
+default; switch with the sun/moon button or in **Settings** (remembered per user).
 
-- **Mode** picker at the top. Switching to `ask` or `allowlist` offers to allow everything running
-  now, then asks you to confirm within 60 seconds that your network still works.
-- **Rules**: every allow and block rule, with the time a temporary rule ends. Add a program to
-  allow or block, or remove a rule.
-- **Blocked**: connections CrioFire stopped in the last hour, and whether your rule or the mode
-  stopped them. Allow or keep blocking a program from here.
-- **Connections**: live TCP and UDP connections with the program that owns each, updated every 3
-  seconds.
-- **Alerts** in `ask` mode: a small window in the corner for each program the mode stopped.
-  *Allow* and *Block* add a permanent rule; *Allow for 1 hour* adds one that CrioFire removes
-  again (`criofire allow <app> --for 60` does the same). Closing the alert means "not now": the
-  program stays blocked and you aren't asked again until the app restarts.
+- **Dashboard**: the protection ring and mode (Learning / Ask / Allow-list), blocked connections
+  over the last 24 hours, the programs blocked most, programs waiting for your decision, and live
+  connections. Switching to Ask or Allow-list offers to allow everything running now, then asks you
+  to confirm within 60 seconds that your network still works.
+- **Activity**: connections blocked in the last hour; allow a program, allow it for an hour, or keep it blocked.
+- **Rules**: every allow and block rule, with the time a temporary rule ends; add or remove rules.
+- **Connections**: live TCP and UDP connections with the program that owns each, every 3 seconds.
+- **Reports**: the last 24 hours, 7 days or 30 days: totals compared with the period before,
+  blocked connections per hour or day (your rules vs. no rule yet), the programs and destinations
+  blocked most, outbound vs. inbound. **Export CSV** for spreadsheets; **Save as PDF** prints the
+  report (choose "Microsoft Print to PDF").
+- **Alerts** in `ask` mode: a window in the corner for each program the mode stopped.
+  *Allow* and *Block* add a permanent rule; *Allow 1 hour* adds one that CrioFire removes again
+  (`criofire allow <app> --for 60` does the same). Closing the alert means "not now": the program
+  stays blocked and waits on the dashboard.
 
-Temporary rules are kept in `%ProgramData%\criofire\temporary-rules.json`, so they expire on
-time even if the service restarts; the service removes them within a few seconds of expiry.
+Reports come from the service's log of blocked connections (`%ProgramData%\criofire\blocked.log`,
+plus `blocked.1.log` after it rotates at 10 MB). Temporary rules are kept in
+`%ProgramData%\criofire\temporary-rules.json`, so they expire on time even if the service restarts.
 
 ### Without administrator rights
 

@@ -17,6 +17,7 @@ public static class ApiOps
     public const string RemoveFilter = "removeFilter";
     public const string SetMode = "setMode";
     public const string Panic = "panic";
+    public const string Report = "report";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) => op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic;
@@ -52,6 +53,9 @@ public sealed record ApiRequest
 
     /// <summary>setRule: make the rule temporary; CrioFire removes it after this many minutes.</summary>
     public int? ExpiresMinutes { get; init; }
+
+    /// <summary>report: 24h, 7d or 30d.</summary>
+    public string? Period { get; init; }
 }
 
 public sealed record ApiResponse
@@ -71,6 +75,8 @@ public sealed record ApiResponse
 
     /// <summary>The mode after setMode.</summary>
     public string? Mode { get; init; }
+
+    public ReportInfo? Report { get; init; }
 
     public static ApiResponse Failure(string error) => new() { Ok = false, Error = error };
 }

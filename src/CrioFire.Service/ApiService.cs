@@ -14,7 +14,7 @@ internal sealed partial class ApiService(ILogger<ApiService> logger) : Backgroun
         try
         {
             using var engine = WfpEngine.Open();
-            var server = new ApiServer(new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath)));
+            var server = new ApiServer(new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath), new TrafficLog(TrafficLog.DefaultPath)));
             LogListening(logger, ApiServer.DefaultPipeName);
             await server.RunAsync(stoppingToken).ConfigureAwait(false);
         }

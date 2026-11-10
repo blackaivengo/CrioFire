@@ -7,7 +7,7 @@ namespace CrioFire.Core.Api;
 /// and directly by criofire.exe when it runs elevated (so both paths behave identically).
 /// Thread-safe: requests are handled one at a time.
 /// </summary>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null)
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -20,6 +20,19 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         if (ApiOps.IsWrite(request.Op) && !canWrite)
         {
             return ApiResponse.Failure("Not allowed: changing rules needs an administrator, or CrioFire's own app or command line.");
+        }
+
+        if (request.Op == ApiOps.Report)
+        {
+            // Reads only the log file, not the engine: no need to hold up other clients.
+            try
+            {
+                return Report(request);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException or UnauthorizedAccessException)
+            {
+                return ApiResponse.Failure(ex.Message);
+            }
         }
 
         lock (_gate)
@@ -96,6 +109,25 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         }
 
         return new ApiResponse { Ok = true, Count = ids.Count };
+    }
+
+    private ApiResponse Report(ApiRequest request)
+    {
+        var period = request.Period ?? ReportBuilder.Day;
+        if (!ReportBuilder.IsPeriod(period))
+        {
+            throw new ArgumentException("period must be 24h, 7d or 30d.");
+        }
+
+        if (trafficLog is null)
+        {
+            throw new InvalidOperationException("Reports need the criofire service, which keeps the traffic log.");
+        }
+
+        var now = DateTime.UtcNow;
+        var (from, to, _) = ReportBuilder.Window(period, now, TimeZoneInfo.Local);
+        var events = TrafficHistory.Read(trafficLog, from - (to - from));   // the period before, for the comparison
+        return new ApiResponse { Ok = true, Report = ReportBuilder.Build(events, period, now) };
     }
 
     private ApiResponse Panic()

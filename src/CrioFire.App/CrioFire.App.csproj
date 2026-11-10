@@ -6,6 +6,7 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>CrioFire.App</RootNamespace>
     <AssemblyName>criofire-ui</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

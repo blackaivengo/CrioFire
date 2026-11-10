@@ -1,0 +1,42 @@
+<UserControl x:Class="CrioFire.App.Pages.ActivityPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
+      <Button Content="Allow this program" Style="{StaticResource IceButton}" Margin="0,0,10,0" Click="OnAllow" />
+      <Button Content="Allow for 1 hour" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllowHour" />
+      <Button Content="Keep it blocked" Style="{StaticResource OutlineFireButton}" Click="OnBlock" />
+    </StackPanel>
+    <ContentControl Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock x:Name="Empty" Style="{StaticResource Muted}" Visibility="Collapsed" Text="Nothing blocked in the last hour." />
+        <ListView x:Name="Table" SelectionMode="Single">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="TIME" Width="80" DisplayMemberBinding="{Binding Time}" />
+              <GridViewColumn Header="WHY" Width="130">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border Style="{StaticResource Chip}" Margin="0" Padding="9,3" Background="{Binding ChipBrush}">
+                      <TextBlock Text="{Binding Why}" FontSize="12" Foreground="{Binding ChipTextBrush}" />
+                    </Border>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="DIR" Width="60" DisplayMemberBinding="{Binding Direction}" />
+              <GridViewColumn Header="PROTO" Width="70" DisplayMemberBinding="{Binding Protocol}" />
+              <GridViewColumn Header="REMOTE" Width="220" DisplayMemberBinding="{Binding Remote}" />
+              <GridViewColumn Header="PROGRAM" Width="420">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Program}" ToolTip="{Binding App}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </StackPanel>
+    </ContentControl>
+  </StackPanel>
+</UserControl>

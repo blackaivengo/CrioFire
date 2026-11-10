@@ -100,6 +100,41 @@ public sealed class TemporaryRuleTests : IDisposable
     }
 
     [Fact]
+    public void ReportReadsTheTrafficLogThroughTheApi()
+    {
+        var engine = Engine();
+        var log = new TrafficLog(Path.Combine(Path.GetTempPath(), $"criofire-log-{Guid.NewGuid():N}", "blocked.log"));
+        try
+        {
+            var now = DateTime.UtcNow;
+            var modeBlock = new CrioFireFilter(7, "CrioFire: default block", FilterLayers.ConnectV4, null, FilterKind.DefaultBlock, FirewallMode.Ask);
+            log.Append([
+                new BlockedConnection(now.AddMinutes(-5), Peer.ExePath, System.Net.Sockets.ProtocolType.Tcp, null, new IPEndPoint(IPAddress.Loopback, 443), 1, null),
+                new BlockedConnection(now.AddMinutes(-3), Peer.ExePath, System.Net.Sockets.ProtocolType.Tcp, null, new IPEndPoint(IPAddress.Loopback, 443), 7, modeBlock),
+                new BlockedConnection(now.AddDays(-3), Peer.ExePath, System.Net.Sockets.ProtocolType.Udp, null, null, 1, null),
+            ]);
+
+            var handler = new ApiHandler(engine, new TemporaryRuleStore(_storePath), log);
+            var day = handler.Handle(new ApiRequest { Op = ApiOps.Report, Period = "24h" }, canWrite: false);
+            Assert.True(day.Ok, day.Error);
+            Assert.Equal(2, day.Report!.Total);
+            Assert.Equal(1, day.Report.ByMode);
+            Assert.Equal(Peer.ExePath, day.Report.TopPrograms[0].App, ignoreCase: true);
+            Assert.Equal(24, day.Report.Buckets.Count);
+
+            var week = handler.Handle(new ApiRequest { Op = ApiOps.Report, Period = "7d" }, canWrite: false);
+            Assert.Equal(3, week.Report!.Total);
+
+            Assert.False(handler.Handle(new ApiRequest { Op = ApiOps.Report, Period = "1y" }, canWrite: false).Ok);
+            Assert.False(new ApiHandler(engine).Handle(new ApiRequest { Op = ApiOps.Report }, canWrite: false).Ok);   // no log: refused
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(log.Path)!, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ExpiryOutOfRangeIsRefused()
     {
         var handler = new ApiHandler(Engine(), new TemporaryRuleStore(_storePath));

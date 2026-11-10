@@ -219,7 +219,7 @@ internal sealed class Backend : IDisposable
     {
         _engine = engine;
         // Same store as the service, which removes the rules when they expire.
-        _handler = new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath));
+        _handler = new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath), new TrafficLog(TrafficLog.DefaultPath));
         Description = "direct, administrator";
     }
 

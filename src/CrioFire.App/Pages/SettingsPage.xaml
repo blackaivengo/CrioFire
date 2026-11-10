@@ -1,0 +1,35 @@
+<UserControl x:Class="CrioFire.App.Pages.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+    <ContentControl Style="{StaticResource IceCard}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock Text="Appearance" Style="{StaticResource H2}" />
+        <TextBlock Text="Follow Windows, or always use the light or dark look." Style="{StaticResource Muted}" Margin="0,6,0,16" />
+        <Border Style="{StaticResource SegGroup}" HorizontalAlignment="Left">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="ThemeSystem" Content="Same as Windows" Tag="system" GroupName="Theme" Style="{StaticResource SegItem}" Click="OnTheme" />
+            <RadioButton x:Name="ThemeLight" Content="Light" Tag="light" GroupName="Theme" Style="{StaticResource SegItem}" Click="OnTheme" />
+            <RadioButton x:Name="ThemeDark" Content="Dark" Tag="dark" GroupName="Theme" Style="{StaticResource SegItem}" Click="OnTheme" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource FireCard}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock Text="Recovery" Style="{StaticResource H2}" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,16" FontSize="14" LineHeight="21"
+                   Text="If something can't connect and you don't know why, remove every CrioFire rule at once. CrioFire goes back to Learning mode, where nothing is blocked. From an administrator prompt, 'criofire panic' does the same even when the service is stopped." />
+        <Button Content="Panic: remove all rules" Style="{StaticResource OutlineFireButton}" HorizontalAlignment="Left" Click="OnPanic" />
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="About" Style="{StaticResource H2}" />
+        <TextBlock x:Name="AboutText" Style="{StaticResource Muted}" Margin="0,6,0,0" FontSize="14" LineHeight="22" />
+      </StackPanel>
+    </ContentControl>
+  </StackPanel>
+</UserControl>
