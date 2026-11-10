@@ -281,6 +281,48 @@
     <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
   </Style>
 
+
+  <!-- On/off switch for settings. -->
+  <Style x:Key="Switch" TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <Grid Background="Transparent">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid VerticalAlignment="Top" Margin="0,1,0,0">
+              <Border x:Name="glow" CornerRadius="12" Margin="4,8,4,-4" Background="{DynamicResource IceGlowBrush}" Opacity="0" IsHitTestVisible="False">
+                <Border.Effect>
+                  <BlurEffect Radius="12" />
+                </Border.Effect>
+              </Border>
+              <Border x:Name="track" Width="46" Height="26" CornerRadius="13" Background="{DynamicResource TrackBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                <Ellipse x:Name="thumb" Width="18" Height="18" Margin="3,0" HorizontalAlignment="Left" Fill="{DynamicResource Text2Brush}" />
+              </Border>
+            </Grid>
+            <ContentPresenter Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="track" Property="Background" Value="{DynamicResource IceBrush}" />
+              <Setter TargetName="thumb" Property="HorizontalAlignment" Value="Right" />
+              <Setter TargetName="thumb" Property="Fill" Value="{DynamicResource IceInkBrush}" />
+              <Setter TargetName="glow" Property="Opacity" Value="0.7" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="track" Property="BorderBrush" Value="{DynamicResource IceTextBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- Lists and tables. -->
   <Style TargetType="ListView">
     <Setter Property="Background" Value="Transparent" />

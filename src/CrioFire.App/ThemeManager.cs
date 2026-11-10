@@ -1,4 +1,3 @@
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -9,16 +8,13 @@ namespace CrioFire.App;
 /// <summary>
 /// Light / dark / follow-Windows theme. Swaps the theme dictionary at index 0 of the app's
 /// resources (every color is a DynamicResource, so the whole UI restyles live), matches the
-/// Windows title bar, and remembers the choice in %LocalAppData%\CrioFire\ui.txt.
+/// Windows title bar, and remembers the choice in the app's preferences.
 /// </summary>
 internal static class ThemeManager
 {
     public const string System = "system";
     public const string Light = "light";
     public const string Dark = "dark";
-
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CrioFire", "ui.txt");
 
     public static string Choice { get; private set; } = System;
 
@@ -28,7 +24,7 @@ internal static class ThemeManager
 
     public static void Initialize()
     {
-        Apply(Load(), save: false);
+        Apply(Prefs.Current.Theme, save: false);
         SystemEvents.UserPreferenceChanged += (_, e) =>
         {
             if (Choice == System && e.Category == UserPreferenceCategory.General)
@@ -68,7 +64,8 @@ internal static class ThemeManager
 
         if (save)
         {
-            Save();
+            Prefs.Current.Theme = Choice;
+            Prefs.Save();
         }
 
         Changed?.Invoke(null, EventArgs.Empty);
@@ -78,31 +75,6 @@ internal static class ThemeManager
     {
         using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
         return key?.GetValue("AppsUseLightTheme") is int light && light == 0;
-    }
-
-    private static string Load()
-    {
-        try
-        {
-            return File.Exists(SettingsPath) ? File.ReadAllText(SettingsPath).Trim() : System;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return System;
-        }
-    }
-
-    private static void Save()
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-            File.WriteAllText(SettingsPath, Choice);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Not remembering the theme is harmless.
-        }
     }
 }
 

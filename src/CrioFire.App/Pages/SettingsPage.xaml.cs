@@ -18,7 +18,7 @@ public partial class SettingsPage : UserControl, IPage
 
     public string Title => "Settings";
 
-    public string Subtitle => "Appearance, recovery and version.";
+    public string Subtitle => "Appearance, startup, recovery and version.";
 
     public FrameworkElement? Actions => null;
 
@@ -29,6 +29,8 @@ public partial class SettingsPage : UserControl, IPage
         ThemeSystem.IsChecked = ThemeManager.Choice == ThemeManager.System;
         ThemeLight.IsChecked = ThemeManager.Choice == ThemeManager.Light;
         ThemeDark.IsChecked = ThemeManager.Choice == ThemeManager.Dark;
+        AutostartSwitch.IsChecked = Autostart.IsEnabled;
+        CloseToTraySwitch.IsChecked = Prefs.Current.CloseToTray;
 
         var app = typeof(SettingsPage).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
         var service = _model.Status is { } s ? s.Version : "not running";
@@ -46,6 +48,23 @@ public partial class SettingsPage : UserControl, IPage
         {
             ThemeManager.Apply(choice);
         }
+    }
+
+    private void OnAutostart(object sender, RoutedEventArgs e)
+    {
+        var enable = AutostartSwitch.IsChecked == true;
+        if (!Autostart.Set(enable))
+        {
+            _model.Say("Could not change the Windows startup setting.");
+        }
+
+        AutostartSwitch.IsChecked = Autostart.IsEnabled;
+    }
+
+    private void OnCloseToTray(object sender, RoutedEventArgs e)
+    {
+        Prefs.Current.CloseToTray = CloseToTraySwitch.IsChecked == true;
+        Prefs.Save();
     }
 
     private void OnPanic(object sender, RoutedEventArgs e)

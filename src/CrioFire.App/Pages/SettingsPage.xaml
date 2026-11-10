@@ -16,6 +16,25 @@
       </StackPanel>
     </ContentControl>
 
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock Text="Startup and notification area" Style="{StaticResource H2}" />
+        <TextBlock Text="In Ask mode, CrioFire can only ask about new programs while the app is running." Style="{StaticResource Muted}" Margin="0,6,0,18" />
+        <CheckBox x:Name="AutostartSwitch" Style="{StaticResource Switch}" Click="OnAutostart" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="Start CrioFire when I sign in to Windows" />
+            <TextBlock Text="It starts quietly in the notification area, next to the clock." Style="{StaticResource Muted}" FontSize="12" />
+          </StackPanel>
+        </CheckBox>
+        <CheckBox x:Name="CloseToTraySwitch" Style="{StaticResource Switch}" Click="OnCloseToTray">
+          <StackPanel>
+            <TextBlock Text="Keep running in the notification area when I close the window" />
+            <TextBlock Text="Turn off to exit the app when you close its window. The firewall keeps working either way." Style="{StaticResource Muted}" FontSize="12" />
+          </StackPanel>
+        </CheckBox>
+      </StackPanel>
+    </ContentControl>
+
     <ContentControl Style="{StaticResource FireCard}" Margin="0,0,0,22">
       <StackPanel>
         <TextBlock Text="Recovery" Style="{StaticResource H2}" />

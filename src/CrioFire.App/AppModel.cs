@@ -180,7 +180,32 @@ internal sealed class AppModel
         }
 
         Message?.Invoke(this, $"{ModeName(mode)} mode is on.");
+        OfferAutostart(owner, mode);
         return true;
+    }
+
+    /// <summary>Ask mode only works while the app runs: offer once to start it with Windows.</summary>
+    private void OfferAutostart(Window owner, string mode)
+    {
+        if (mode != "ask" || Prefs.Current.AutostartAsked || Autostart.IsEnabled)
+        {
+            return;
+        }
+
+        Prefs.Current.AutostartAsked = true;
+        Prefs.Save();
+        var choice = ChoiceDialog.Ask(
+            owner,
+            "Start CrioFire with Windows?",
+            "In Ask mode CrioFire asks you about each new program, but it can only ask while the app is running. Start it quietly in the notification area when you sign in?",
+            ["Start with Windows", "Not now"],
+            defaultIndex: 0);
+        if (choice == 0)
+        {
+            Message?.Invoke(this, Autostart.Set(true)
+                ? "CrioFire will start when you sign in to Windows."
+                : "Could not change the Windows startup setting.");
+        }
     }
 
     public void Panic(Window owner)

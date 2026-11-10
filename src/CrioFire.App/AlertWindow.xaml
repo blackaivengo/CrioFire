@@ -51,7 +51,32 @@
         </Grid>
         <UniformGrid Rows="1" Margin="0,18,0,0">
           <Button Content="Allow" Style="{StaticResource IceButton}" Margin="0,0,6,0" MinHeight="44" Click="OnAllow" />
-          <Button Content="Allow 1 hour" Style="{StaticResource OutlineIceButton}" Margin="3,0" MinHeight="44" Click="OnAllowOneHour" />
+          <Grid Margin="3,0">
+            <!-- Press and hold for more durations; release over one to pick it, press again to confirm. -->
+            <Button x:Name="TimedButton" Style="{StaticResource OutlineIceButton}" MinHeight="44" Padding="10,0"
+                    ToolTip="Hold for more choices" Click="OnTimedClick"
+                    PreviewMouseLeftButtonDown="OnTimedDown" PreviewMouseMove="OnTimedMove" PreviewMouseLeftButtonUp="OnTimedUp"
+                    PreviewKeyDown="OnTimedKey">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="TimedText" Text="Allow 1 hour" VerticalAlignment="Center" />
+                <Path Data="M0,4 L4,0 L8,4" Stroke="{DynamicResource IceTextBrush}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                      Margin="7,1,0,0" VerticalAlignment="Center" Opacity="0.8" />
+              </StackPanel>
+            </Button>
+            <Popup x:Name="DurationPopup" PlacementTarget="{Binding ElementName=TimedButton}" Placement="Top" VerticalOffset="-8"
+                   AllowsTransparency="True" StaysOpen="True" PopupAnimation="Fade">
+              <Grid Margin="14,14,14,20">
+                <Border Margin="10,16,10,-8" CornerRadius="14" Background="{DynamicResource IceGlowBrush}" IsHitTestVisible="False">
+                  <Border.Effect>
+                    <BlurEffect Radius="22" />
+                  </Border.Effect>
+                </Border>
+                <Border CornerRadius="12" Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource OutlineIceBrush}" BorderThickness="1" Padding="6">
+                  <StackPanel x:Name="DurationPanel" MinWidth="150" />
+                </Border>
+              </Grid>
+            </Popup>
+          </Grid>
           <Button Content="Block" Style="{StaticResource FireButton}" Margin="6,0,0,0" MinHeight="44" Click="OnBlock" />
         </UniformGrid>
       </StackPanel>

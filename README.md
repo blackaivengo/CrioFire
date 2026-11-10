@@ -58,7 +58,8 @@ While the `criofire` service runs, every connection CrioFire blocks is also appe
 Start `criofire-ui.exe` from the published folder while the `criofire` service runs. It needs no
 administrator rights. Its look is ice and fire: light blue means allowed or safe, fire red means
 blocked, on glass panels that glow softly in their color. Light and dark themes follow Windows by
-default; switch with the sun/moon button or in **Settings** (remembered per user).
+default; switch with the sun/moon button or in **Settings** (remembered per user in
+`%LocalAppData%\CrioFire\ui.txt`).
 
 - **Dashboard**: the protection ring and mode (Learning / Ask / Allow-list), blocked connections
   over the last 24 hours, the programs blocked most, programs waiting for your decision, and live
@@ -73,8 +74,18 @@ default; switch with the sun/moon button or in **Settings** (remembered per user
   report (choose "Microsoft Print to PDF").
 - **Alerts** in `ask` mode: a window in the corner for each program the mode stopped.
   *Allow* and *Block* add a permanent rule; *Allow 1 hour* adds one that CrioFire removes again
-  (`criofire allow <app> --for 60` does the same). Closing the alert means "not now": the program
-  stays blocked and waits on the dashboard.
+  (`criofire allow <app> --for 60` does the same). Press and hold *Allow 1 hour* for 15 minutes,
+  30 minutes or 24 hours (or use the arrow keys): release over one to pick it, then press the button
+  again to confirm. Closing the alert means "not now": the program stays blocked and waits on the
+  dashboard.
+- **Notification area**: the CrioFire flame sits next to the clock. It turns gray when the service
+  isn't running and shows a red dot when programs wait for your decision. Click it to open the
+  app; right-click to switch mode, start with Windows, or exit. Closing the window keeps CrioFire
+  in the notification area (Settings can turn that off); exiting the app never stops the firewall
+  service. Only one copy of the app runs: starting it again brings the window forward.
+- **Start with Windows**: Settings, the tray menu, or the offer when you first switch to Ask mode.
+  It adds `criofire-ui.exe --tray` to your user's startup programs (HKCU `Run`), so alerts work
+  right after you sign in.
 
 Reports come from the service's log of blocked connections (`%ProgramData%\criofire\blocked.log`,
 plus `blocked.1.log` after it rotates at 10 MB). Temporary rules are kept in

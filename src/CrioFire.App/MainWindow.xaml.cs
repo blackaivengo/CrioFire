@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -40,6 +41,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _pageTimer = new();
     private readonly DispatcherTimer _messageTimer = new() { Interval = TimeSpan.FromSeconds(6) };
     private IPage? _current;
+    private TrayIcon? _tray;
+    private bool _exiting;
 
     public MainWindow()
     {
@@ -65,13 +68,7 @@ public partial class MainWindow : Window
             MessageBar.Visibility = Visibility.Collapsed;
         };
 
-        Loaded += (_, _) =>
-        {
-            _model.RefreshCore();
-            UpdateService();
-            NavDashboard.IsChecked = true;
-            _poll.Start();
-        };
+        Closing += OnClosing;
         Closed += (_, _) =>
         {
             _poll.Stop();
@@ -80,7 +77,97 @@ public partial class MainWindow : Window
             {
                 alert.Close();
             }
+
+            _tray?.Dispose();
+            _tray = null;
         };
+    }
+
+    /// <summary>Starts polling and the tray icon; shows the window unless starting in the tray.</summary>
+    internal void Start(bool showWindow)
+    {
+        _tray = new TrayIcon();
+        _tray.OpenRequested += (_, _) => ShowFromTray();
+        _tray.ModeRequested += (_, mode) =>
+        {
+            ShowFromTray();
+            _model.SetMode(this, mode);
+        };
+        _tray.AutostartToggled += (_, _) =>
+        {
+            var enable = !Autostart.IsEnabled;
+            ShowMessage(Autostart.Set(enable)
+                ? (enable ? "CrioFire will start when you sign in to Windows." : "CrioFire won't start with Windows any more.")
+                : "Could not change the Windows startup setting.");
+            RefreshPage();
+        };
+        _tray.ExitRequested += (_, _) => ExitApp();
+
+        _model.RefreshCore();
+        UpdateService();
+        NavDashboard.IsChecked = true;
+        _poll.Start();
+        if (showWindow)
+        {
+            Show();
+        }
+        else
+        {
+            _pageTimer.Stop();
+        }
+    }
+
+    /// <summary>Opens the window from the tray (or when the app is started a second time).</summary>
+    internal void ShowFromTray()
+    {
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
+        RefreshPage();
+        if (_current?.AutoRefresh is { } every)
+        {
+            _pageTimer.Interval = every;
+            _pageTimer.Start();
+        }
+    }
+
+    /// <summary>Closes the app for good. The service keeps filtering.</summary>
+    internal void ExitApp()
+    {
+        _exiting = true;
+        Close();
+        Application.Current.Shutdown();
+    }
+
+    /// <summary>Closing the window keeps CrioFire running in the tray, unless the user turned that off.</summary>
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (_exiting || !Prefs.Current.CloseToTray)
+        {
+            _exiting = true;
+            Dispatcher.BeginInvoke(() => Application.Current.Shutdown());
+            return;
+        }
+
+        e.Cancel = true;
+        Hide();
+        _pageTimer.Stop();
+        if (!Prefs.Current.TrayHintShown)
+        {
+            Prefs.Current.TrayHintShown = true;
+            Prefs.Save();
+            _tray?.ShowHint(
+                "CrioFire is still protecting you",
+                "It keeps running here, next to the clock. Click the icon to open it; right-click for options.");
+        }
     }
 
     private void OnNav(object sender, RoutedEventArgs e)
@@ -178,6 +265,7 @@ public partial class MainWindow : Window
         if (alerts.Count > 0)
         {
             RefreshPage();
+            UpdateService();
         }
     }
 
@@ -201,8 +289,8 @@ public partial class MainWindow : Window
                     _model.SetRule(app, "allow");
                     _tracker.Decided(app);
                     break;
-                case AlertChoice.AllowOneHour:
-                    _model.SetRule(app, "allow", 60);
+                case AlertChoice.AllowFor:
+                    _model.SetRule(app, "allow", window.Minutes);
                     _tracker.Decided(app);
                     break;
                 case AlertChoice.Block:
@@ -230,6 +318,7 @@ public partial class MainWindow : Window
     private void UpdateService()
     {
         var status = _model.Status;
+        _tray?.Update(status, _model.Mode, _model.Pending.Count);
         if (status is null)
         {
             ServiceText.Text = "Not running";

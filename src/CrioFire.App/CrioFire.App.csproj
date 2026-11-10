@@ -4,10 +4,23 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <!-- Only for the notification-area icon (NotifyIcon); the UI itself is WPF. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>CrioFire.App</RootNamespace>
     <AssemblyName>criofire-ui</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Assets\criofire.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinForms/System.Drawing names (Application, Button, Brush...) would clash with WPF's. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\criofire.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CrioFire.Core\CrioFire.Core.csproj" />
