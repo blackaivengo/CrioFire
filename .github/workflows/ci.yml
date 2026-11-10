@@ -57,7 +57,8 @@ jobs:
         run: |
           $code = 0
           foreach ($project in 'CrioFire.Tests', 'CrioFire.IntegrationTests') {
-            dotnet test "tests/$project" --configuration Release --no-build --logger "trx;LogFileName=$project.trx" --results-directory "TestResults/$project"
+            # --blame: if the test host crashes, the results name the test that was running.
+            dotnet test "tests/$project" --configuration Release --no-build --blame --logger "trx;LogFileName=$project.trx" --results-directory "TestResults/$project"
             if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE }
           }
           exit $code

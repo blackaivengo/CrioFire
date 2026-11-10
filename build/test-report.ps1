@@ -17,9 +17,16 @@ $ErrorActionPreference = 'Stop'
 $files = @(Get-ChildItem $ResultsDir -Filter *.trx -Recurse -ErrorAction SilentlyContinue)
 if ($files.Count -eq 0) { throw "No .trx files in $ResultsDir" }
 
+$runProblems = [System.Collections.Generic.List[string]]::new()
 $rows = foreach ($file in $files) {
     [xml] $trx = Get-Content $file.FullName -Raw
     $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+    # A crashed or aborted run says why in ResultSummary/RunInfos (e.g. "Test host process crashed").
+    $summary = (Select-Xml -Xml $trx -XPath '//t:ResultSummary' -Namespace $ns | Select-Object -First 1).Node
+    if ($summary -and $summary.outcome -notin 'Completed', 'Passed') {
+        $infos = @(Select-Xml -Xml $trx -XPath '//t:RunInfos/t:RunInfo/t:Text' -Namespace $ns | ForEach-Object { $_.Node.InnerText })
+        $runProblems.Add("$($file.Name): run $($summary.outcome). $($infos -join ' / ')")
+    }
     $storage = @{}
     foreach ($def in (Select-Xml -Xml $trx -XPath '//t:UnitTest' -Namespace $ns)) {
         $storage[$def.Node.id] = [IO.Path]::GetFileNameWithoutExtension($def.Node.storage)
@@ -72,6 +79,9 @@ $byProject = $rows | Group-Object Project | ForEach-Object {
     "$($_.Name): $p passed, $f failed, $($_.Count - $p - $f) skipped"
 }
 Annotate 'notice' $Title (($byProject -join '; ') + " ($($files.Count) result files)")
+foreach ($problem in $runProblems) {
+    Annotate 'error' "Test run problem" $problem
+}
 foreach ($row in ($failed | Select-Object -First 10)) {
     Annotate 'error' "FAIL $($row.Project) $($row.Test)" $row.Message
 }

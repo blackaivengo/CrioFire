@@ -146,7 +146,8 @@
                 Target="[#UiExe]"
                 Icon="CrioFireIcon"
                 WorkingDirectory="INSTALLFOLDER" />
-      <RegistryValue Root="HKLM" Key="Software\CrioSoft\CrioFire" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      <!-- Windows Installer treats the Start menu as per-user, so the shortcut's key path must be under HKCU (ICE38/43/57). -->
+      <RegistryValue Root="HKCU" Key="Software\CrioSoft\CrioFire" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
     <!-- Starts the app in the notification area for every user at sign-in, if chosen. Each user can turn it off in Settings. -->
