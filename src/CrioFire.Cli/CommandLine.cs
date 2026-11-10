@@ -68,7 +68,9 @@ internal static class CommandLine
           criofire uninstall                   Remove all rules and unregister CrioFire
           criofire --version
 
-        All commands except --version and help need an administrator prompt.
+        install and uninstall need an administrator prompt. Everything else also works from a
+        normal prompt while the criofire service runs (changing rules then needs CrioFire's
+        installed command line, or an administrator prompt).
         """;
 
     public static Command Parse(IReadOnlyList<string> args, out string? error)

@@ -49,6 +49,20 @@ From an **administrator** terminal, in the published folder:
 While the `criofire` service runs, every connection CrioFire blocks is also appended to
 `%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB).
 
+### Without administrator rights
+
+While the `criofire` service runs, the desktop app and the command line talk to it over a local
+named pipe (`\\.\pipe\criofire`), so they work from a normal account:
+
+- Anyone signed in to the PC can read status, rules, mode and blocked connections.
+- Changing rules or the mode is allowed for an elevated administrator, or for CrioFire's own
+  `criofire.exe` / `criofire-ui.exe` started from the service's install folder (which only
+  administrators can write to). Other programs are refused.
+- The pipe cannot be reached over the network, and no other program can take over its name.
+
+From an administrator terminal, `criofire` talks to the filtering engine directly, so recovery
+commands such as `criofire panic` work even when the service is stopped.
+
 ### Modes
 
 | Mode | Programs without a rule | Notes |

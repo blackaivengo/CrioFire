@@ -1,14 +1,14 @@
+using System.IO;
 using System.Windows;
-using CrioFire.Core;
+using CrioFire.Core.Api;
 
 namespace CrioFire.App;
 
 public sealed record RuleRow(ulong FilterId, string Action, string Layer, string Program);
 
 /// <summary>
-/// Prototype: reads rules straight from the filtering engine, which needs admin rights.
-/// Phase 1 replaces this with calls to criofire-svc over the local API pipe, so the app
-/// can run as a normal user.
+/// Shows CrioFire's rules, read through the criofire service's local API, so the app runs as a
+/// normal user. (Alerts, rule editing and live connections arrive in the next step.)
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -24,32 +24,31 @@ public partial class MainWindow : Window
     {
         try
         {
-            using var engine = WfpEngine.Open();
-            if (!engine.IsInstalled())
+            using var client = CrioFireClient.TryConnect();
+            if (client is null)
             {
                 RulesList.ItemsSource = null;
-                StatusText.Text = "CrioFire is not installed yet. Run 'criofire install' from an administrator prompt.";
+                StatusText.Text = "The CrioFire service is not running. Start it with 'sc start criofire' from an administrator prompt.";
                 return;
             }
 
-            var rows = engine.ListFilters()
-                .Select(f => new RuleRow(
-                    f.FilterId,
-                    f.Rule is null ? "?" : RuleDescription.ActionText(f.Rule.Action),
-                    f.Layer?.Name ?? "?",
-                    f.Rule?.AppPath ?? f.Name))
-                .ToList();
+            var status = client.Send(new ApiRequest { Op = ApiOps.Status });
+            if (status.Status is not { Installed: true } info)
+            {
+                RulesList.ItemsSource = null;
+                StatusText.Text = status.Error ?? "CrioFire is not registered with the filtering engine yet.";
+                return;
+            }
 
-            RulesList.ItemsSource = rows;
-            StatusText.Text = $"{rows.Count} filters active.";
+            var rules = client.Send(new ApiRequest { Op = ApiOps.List }).Rules ?? [];
+            RulesList.ItemsSource = rules
+                .Select(r => new RuleRow(r.FilterId, r.Action ?? "?", r.Layer ?? "?", r.App ?? r.Name))
+                .ToList();
+            StatusText.Text = $"Mode: {info.Mode}. {info.FilterCount} filters active.";
         }
-        catch (WfpException ex) when (ex.IsAccessDenied)
+        catch (IOException ex)
         {
-            StatusText.Text = "Reading rules needs administrator rights in this prototype. Right-click criofire-ui.exe and choose 'Run as administrator'.";
-        }
-        catch (WfpException ex)
-        {
-            StatusText.Text = ex.Message;
+            StatusText.Text = $"Lost the connection to the CrioFire service: {ex.Message}";
         }
     }
 }

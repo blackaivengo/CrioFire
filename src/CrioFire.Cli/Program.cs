@@ -1,6 +1,8 @@
 using System.Reflection;
+using System.Security.Principal;
 using CrioFire.Cli;
 using CrioFire.Core;
+using CrioFire.Core.Api;
 
 var command = CommandLine.Parse(args, out var parseError);
 if (parseError is not null)
@@ -25,79 +27,110 @@ switch (command.Kind)
 
 try
 {
-    using var engine = WfpEngine.Open();
+    // install and uninstall always talk to the filtering engine directly (administrator only).
+    if (command.Kind is CommandKind.Install or CommandKind.Uninstall)
+    {
+        using var engine = WfpEngine.Open();
+        if (command.Kind == CommandKind.Install)
+        {
+            engine.Install();
+            Console.WriteLine("CrioFire is registered with the Windows Filtering Platform.");
+        }
+        else
+        {
+            engine.Uninstall();
+            Console.WriteLine("All CrioFire rules removed and CrioFire unregistered.");
+        }
 
+        return 0;
+    }
+
+    // Everything else goes through the API: in-process when elevated (works even if the service
+    // is stopped, e.g. for recovery), otherwise through the criofire service.
+    using var api = Backend.Connect();
+    if (api is null)
+    {
+        Console.Error.WriteLine("The CrioFire service is not running. Start it (sc start criofire) or use an administrator terminal.");
+        return 3;
+    }
+
+    return Run(api, command);
+}
+catch (WfpException ex)
+{
+    Console.Error.WriteLine(ex.Message);
+    return ex.IsAccessDenied ? 5 : 1;
+}
+catch (Exception ex) when (ex is IOException or InvalidOperationException or PlatformNotSupportedException or ArgumentException)
+{
+    Console.Error.WriteLine(ex.Message);
+    return 1;
+}
+
+static int Run(Backend api, Command command)
+{
     switch (command.Kind)
     {
         case CommandKind.Status:
-            if (!engine.IsInstalled())
+        {
+            var status = api.Call(new ApiRequest { Op = ApiOps.Status }).Status!;
+            if (!status.Installed)
             {
                 Console.WriteLine("CrioFire is not installed. Run: criofire install");
                 return 1;
             }
 
-            Console.WriteLine($"CrioFire is installed. Active filters: {engine.ListFilters().Count}");
+            Console.WriteLine($"CrioFire is installed ({api.Description}). Mode: {status.Mode}. Active filters: {status.FilterCount}");
             return 0;
-
-        case CommandKind.Install:
-            engine.Install();
-            Console.WriteLine("CrioFire is registered with the Windows Filtering Platform.");
-            return 0;
-
-        case CommandKind.Uninstall:
-            engine.Uninstall();
-            Console.WriteLine("All CrioFire rules removed and CrioFire unregistered.");
-            return 0;
+        }
 
         case CommandKind.List:
-            var filters = engine.ListFilters();
-            if (filters.Count == 0)
+        {
+            var rules = api.Call(new ApiRequest { Op = ApiOps.List }).Rules!;
+            if (rules.Count == 0)
             {
                 Console.WriteLine("No CrioFire rules.");
                 return 0;
             }
 
-            Console.WriteLine($"{"Filter ID",-12} {"Action",-7} {"Layer",-14} Program");
-            foreach (var f in filters.OrderBy(f => f.Rule?.AppPath, StringComparer.OrdinalIgnoreCase).ThenBy(f => f.FilterId))
+            Console.WriteLine($"{"Filter ID",-12} {"Action",-7} {"Kind",-13} {"Layer",-14} Program");
+            foreach (var r in rules.OrderBy(r => r.Kind, StringComparer.Ordinal).ThenBy(r => r.App, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.FilterId))
             {
-                var action = f.Rule is null ? "?" : RuleDescription.ActionText(f.Rule.Action);
-                Console.WriteLine($"{f.FilterId,-12} {action,-7} {f.Layer?.Name ?? "?",-14} {f.Rule?.AppPath ?? f.Name}");
+                Console.WriteLine($"{r.FilterId,-12} {r.Action ?? "?",-7} {r.Kind,-13} {r.Layer ?? "?",-14} {r.App ?? r.Name}");
             }
 
             return 0;
+        }
 
-        case CommandKind.Block:
-            EnsureInstalled(engine);
-            var ids = engine.SetAppRule(command.AppPath!, RuleAction.Block, command.Direction);
-            Console.WriteLine($"Blocked {RuleDescription.DirectionText(command.Direction)} traffic for {Path.GetFullPath(command.AppPath!)} ({ids.Count} filters).");
-            Console.WriteLine("Undo with: criofire unblock \"" + Path.GetFullPath(command.AppPath!) + "\"");
+        case CommandKind.Block or CommandKind.Allow:
+        {
+            var path = Path.GetFullPath(command.AppPath!);
+            var action = command.Kind == CommandKind.Block ? "block" : "allow";
+            var result = api.Call(new ApiRequest { Op = ApiOps.SetRule, App = path, Action = action, Direction = RuleDescription.DirectionText(command.Direction) });
+            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for {path} ({result.Count} filters).");
+            if (action == "block")
+            {
+                Console.WriteLine($"Undo with: criofire unblock \"{path}\"");
+            }
+
             return 0;
-
-        case CommandKind.Allow:
-            EnsureInstalled(engine);
-            var allowIds = engine.SetAppRule(command.AppPath!, RuleAction.Allow, command.Direction);
-            Console.WriteLine($"Allowed {RuleDescription.DirectionText(command.Direction)} traffic for {Path.GetFullPath(command.AppPath!)} ({allowIds.Count} filters).");
-            return 0;
-
-        case CommandKind.ModeShow:
-            Console.WriteLine($"Mode: {FilterDescriptions.ModeText(engine.GetMode())}");
-            return 0;
-
-        case CommandKind.ModeSet:
-            return SetMode(engine, command);
+        }
 
         case CommandKind.Unblock:
-            var removed = engine.RemoveAppRules(command.AppPath!, command.Direction);
-            Console.WriteLine(removed == 0 ? "No CrioFire rules matched that program." : $"Removed {removed} filters.");
+        {
+            var result = api.Call(new ApiRequest { Op = ApiOps.RemoveRules, App = Path.GetFullPath(command.AppPath!), Direction = RuleDescription.DirectionText(command.Direction) });
+            Console.WriteLine(result.Count == 0 ? "No CrioFire rules matched that program." : $"Removed {result.Count} filters.");
             return 0;
+        }
 
         case CommandKind.Remove:
-            engine.RemoveFilter(command.FilterId);
+            api.Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = command.FilterId });
             Console.WriteLine($"Removed filter {command.FilterId}.");
             return 0;
 
         case CommandKind.Events:
-            var events = engine.ReadBlockedConnections(DateTime.UtcNow.AddMinutes(-command.Minutes), crioFireOnly: !command.All);
+        {
+            var events = api.Call(new ApiRequest { Op = ApiOps.Events, Minutes = command.Minutes, All = command.All }).Events!;
             if (events.Count == 0)
             {
                 Console.WriteLine($"No blocked connections in the last {command.Minutes} minutes.");
@@ -107,44 +140,41 @@ try
             Console.WriteLine($"{"Time (local)",-20} {"By",-9} {"Dir",-4} {"Proto",-6} {"Remote",-40} Program");
             foreach (var e in events)
             {
-                var by = e.IsCrioFire ? "CrioFire" : "other";
-                var dir = e.Direction switch { TrafficDirection.Outbound => "out", TrafficDirection.Inbound => "in", _ => "?" };
-                Console.WriteLine($"{e.TimeUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} {by,-9} {dir,-4} {e.ProtocolName,-6} {e.Remote?.ToString() ?? "?",-40} {e.AppPath ?? "?"}");
+                Console.WriteLine($"{e.TimeUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} {(e.CrioFire ? "CrioFire" : "other"),-9} {e.Direction ?? "?",-4} {e.Protocol,-6} {e.Remote ?? "?",-40} {e.App ?? "?"}");
             }
 
             return 0;
+        }
+
+        case CommandKind.ModeShow:
+            Console.WriteLine($"Mode: {api.Call(new ApiRequest { Op = ApiOps.Status }).Status!.Mode}");
+            return 0;
+
+        case CommandKind.ModeSet:
+            return SetMode(api, command);
 
         case CommandKind.Panic:
-            var count = engine.RemoveAllFilters();
-            Console.WriteLine($"Recovery done: removed {count} CrioFire filters. Network access is back to Windows' own rules.");
+        {
+            var result = api.Call(new ApiRequest { Op = ApiOps.Panic });
+            Console.WriteLine($"Recovery done: removed {result.Count} CrioFire filters. Network access is back to Windows' own rules.");
             return 0;
+        }
 
         default:
             Console.Error.WriteLine(CommandLine.Usage);
             return 2;
     }
 }
-catch (WfpException ex)
-{
-    Console.Error.WriteLine(ex.Message);
-    return ex.IsAccessDenied ? 5 : 1;
-}
-catch (Exception ex) when (ex is FileNotFoundException or InvalidOperationException or PlatformNotSupportedException or ArgumentException)
-{
-    Console.Error.WriteLine(ex.Message);
-    return 1;
-}
 
-static int SetMode(WfpEngine engine, Command command)
+static int SetMode(Backend api, Command command)
 {
-    EnsureInstalled(engine);
-    var previous = engine.GetMode();
+    var previous = api.Call(new ApiRequest { Op = ApiOps.Status }).Status!.Mode;
     var running = command.AllowRunning ? RunningPrograms.Paths() : [];
-    engine.SetMode(command.Mode, running);
     var text = FilterDescriptions.ModeText(command.Mode);
+    api.Call(new ApiRequest { Op = ApiOps.SetMode, Mode = text, Apps = running });
     if (running.Count > 0)
     {
-        Console.WriteLine($"Allowed {running.Count} running programs (those without a rule already).");
+        Console.WriteLine($"Allowed the running programs that had no rule yet ({running.Count} checked).");
     }
 
     if (command.Mode == FirewallMode.Learning || command.Yes)
@@ -156,8 +186,8 @@ static int SetMode(WfpEngine engine, Command command)
     // Blocking mode: keep it only if the user confirms the network still works.
     if (Console.IsInputRedirected)
     {
-        engine.SetMode(previous);
-        Console.Error.WriteLine($"Switched back to {FilterDescriptions.ModeText(previous)}: confirm interactively, or pass --yes.");
+        api.Call(new ApiRequest { Op = ApiOps.SetMode, Mode = previous });
+        Console.Error.WriteLine($"Switched back to {previous}: confirm interactively, or pass --yes.");
         return 1;
     }
 
@@ -170,16 +200,66 @@ static int SetMode(WfpEngine engine, Command command)
         return 0;
     }
 
-    engine.SetMode(previous);
+    api.Call(new ApiRequest { Op = ApiOps.SetMode, Mode = previous });
     Console.WriteLine();
-    Console.WriteLine($"No confirmation: switched back to {FilterDescriptions.ModeText(previous)}.");
+    Console.WriteLine($"No confirmation: switched back to {previous}.");
     return 1;
 }
 
-static void EnsureInstalled(WfpEngine engine)
+/// <summary>Either the in-process API (elevated) or the service's pipe (not elevated).</summary>
+internal sealed class Backend : IDisposable
 {
-    if (!engine.IsInstalled())
+    private readonly WfpEngine? _engine;
+    private readonly ApiHandler? _handler;
+    private readonly CrioFireClient? _client;
+
+    private Backend(WfpEngine engine)
     {
-        engine.Install();
+        _engine = engine;
+        _handler = new ApiHandler(engine);
+        Description = "direct, administrator";
+    }
+
+    private Backend(CrioFireClient client)
+    {
+        _client = client;
+        Description = "through the criofire service";
+    }
+
+    public string Description { get; }
+
+    public static Backend? Connect()
+    {
+        if (IsElevated())
+        {
+            return new Backend(WfpEngine.Open());
+        }
+
+        var client = CrioFireClient.TryConnect();
+        return client is null ? null : new Backend(client);
+    }
+
+    /// <summary>Sends a request; throws <see cref="InvalidOperationException"/> with the service's message on failure.</summary>
+    public ApiResponse Call(ApiRequest request)
+    {
+        var response = _handler is not null ? _handler.Handle(request, canWrite: true) : _client!.Send(request);
+        return response.Ok ? response : throw new InvalidOperationException(response.Error ?? "The request failed.");
+    }
+
+    public void Dispose()
+    {
+        _engine?.Dispose();
+        _client?.Dispose();
+    }
+
+    private static bool IsElevated()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        using var identity = WindowsIdentity.GetCurrent();
+        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
     }
 }
