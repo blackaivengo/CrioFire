@@ -173,7 +173,7 @@ public sealed unsafe class WfpEngine : IDisposable
     {
         ThrowIfDisposed();
         paths ??= NtPathMapper.FromSystem();
-        var ours = ListFilters().ToDictionary(f => f.FilterId);
+        var filters = ListFilters();
         var result = new List<AllowedConnection>();
 
         var template = new FWPM_NET_EVENT_ENUM_TEMPLATE0
@@ -202,16 +202,14 @@ public sealed unsafe class WfpEngine : IDisposable
                         }
 
                         var allow = (FWPM_NET_EVENT_CLASSIFY_ALLOW0*)e->details;
-                        ours.TryGetValue(allow->filterId, out var rule);
-                        var blocked = Decode(&e->header.common, allow->filterId, rule, paths);
+                        var decoded = Decode(&e->header.common, allow->filterId, null, paths);
                         var direction = allow->msFwpDirection == FwpDirection.FWP_DIRECTION_IN
                             ? TrafficDirection.Inbound
-                            : allow->msFwpDirection == FwpDirection.FWP_DIRECTION_OUT
-                                ? TrafficDirection.Outbound
-                                : rule?.Layer?.Direction ?? TrafficDirection.Outbound;
-                        result.Add(new AllowedConnection(
-                            blocked.TimeUtc, blocked.AppPath, blocked.Protocol, blocked.Local, blocked.Remote,
-                            direction, allow->isLoopback != 0, allow->filterId, rule));
+                            : TrafficDirection.Outbound;
+                        var connection = new AllowedConnection(
+                            decoded.TimeUtc, decoded.AppPath, decoded.Protocol, decoded.Local, decoded.Remote, direction,
+                            AllowReasons.IsLoopback(allow->isLoopback != 0, decoded.Local, decoded.Remote), allow->filterId, null);
+                        result.Add(connection with { Rule = AllowReasons.Resolve(filters, connection) });
                     }
                 }
                 finally
@@ -261,9 +259,11 @@ public sealed unsafe class WfpEngine : IDisposable
         {
             while (true)
             {
-                FWPM_NET_EVENT0** entries = null;
+                // Enum2, not Enum0: once allowed events are recorded, Enum0 fails with
+                // FWP_E_INVALID_ENUMERATOR because version 0 cannot represent them.
+                FWPM_NET_EVENT2** entries = null;
                 uint count = 0;
-                Check("FwpmNetEventEnum0", Fwpuclnt.FwpmNetEventEnum0(_handle, enumHandle, 256, &entries, &count));
+                Check("FwpmNetEventEnum2", Fwpuclnt.FwpmNetEventEnum2(_handle, enumHandle, 256, &entries, &count));
                 try
                 {
                     for (var i = 0; i < count; i++)
@@ -274,6 +274,7 @@ public sealed unsafe class WfpEngine : IDisposable
                             continue;
                         }
 
+                        // FWPM_NET_EVENT_CLASSIFY_DROP2 starts like DROP0: filterId first.
                         var drop = (FWPM_NET_EVENT_CLASSIFY_DROP0*)e->details;
                         ours.TryGetValue(drop->filterId, out var rule);
                         if (crioFireOnly && rule is null)
@@ -281,7 +282,7 @@ public sealed unsafe class WfpEngine : IDisposable
                             continue;
                         }
 
-                        result.Add(Decode(&e->header, drop->filterId, rule, paths));
+                        result.Add(Decode(&e->header.common, drop->filterId, rule, paths));
                     }
                 }
                 finally

@@ -61,6 +61,97 @@ public static class AllowReasons
         return isLoopback ? AllowReason.Loopback : AllowReason.NoRule;
     }
 
+    /// <summary>
+    /// Finds the CrioFire filter that let a connection through. The engine's allow event names the
+    /// filter that made the final decision, which is often another firewall's (e.g. Windows
+    /// Firewall's loopback permit), so the connection is also matched against CrioFire's own allow
+    /// filters, the heaviest first, as the filtering engine weighs them.
+    /// </summary>
+    public static CrioFireFilter? Resolve(IReadOnlyList<CrioFireFilter> filters, AllowedConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(filters);
+        ArgumentNullException.ThrowIfNull(connection);
+        var exact = filters.FirstOrDefault(f => f.FilterId == connection.FilterId);
+        if (exact is not null && Weight(exact, connection, ignoreMatch: true) >= 0)
+        {
+            return exact;
+        }
+
+        CrioFireFilter? best = null;
+        var bestWeight = -1;
+        foreach (var f in filters)
+        {
+            if (f.Layer is null || f.Layer.Direction != connection.Direction)
+            {
+                continue;
+            }
+
+            var weight = Weight(f, connection, ignoreMatch: false);
+            if (weight > bestWeight)
+            {
+                best = f;
+                bestWeight = weight;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>The filter's weight if it is an allow filter that covers the connection, otherwise -1.</summary>
+    private static int Weight(CrioFireFilter f, AllowedConnection c, bool ignoreMatch) => f.Kind switch
+    {
+        FilterKind.AppRule when f.Rule is { Action: RuleAction.Allow } r && (ignoreMatch || SameApp(r.AppPath, c.AppPath)) => 10,
+        FilterKind.ServiceRule when f.Service is { Action: RuleAction.Allow } s && (ignoreMatch || HasService(c.Service, s.ServiceName)) => 11,
+        FilterKind.NetRule when f.Net is { Action: RuleAction.Allow } n && (ignoreMatch || Matches(n, c)) => n.Weight,
+        FilterKind.BuiltInAllow when ignoreMatch
+            || (string.Equals(f.BuiltIn, AutoRulePolicy.WindowsKernel, StringComparison.OrdinalIgnoreCase) ? KnownApps.IsKernel(c.AppPath) : KnownApps.IsServiceHost(c.AppPath)) => 5,
+        _ => -1,
+    };
+
+    private static bool SameApp(string? a, string? b) => a is not null && b is not null && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasService(string? services, string name) =>
+        services is not null && services.Split(',', StringSplitOptions.TrimEntries).Contains(name, StringComparer.OrdinalIgnoreCase);
+
+    private static bool Matches(NetRule n, AllowedConnection c)
+    {
+        if (n.AppPath is not null && !SameApp(n.AppPath, c.AppPath))
+        {
+            return false;
+        }
+
+        var ports = n.PortList;
+        var tcpOrUdp = c.Protocol is ProtocolType.Tcp or ProtocolType.Udp;
+        var protocolOk = n.Protocol switch
+        {
+            NetProtocol.Tcp => c.Protocol == ProtocolType.Tcp,
+            NetProtocol.Udp => c.Protocol == ProtocolType.Udp,
+            _ => ports.Count == 0 || tcpOrUdp,
+        };
+        if (!protocolOk)
+        {
+            return false;
+        }
+
+        if (ports.Count > 0)
+        {
+            var port = c.ServicePort;
+            if (!ports.Any(p => port >= p.Low && port <= p.High))
+            {
+                return false;
+            }
+        }
+
+        var addresses = n.AddressList;
+        return addresses.Count == 0 || (c.Remote is not null && addresses.Any(a => a.Contains(c.Remote.Address)));
+    }
+
+    /// <summary>Loopback as Windows treats it: the flag on the event, a loopback address, or a connection to this PC's own address.</summary>
+    public static bool IsLoopback(bool flag, IPEndPoint? local, IPEndPoint? remote) =>
+        flag
+        || (remote is not null && IPAddress.IsLoopback(remote.Address.IsIPv4MappedToIPv6 ? remote.Address.MapToIPv4() : remote.Address))
+        || (local is not null && remote is not null && local.Address.Equals(remote.Address));
+
     /// <summary>A short label for lists.</summary>
     public static string Label(string? reason, string? direction) => reason switch
     {

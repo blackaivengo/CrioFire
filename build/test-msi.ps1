@@ -21,10 +21,24 @@ $logDir = Split-Path -Parent $Msi
 $installDir = Join-Path $env:ProgramFiles 'CrioFire'
 $cli = Join-Path $installDir 'criofire.exe'
 
+# Failures become GitHub annotations, so they can be read on the run page without signing in.
+function Write-Annotation([string] $title, [string] $text) {
+    if ($env:GITHUB_ACTIONS -eq 'true') {
+        $escaped = $text.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
+        Write-Host "::error title=$title::$escaped"
+    }
+}
+
 function Invoke-Msi([string] $arguments, [string] $log) {
     $p = Start-Process msiexec.exe -ArgumentList "$arguments /qn /norestart /l*v `"$log`"" -Wait -PassThru
     if ($p.ExitCode -ne 0) {
-        Get-Content $log -Tail 60 | Write-Host
+        $lines = Get-Content $log
+        $lines | Select-Object -Last 60 | Write-Host
+        # The interesting part of a verbose MSI log is just before the first "Return value 3".
+        $failed = ($lines | Select-String -Pattern 'Return value 3' -SimpleMatch | Select-Object -First 1).LineNumber
+        $context = if ($failed) { $lines[[Math]::Max(0, $failed - 25)..($failed - 1)] } else { $lines | Select-Object -Last 25 }
+        $errors = $lines | Select-String -Pattern 'Error \d{4}|error code|CustomAction .* returned actual error' | Select-Object -First 5 | ForEach-Object { $_.Line }
+        Write-Annotation 'msiexec failed' ("msiexec $arguments exited with $($p.ExitCode)`n" + (($errors + '...' + $context) -join "`n"))
         throw "msiexec $arguments failed with exit code $($p.ExitCode)"
     }
 }
@@ -37,8 +51,18 @@ function Test-ProviderRegistered {
 }
 
 function Check([bool] $condition, [string] $message) {
-    if (-not $condition) { throw "FAILED: $message" }
+    if (-not $condition) {
+        Write-Annotation 'Installer test failed' $message
+        throw "FAILED: $message"
+    }
     Write-Host "ok   $message"
+}
+
+trap {
+    if ($_.Exception.Message -notlike 'FAILED:*' -and $_.Exception.Message -notlike 'msiexec*') {
+        Write-Annotation 'Installer test failed' "$($_.Exception.Message)`n$($_.InvocationInfo.PositionMessage)"
+    }
+    break
 }
 
 Write-Host "Installing $Msi (mode $Mode)"
@@ -48,7 +72,7 @@ Check (Test-Path $cli) 'criofire.exe is installed'
 Check (Test-Path (Join-Path $installDir 'criofire-ui.exe')) 'criofire-ui.exe is installed'
 $svc = Get-Service criofire -ErrorAction SilentlyContinue
 Check ($null -ne $svc) 'the criofire service exists'
-$svc.WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
+try { $svc.WaitForStatus('Running', [TimeSpan]::FromSeconds(30)) } catch { Write-Host "Service did not reach Running: $_" }
 Check ((Get-Service criofire).Status -eq 'Running') 'the criofire service is running'
 Check ((Get-CimInstance Win32_Service -Filter "Name='criofire'").StartMode -eq 'Auto') 'the service starts automatically'
 Check (Test-ProviderRegistered) 'CrioFire is registered with the Windows Filtering Platform'

@@ -142,6 +142,43 @@ public class VisibilityTests
     }
 
     [Fact]
+    public void TheAllowingFilterIsFoundEvenWhenAnotherFirewallMadeTheFinalCall()
+    {
+        const string app = @"C:\Apps\chat.exe";
+        var appRule = new CrioFireFilter(10, "a", FilterLayers.ConnectV4, new RuleDescription(RuleAction.Allow, TrafficDirection.Outbound, app));
+        var inboundRule = new CrioFireFilter(11, "b", FilterLayers.RecvAcceptV4, new RuleDescription(RuleAction.Allow, TrafficDirection.Inbound, app));
+        var netRule = new CrioFireFilter(12, "c", FilterLayers.ConnectV4, null, FilterKind.NetRule,
+            Net: new NetRule(RuleAction.Allow, TrafficDirection.Outbound, NetProtocol.Tcp, "443", "203.0.113.0/24", app));
+        var services = new CrioFireFilter(13, "d", FilterLayers.ConnectV4, null, FilterKind.BuiltInAllow, BuiltIn: "svchost");
+        var serviceRule = new CrioFireFilter(14, "e", FilterLayers.ConnectV4, null, FilterKind.ServiceRule, Service: new ServiceRule(RuleAction.Allow, TrafficDirection.Outbound, "BITS"));
+        var block = new CrioFireFilter(15, "f", FilterLayers.ConnectV4, new RuleDescription(RuleAction.Block, TrafficDirection.Outbound, @"C:\Apps\bad.exe"));
+        var filters = new[] { appRule, inboundRule, netRule, services, serviceRule, block };
+
+        // Event names a Windows Firewall filter (7): CrioFire's own matching decides.
+        Assert.Equal(netRule, AllowReasons.Resolve(filters, Allowed(T0, app: app)));                    // port + address + app beats the app rule
+        Assert.Equal(appRule, AllowReasons.Resolve(filters, Allowed(T0, app: app, remotePort: 80)));
+        Assert.Null(AllowReasons.Resolve(filters, Allowed(T0, app: @"C:\Apps\other.exe")));
+        Assert.Equal(services, AllowReasons.Resolve(filters, Allowed(T0)));
+        Assert.Equal(serviceRule, AllowReasons.Resolve(filters, Allowed(T0) with { Service = "BITS, wuauserv" }));
+        Assert.Null(AllowReasons.Resolve(filters, Allowed(T0, app: @"C:\Apps\bad.exe")));               // block rules never explain an allow
+        Assert.Equal(inboundRule, AllowReasons.Resolve(filters, Allowed(T0, app: app, direction: TrafficDirection.Inbound)));
+
+        // An event that names one of CrioFire's own allow filters is trusted as it is.
+        Assert.Equal(appRule, AllowReasons.Resolve(filters, Allowed(T0, app: @"C:\Apps\other.exe") with { FilterId = 10 }));
+    }
+
+    [Fact]
+    public void LoopbackIsRecognizedWithoutTheEventFlag()
+    {
+        var local = new IPEndPoint(IPAddress.Parse("192.168.1.10"), 50000);
+        Assert.True(AllowReasons.IsLoopback(false, local, new IPEndPoint(IPAddress.Loopback, 80)));
+        Assert.True(AllowReasons.IsLoopback(false, local, new IPEndPoint(IPAddress.IPv6Loopback, 80)));
+        Assert.True(AllowReasons.IsLoopback(false, local, new IPEndPoint(IPAddress.Parse("192.168.1.10"), 80)));   // its own address
+        Assert.False(AllowReasons.IsLoopback(false, local, new IPEndPoint(IPAddress.Parse("203.0.113.5"), 80)));
+        Assert.True(AllowReasons.IsLoopback(true, null, null));
+    }
+
+    [Fact]
     public void AllowedConnectionsAreSummedPerMinute()
     {
         var summaries = AllowedSummary.Aggregate(

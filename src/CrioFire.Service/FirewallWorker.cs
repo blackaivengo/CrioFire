@@ -74,7 +74,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                             var allowed = recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths), now);
                             if (allowed.Count > 0)
                             {
-                                allowedLog.AppendSummaries(AllowedSummary.Aggregate(NameServices(allowed)));
+                                allowedLog.AppendSummaries(AllowedSummary.Aggregate(NameServices(allowed, engine.ListFilters())));
                             }
                         }
                         catch (EntryPointNotFoundException ex)
@@ -101,7 +101,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
     }
 
     /// <summary>For svchost.exe connections: finds which service owns the socket, when it is still open.</summary>
-    private static IReadOnlyList<AllowedConnection> NameServices(IReadOnlyList<AllowedConnection> allowed)
+    private static IReadOnlyList<AllowedConnection> NameServices(IReadOnlyList<AllowedConnection> allowed, IReadOnlyList<CrioFireFilter> filters)
     {
         if (!allowed.Any(a => KnownApps.IsServiceHost(a.AppPath)))
         {
@@ -120,10 +120,12 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             return allowed;
         }
 
+        // With the service known, a service rule may turn out to be what allowed it.
         return allowed
             .Select(a => KnownApps.IsServiceHost(a.AppPath)
                 ? a with { Service = ServiceAttribution.Find(table, services, a.Protocol, a.Local, a.Remote) }
                 : a)
+            .Select(a => a.Service is null ? a : a with { Rule = AllowReasons.Resolve(filters, a) })
             .ToList();
     }
 
