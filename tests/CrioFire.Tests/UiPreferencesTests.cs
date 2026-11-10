@@ -72,6 +72,22 @@ public class AutostartCommandTests
         Assert.Equal($"\"{Exe}\" --tray", AutostartCommand.For(Exe));
 
     [Fact]
+    public void MachineEntryIsMarked()
+    {
+        Assert.Equal($"\"{Exe}\" --tray --machine", AutostartCommand.ForMachine(Exe));
+        Assert.True(AutostartCommand.Points(AutostartCommand.ForMachine(Exe), Exe));
+    }
+
+    [Fact]
+    public void RemembersOptingOutOfTheMachineWideStart()
+    {
+        var p = UiPreferences.Parse(string.Empty);
+        Assert.False(p.AutostartOff);
+        p.AutostartOff = true;
+        Assert.True(UiPreferences.Parse(p.Format()).AutostartOff);
+    }
+
+    [Fact]
     public void RecognizesItsOwnRunValue()
     {
         Assert.True(AutostartCommand.Points(AutostartCommand.For(Exe), Exe));

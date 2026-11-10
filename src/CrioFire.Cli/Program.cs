@@ -27,22 +27,34 @@ switch (command.Kind)
 
 try
 {
-    // install and uninstall always talk to the filtering engine directly (administrator only).
-    if (command.Kind is CommandKind.Install or CommandKind.Uninstall)
+    // install, uninstall and setup always talk to the filtering engine directly (administrator only).
+    if (command.Kind is CommandKind.Install or CommandKind.Uninstall or CommandKind.Setup)
     {
-        using var engine = WfpEngine.Open();
-        if (command.Kind == CommandKind.Install)
+        using (var engine = WfpEngine.Open())
         {
+            if (command.Kind == CommandKind.Uninstall)
+            {
+                engine.Uninstall();
+                Console.WriteLine("All CrioFire rules removed and CrioFire unregistered.");
+                if (command.RemoveData)
+                {
+                    RemoveDataFolder();
+                }
+
+                return 0;
+            }
+
             engine.Install();
             Console.WriteLine("CrioFire is registered with the Windows Filtering Platform.");
-        }
-        else
-        {
-            engine.Uninstall();
-            Console.WriteLine("All CrioFire rules removed and CrioFire unregistered.");
+            if (command.Kind == CommandKind.Install)
+            {
+                return 0;
+            }
         }
 
-        return 0;
+        // setup: also the starting mode chosen in the installer (no confirmation: nobody is at a prompt).
+        using var setupApi = Backend.Connect() ?? throw new InvalidOperationException("setup needs an administrator prompt.");
+        return SetMode(setupApi, command with { Kind = CommandKind.ModeSet, Yes = true });
     }
 
     // Everything else goes through the API: in-process when elevated (works even if the service
@@ -185,6 +197,23 @@ static int Run(Backend api, Command command)
         default:
             Console.Error.WriteLine(CommandLine.Usage);
             return 2;
+    }
+}
+
+static void RemoveDataFolder()
+{
+    var folder = Path.GetDirectoryName(TrafficLog.DefaultPath)!;
+    try
+    {
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+            Console.WriteLine($"Deleted {folder}.");
+        }
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine($"Could not delete {folder}: {ex.Message}");
     }
 }
 

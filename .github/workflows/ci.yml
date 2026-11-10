@@ -56,3 +56,41 @@ jobs:
           name: criofire-ci-${{ matrix.arch }}
           path: out/${{ matrix.arch }}
           retention-days: 7
+
+  installer:
+    name: Build and test installers (MSI)
+    needs: build-and-test
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: criofire-ci-*
+          path: out
+
+      - name: Build x64 and ARM64 MSIs (unsigned)
+        shell: pwsh
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            ./build/package-msi.ps1 -Arch $arch -Version "0.0.${{ github.run_number }}" -PublishDir "out/criofire-ci-$arch"
+          }
+
+      # Install the x64 MSI on the runner, check that everything is in place, then uninstall and
+      # check that nothing is left. Learning mode, so the runner's own connections keep working.
+      - name: Install, check and uninstall the x64 MSI
+        shell: pwsh
+        run: ./build/test-msi.ps1 -Msi (Get-Item out/msi/criofire-*-x64.msi).FullName
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: criofire-ci-msi
+          path: |
+            out/msi/*.msi
+            out/msi/*.log
+          retention-days: 7

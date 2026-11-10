@@ -36,6 +36,16 @@ public sealed class UiPreferences
         set => _values["trayHintShown"] = value ? "true" : "false";
     }
 
+    /// <summary>
+    /// The user turned off starting at sign-in although the installer turned it on for everyone
+    /// (the machine-wide Run entry stays; the app exits at once for this user).
+    /// </summary>
+    public bool AutostartOff
+    {
+        get => GetBool("autostartOff", false);
+        set => _values["autostartOff"] = value ? "true" : "false";
+    }
+
     /// <summary>The user has been asked once whether CrioFire should start with Windows.</summary>
     public bool AutostartAsked
     {
@@ -117,10 +127,15 @@ public sealed class UiPreferences
 public static class AutostartCommand
 {
     public const string TrayArgument = "--tray";
+
+    /// <summary>Added by the installer's machine-wide (HKLM) entry, so a user can opt out of it.</summary>
+    public const string MachineArgument = "--machine";
     public const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     public const string ValueName = "CrioFire";
 
     public static string For(string exePath) => $"\"{exePath}\" {TrayArgument}";
+
+    public static string ForMachine(string exePath) => $"\"{exePath}\" {TrayArgument} {MachineArgument}";
 
     /// <summary>True if a Run value starts this executable (quoted or not, any arguments).</summary>
     public static bool Points(string? command, string exePath)

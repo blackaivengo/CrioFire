@@ -5,8 +5,8 @@ under your control. Built by CrioSoft LLC with C# and .NET 10. Source-available:
 use, non-profits, schools, government and businesses on up to 3 computers; other business use needs
 a yearly license per computer (see [LICENSING.md](LICENSING.md)).
 
-> **Status: pre-release.** The service, command line and desktop app work end to end through the
-> Windows Filtering Platform (WFP), but there is no signed release or installer yet. Do not rely on
+> **Status: pre-release.** The service, command line, desktop app and installer work end to end
+> through the Windows Filtering Platform (WFP), but there is no signed release yet. Do not rely on
 > it for protection yet.
 
 ## What's here
@@ -31,6 +31,13 @@ dotnet build CrioFire.slnx -c Release
 dotnet test CrioFire.slnx -c Release
 ./build/publish.ps1 -Arch x64      # or arm64; output in out\x64
 ```
+
+## Install
+
+Download `criofire-<version>-x64.msi` (or `-arm64.msi` for ARM PCs) from the GitHub Releases page
+and run it. Setup asks how CrioFire should start (Learning, Ask or Allow-list), whether to allow the
+programs already running, and whether to start the app at sign-in. Silent installs and all options:
+see [installer/README.md](installer/README.md). Uninstalling removes every CrioFire rule.
 
 ## Try the prototype
 

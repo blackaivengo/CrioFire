@@ -139,6 +139,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Windows is ending the session (or an installer asks the app to close): don't hide in the tray.</summary>
+    internal void PrepareToExit() => _exiting = true;
+
     /// <summary>Closes the app for good. The service keeps filtering.</summary>
     internal void ExitApp()
     {

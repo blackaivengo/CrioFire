@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CrioFire Private Firewall installer (WiX v7).
+
+  Installs to %ProgramFiles%\CrioFire, registers and starts the "criofire" service, registers
+  CrioFire with the Windows Filtering Platform and sets the starting mode chosen on the "Setup
+  options" page (or by msiexec properties when silent), adds criofire.exe to PATH, a Start menu
+  shortcut and, if chosen, starts the app in the notification area when anyone signs in.
+  Uninstall removes every CrioFire filter, the provider and sublayer, and %ProgramData%\criofire.
+
+  Silent install examples:
+    msiexec /i criofire-0.1.0-x64.msi /qn
+    msiexec /i criofire-0.1.0-x64.msi /qn CRIOFIRE_MODE=ask CRIOFIRE_ALLOW_RUNNING=1 CRIOFIRE_AUTOSTART=1
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="CrioFire Private Firewall"
+           Manufacturer="CrioSoft LLC"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="198d2f7e-447b-44b2-93b5-0da622466caa"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="CrioFire Private Firewall" Manufacturer="CrioSoft LLC" />
+    <!-- Same-version upgrades too: v0.1.0-beta.1 and v0.1.0 both map to MSI version 0.1.0. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Launch Condition="Installed OR VersionNT64 &gt;= 603"
+            Message="CrioFire Private Firewall needs 64-bit Windows. Windows 10 and Windows 11 are supported." />
+
+    <Icon Id="CrioFireIcon" SourceFile="$(var.AppIcon)" />
+    <Property Id="ARPPRODUCTICON" Value="CrioFireIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/blackaivengo/CrioFire" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/blackaivengo/CrioFire/issues" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="Assets\Banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="Assets\Dialog.bmp" />
+
+    <!--
+      Setup options. The UI page edits these; msiexec can set them for silent installs.
+      The checkbox defaults are set by SetProperty (not in the Property table) so that an
+      unticked box really reaches the elevated part of the install as "off".
+    -->
+    <Property Id="CRIOFIRE_MODE" Value="learning" Secure="yes" />
+    <Property Id="CRIOFIRE_ALLOW_RUNNING" Secure="yes" />
+    <Property Id="CRIOFIRE_AUTOSTART" Secure="yes" />
+
+    <Property Id="CRIOFIRE_EXISTING_RUN">
+      <RegistrySearch Id="ExistingRunEntry" Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                      Name="CrioFire" Type="raw" Bitness="always64" />
+    </Property>
+    <SetProperty Id="CRIOFIRE_ALLOW_RUNNING" Action="SetDefaultAllowRunning" Value="1" After="AppSearch" Sequence="first"
+                 Condition="NOT CRIOFIRE_ALLOW_RUNNING AND NOT WIX_UPGRADE_DETECTED" />
+    <!-- Default on for a fresh install; on upgrade keep the earlier choice (whether the Run entry exists). -->
+    <SetProperty Id="CRIOFIRE_AUTOSTART" Action="SetDefaultAutostart" Value="1" After="AppSearch" Sequence="first"
+                 Condition="NOT CRIOFIRE_AUTOSTART AND (NOT WIX_UPGRADE_DETECTED OR CRIOFIRE_EXISTING_RUN)" />
+
+    <!-- Remember a custom install folder for upgrades. -->
+    <Property Id="INSTALLFOLDER" Secure="yes" />
+    <Property Id="CRIOFIRE_SAVED_INSTALLDIR">
+      <RegistrySearch Id="ExistingInstallFolder" Root="HKLM" Key="Software\CrioSoft\CrioFire" Name="InstallDir"
+                      Type="raw" Bitness="always64" />
+    </Property>
+    <SetDirectory Id="INSTALLFOLDER" Value="[CRIOFIRE_SAVED_INSTALLDIR]" Sequence="first" Condition="CRIOFIRE_SAVED_INSTALLDIR" />
+
+    <!--
+      Close the app (it lives in the notification area) before its files are replaced or removed.
+      It exits on the end-session message; if it does not within the timeout, it is ended.
+    -->
+    <util:CloseApplication Id="CloseCrioFireUi" Target="criofire-ui.exe" CloseMessage="no" EndSessionMessage="yes"
+                           TerminateProcess="0" Timeout="5" RebootPrompt="no" />
+
+    <!-- "Open CrioFire now" on the last page. -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open CrioFire Private Firewall now" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#UiExe]" />
+    <CustomAction Id="LaunchApp" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixShellExec" Impersonate="yes" Return="ignore" />
+
+    <UIRef Id="CrioFireUI" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CrioFire" />
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATAFOLDER" Name="criofire" />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="CrioFire Private Firewall" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="DataFolder" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="AutostartEntry" />
+    </Feature>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <!-- Everything dotnet publish produced (the self-contained .NET runtime and CrioFire's assemblies)... -->
+      <Files Include="$(var.PublishDir)\**">
+        <!-- ...except the three programs, which get components of their own below. -->
+        <Exclude Files="$(var.PublishDir)\criofire.exe" />
+        <Exclude Files="$(var.PublishDir)\criofire-svc.exe" />
+        <Exclude Files="$(var.PublishDir)\criofire-ui.exe" />
+      </Files>
+
+      <Component Id="CliExe">
+        <File Id="CliExe" Source="$(var.PublishDir)\criofire.exe" KeyPath="yes" />
+        <Environment Id="PathEntry" Name="PATH" Value="[INSTALLFOLDER]" Part="last" Action="set" System="yes" />
+        <RegistryValue Root="HKLM" Key="Software\CrioSoft\CrioFire" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" />
+      </Component>
+
+      <Component Id="ServiceExe">
+        <File Id="ServiceExe" Source="$(var.PublishDir)\criofire-svc.exe" KeyPath="yes" />
+        <ServiceInstall Id="CrioFireService"
+                        Name="criofire"
+                        DisplayName="CrioFire Private Firewall"
+                        Description="Enforces CrioFire Private Firewall rules through the Windows Filtering Platform."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem"
+                        Vital="yes">
+          <ServiceDependency Id="BFE" />
+          <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="5" ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="CrioFireServiceControl" Name="criofire" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+
+      <Component Id="UiExe">
+        <File Id="UiExe" Source="$(var.PublishDir)\criofire-ui.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- %ProgramData%\criofire (traffic log, temporary rules): SYSTEM and Administrators full control, Users read-only. -->
+    <Component Id="DataFolder" Directory="DATAFOLDER" Guid="d5246856-0501-42b0-9704-d448fe36e3ec">
+      <CreateFolder>
+        <PermissionEx Sddl="D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)" />
+      </CreateFolder>
+    </Component>
+
+    <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Guid="89e10885-8f16-4012-a8d9-62cafdfde1f7">
+      <Shortcut Id="AppShortcut"
+                Name="CrioFire Private Firewall"
+                Description="See what talks to the network, and allow or block it"
+                Target="[#UiExe]"
+                Icon="CrioFireIcon"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKLM" Key="Software\CrioSoft\CrioFire" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- Starts the app in the notification area for every user at sign-in, if chosen. Each user can turn it off in Settings. -->
+    <Component Id="AutostartEntry" Directory="INSTALLFOLDER" Condition="CRIOFIRE_AUTOSTART = &quot;1&quot;">
+      <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="CrioFire"
+                     Type="string" Value="&quot;[#UiExe]&quot; --tray --machine" KeyPath="yes" />
+    </Component>
+
+    <!--
+      Fresh install: register CrioFire with the Windows Filtering Platform and set the starting
+      mode (optionally allowing the programs running now). An upgrade keeps rules and mode as they
+      are. Runs elevated, after the files are in place.
+    -->
+    <SetProperty Id="CA_Setup" Action="SetSetupCommand" Sequence="execute" Before="CA_Setup"
+                 Condition="CRIOFIRE_ALLOW_RUNNING &lt;&gt; &quot;1&quot;"
+                 Value="&quot;[INSTALLFOLDER]criofire.exe&quot; setup --mode &quot;[CRIOFIRE_MODE]&quot;" />
+    <SetProperty Id="CA_Setup" Action="SetSetupCommandAllowRunning" Sequence="execute" Before="CA_Setup"
+                 Condition="CRIOFIRE_ALLOW_RUNNING = &quot;1&quot;"
+                 Value="&quot;[INSTALLFOLDER]criofire.exe&quot; setup --mode &quot;[CRIOFIRE_MODE]&quot; --allow-running" />
+    <CustomAction Id="CA_Setup" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixQuietExec"
+                  Execute="deferred" Impersonate="no" Return="check" />
+
+    <!-- If a fresh install fails after setup ran, remove what it registered. -->
+    <SetProperty Id="CA_SetupRollback" Sequence="execute" Before="CA_SetupRollback"
+                 Value="&quot;[INSTALLFOLDER]criofire.exe&quot; uninstall --remove-data" />
+    <CustomAction Id="CA_SetupRollback" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixQuietExec"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+
+    <!--
+      Full uninstall (not an upgrade): remove every CrioFire filter, the provider and sublayer,
+      and %ProgramData%\criofire. Never blocks the uninstall if it fails.
+    -->
+    <SetProperty Id="CA_Uninstall" Sequence="execute" Before="CA_Uninstall"
+                 Value="&quot;[INSTALLFOLDER]criofire.exe&quot; uninstall --remove-data" />
+    <CustomAction Id="CA_Uninstall" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixQuietExec"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <!-- Close the app before the files-in-use check and before an upgrade removes the old version. -->
+      <Custom Action="override Wix4CloseApplications_$(sys.BUILDARCHSHORT)" Before="InstallValidate" Condition="VersionNT &gt; 400" />
+      <Custom Action="CA_SetupRollback" Before="CA_Setup" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE" />
+      <Custom Action="CA_Setup" After="InstallFiles" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE" />
+      <Custom Action="CA_Uninstall" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

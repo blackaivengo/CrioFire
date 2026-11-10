@@ -68,6 +68,12 @@ jobs:
       contents: write   # create the draft GitHub Release
       id-token: write   # OpenID Connect token for Azure (no stored signing secret)
     steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
       - uses: actions/download-artifact@v4
         with:
           pattern: unsigned-*
@@ -94,13 +100,32 @@ jobs:
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
+      - name: Build MSIs from the signed binaries
+        shell: pwsh
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            ./build/package-msi.ps1 -Arch $arch -Version '${{ github.ref_name }}' -PublishDir "out/unsigned-$arch"
+          }
+
+      - name: Sign the MSIs with Azure Artifact Signing
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\out\msi
+          files-folder-filter: msi
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
       - name: Verify signatures
         shell: pwsh
         env:
           # The publisher name exactly as it appears on the certificate (set in the environment's variables).
           EXPECTED_PUBLISHER: ${{ vars.EXPECTED_PUBLISHER || 'CrioSoft LLC' }}
         run: |
-          $files = Get-ChildItem out -Recurse -Include 'criofire*.exe', 'criofire*.dll', 'CrioFire.*.dll'
+          $files = Get-ChildItem out -Recurse -Include 'criofire*.exe', 'criofire*.dll', 'CrioFire.*.dll', 'criofire-*.msi'
           if ($files.Count -eq 0) { throw 'No CrioFire binaries found.' }
           foreach ($f in $files) {
             $sig = Get-AuthenticodeSignature $f.FullName
@@ -115,9 +140,10 @@ jobs:
           $ver = '${{ github.ref_name }}'.TrimStart('v')
           New-Item -ItemType Directory -Force dist | Out-Null
           foreach ($arch in 'x64', 'arm64') {
-            Compress-Archive -Path "out/unsigned-$arch/*" -DestinationPath "dist/criofire-$ver-$arch.zip"
+            Compress-Archive -Path "out/unsigned-$arch/*" -DestinationPath "dist/criofire-$ver-$arch-portable.zip"
           }
-          Get-ChildItem dist -Filter *.zip | ForEach-Object {
+          Copy-Item out/msi/*.msi dist/
+          Get-ChildItem dist -Include *.zip, *.msi -Recurse | ForEach-Object {
             "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
           } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
 

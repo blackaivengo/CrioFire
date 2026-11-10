@@ -17,26 +17,28 @@ internal static class Prefs
     public static void Save() => Current.Save();
 }
 
-/// <summary>Start the app quietly in the tray when the user signs in (HKCU Run key).</summary>
+/// <summary>
+/// Start the app quietly in the tray when the user signs in. The installer may add a machine-wide
+/// entry (HKLM Run, with --machine) for everyone; a user turns that off for themselves with a
+/// preference. Otherwise the user's own entry (HKCU Run) is used.
+/// </summary>
 internal static class Autostart
 {
     private static string ExePath => Environment.ProcessPath ?? string.Empty;
 
-    public static bool IsEnabled
-    {
-        get
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(AutostartCommand.RunKey);
-            return AutostartCommand.Points(key?.GetValue(AutostartCommand.ValueName) as string, ExePath);
-        }
-    }
+    public static bool MachineEntryExists => Points(Registry.LocalMachine);
+
+    public static bool IsEnabled => Points(Registry.CurrentUser) || (MachineEntryExists && !Prefs.Current.AutostartOff);
 
     public static bool Set(bool enabled)
     {
         try
         {
+            var machine = MachineEntryExists;
+            Prefs.Current.AutostartOff = !enabled && machine;
+            Prefs.Save();
             using var key = Registry.CurrentUser.CreateSubKey(AutostartCommand.RunKey);
-            if (enabled)
+            if (enabled && !machine)
             {
                 key.SetValue(AutostartCommand.ValueName, AutostartCommand.For(ExePath));
             }
@@ -51,6 +53,12 @@ internal static class Autostart
         {
             return false;
         }
+    }
+
+    private static bool Points(RegistryKey hive)
+    {
+        using var key = hive.OpenSubKey(AutostartCommand.RunKey);
+        return AutostartCommand.Points(key?.GetValue(AutostartCommand.ValueName) as string, ExePath);
     }
 }
 

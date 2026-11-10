@@ -202,3 +202,44 @@ public class NetRuleCommandTests
         Assert.Null(c.Net);
     }
 }
+
+public class InstallerCommandTests
+{
+    [Fact]
+    public void SetupDefaultsToLearning()
+    {
+        var c = CommandLine.Parse(["setup"], out var error);
+        Assert.Null(error);
+        Assert.Equal(CommandKind.Setup, c.Kind);
+        Assert.Equal(FirewallMode.Learning, c.Mode);
+        Assert.False(c.AllowRunning);
+        Assert.True(c.Yes);
+    }
+
+    [Fact]
+    public void SetupTakesModeAndAllowRunning()
+    {
+        var c = CommandLine.Parse(["setup", "--mode", "ask", "--allow-running"], out var error);
+        Assert.Null(error);
+        Assert.Equal(FirewallMode.Ask, c.Mode);
+        Assert.True(c.AllowRunning);
+    }
+
+    [Theory]
+    [InlineData("setup", "--mode")]
+    [InlineData("setup", "--mode", "loud")]
+    [InlineData("setup", "--yes")]
+    [InlineData("uninstall", "--everything")]
+    public void RejectsBadInstallerArguments(params string[] args)
+    {
+        CommandLine.Parse(args, out var error);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void UninstallCanRemoveData()
+    {
+        Assert.True(CommandLine.Parse(["uninstall", "--remove-data"], out _).RemoveData);
+        Assert.False(CommandLine.Parse(["uninstall"], out _).RemoveData);
+    }
+}

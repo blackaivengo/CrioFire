@@ -18,6 +18,7 @@ public enum CommandKind
     Allow,
     ModeShow,
     ModeSet,
+    Setup,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -27,6 +28,7 @@ public enum CommandKind
 /// <param name="AllowRunning">mode: also allow every program running right now.</param>
 /// <param name="ExpiresMinutes">allow/block --for N: the rule is removed again after N minutes.</param>
 /// <param name="Net">allow/block with --port, --addr, --tcp or --udp: a network rule (program optional).</param>
+/// <param name="RemoveData">uninstall --remove-data: also delete %ProgramData%\criofire (logs, temporary rules).</param>
 public sealed record Command(
     CommandKind Kind,
     string? AppPath = null,
@@ -38,7 +40,8 @@ public sealed record Command(
     bool Yes = false,
     bool AllowRunning = false,
     int? ExpiresMinutes = null,
-    NetRule? Net = null);
+    NetRule? Net = null,
+    bool RemoveData = false);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -81,7 +84,11 @@ internal static class CommandLine
                                                Show connections CrioFire blocked (default: last 10 minutes;
                                                --all also shows drops by other firewalls)
           criofire panic                       Recovery: remove every CrioFire rule at once
-          criofire uninstall                   Remove all rules and unregister CrioFire
+          criofire uninstall [--remove-data]   Remove all rules and unregister CrioFire
+                                               (--remove-data also deletes %ProgramData%\criofire)
+          criofire setup [--mode <mode>] [--allow-running]
+                                               Used by the installer: register CrioFire and set the
+                                               starting mode without asking
           criofire --version
 
         install and uninstall need an administrator prompt. Everything else also works from a
@@ -106,6 +113,10 @@ internal static class CommandLine
                 return new Command(CommandKind.Help);
             case "--version" or "version":
                 return new Command(CommandKind.Version);
+            case "uninstall" when rest.Length == 1 && rest[0].Equals("--remove-data", StringComparison.OrdinalIgnoreCase):
+                return new Command(CommandKind.Uninstall, RemoveData: true);
+            case "setup":
+                return ParseSetup(rest, out error);
             case "status":
             case "install":
             case "uninstall":
@@ -180,6 +191,31 @@ internal static class CommandLine
         }
 
         return new Command(CommandKind.ModeSet, Mode: mode, Yes: yes, AllowRunning: allowRunning);
+    }
+
+    private static Command ParseSetup(string[] rest, out string? error)
+    {
+        error = null;
+        var mode = FirewallMode.Learning;
+        var allowRunning = false;
+        for (var i = 0; i < rest.Length; i++)
+        {
+            switch (rest[i].ToLowerInvariant())
+            {
+                case "--mode" when i + 1 < rest.Length && FilterDescriptions.TryParseMode(rest[i + 1], out var m):
+                    mode = m;
+                    i++;
+                    break;
+                case "--allow-running":
+                    allowRunning = true;
+                    break;
+                default:
+                    error = "Usage: criofire setup [--mode learning|ask|allowlist] [--allow-running]";
+                    return new Command(CommandKind.Help);
+            }
+        }
+
+        return new Command(CommandKind.Setup, Mode: mode, AllowRunning: allowRunning, Yes: true);
     }
 
     private static Command ParseEvents(string[] rest, out string? error)

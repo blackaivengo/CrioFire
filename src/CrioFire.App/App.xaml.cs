@@ -15,6 +15,18 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Started by the installer's machine-wide entry, but this user turned starting at sign-in off.
+        if (e.Args.Any(a => string.Equals(a, AutostartCommand.MachineArgument, StringComparison.OrdinalIgnoreCase)) && Prefs.Current.AutostartOff)
+        {
+            Shutdown();
+            return;
+        }
+
+        // Signing out, or the installer closing the app to replace its files: really exit,
+        // instead of hiding in the tray.
+        SessionEnding += (_, _) => (MainWindow as MainWindow)?.PrepareToExit();
+
         _instance = new SingleInstance();
         if (!_instance.IsFirst)
         {

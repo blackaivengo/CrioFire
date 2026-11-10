@@ -1,0 +1,26 @@
+<Project Sdk="WixToolset.Sdk">
+  <!--
+    Builds criofire-<version>-<arch>.msi from an already published folder (see build/package-msi.ps1).
+    WiX Toolset v7 is used under its Open Source Maintenance Fee EULA, accepted by CrioSoft LLC
+    (revenue-generating users above the EULA's threshold pay the monthly maintenance fee).
+  -->
+  <PropertyGroup>
+    <AcceptEula>wix7</AcceptEula>
+
+    <InstallerPlatform Condition="'$(InstallerPlatform)' == ''">x64</InstallerPlatform>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.1.0</ProductVersion>
+    <CrioFirePublishDir Condition="'$(CrioFirePublishDir)' == ''">$(MSBuildThisFileDirectory)..\out\$(InstallerPlatform)</CrioFirePublishDir>
+
+    <OutputName>criofire-$(ProductVersion)-$(InstallerPlatform)</OutputName>
+    <!-- Separate intermediate folders, so building x64 then arm64 does not skip the second build. -->
+    <IntermediateOutputPath>obj\$(InstallerPlatform)\$(Configuration)\</IntermediateOutputPath>
+    <!-- ICE61: same-version upgrades are allowed on purpose (prerelease builds share MSI versions). -->
+    <SuppressIces>ICE61</SuppressIces>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(CrioFirePublishDir);AppIcon=$(MSBuildThisFileDirectory)..\src\CrioFire.App\Assets\criofire.ico</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" />
+    <PackageReference Include="WixToolset.Util.wixext" />
+  </ItemGroup>
+</Project>
