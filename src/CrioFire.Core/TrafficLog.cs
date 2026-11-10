@@ -37,7 +37,7 @@ public sealed class TrafficLog
         AppendLines(connections.Select(c => c.ToJsonLine()));
     }
 
-    public void Append(IEnumerable<AllowedSummary> summaries)
+    public void AppendSummaries(IEnumerable<AllowedSummary> summaries)
     {
         ArgumentNullException.ThrowIfNull(summaries);
         AppendLines(summaries.Select(s => s.ToJsonLine()));

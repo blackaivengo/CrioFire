@@ -58,7 +58,7 @@ public sealed class VisibilityTests : IDisposable
         var log = new TrafficLog(Path.Combine(Path.GetTempPath(), $"criofire-allowed-{Guid.NewGuid():N}.log"));
         try
         {
-            log.Append(AllowedSummary.Aggregate([e, e2]));
+            log.AppendSummaries(AllowedSummary.Aggregate([e, e2]));
             var handler = new ApiHandler(engine, allowedLog: log);
             var response = handler.Handle(new ApiRequest { Op = ApiOps.Allowed, Minutes = 10, IncludeLoopback = true }, canWrite: false);
             Assert.True(response.Ok, response.Error);

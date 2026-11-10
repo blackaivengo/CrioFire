@@ -74,7 +74,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                             var allowed = recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths), now);
                             if (allowed.Count > 0)
                             {
-                                allowedLog.Append(AllowedSummary.Aggregate(NameServices(allowed)));
+                                allowedLog.AppendSummaries(AllowedSummary.Aggregate(NameServices(allowed)));
                             }
                         }
                         catch (EntryPointNotFoundException ex)

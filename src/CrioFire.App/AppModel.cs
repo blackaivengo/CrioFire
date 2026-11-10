@@ -125,13 +125,9 @@ internal sealed class AppModel
         if (!enabled)
         {
             var warning = name == AutoRulePolicy.WindowsServices
-                ? "Windows services such as DNS (name lookups), DHCP and Windows Update will need their own rules. Until you add them, programs without a rule may not reach anything by name.
-
-Tip: block or allow single services under Rules instead."
+                ? "Windows services such as DNS (name lookups), DHCP and Windows Update will need their own rules. Until you add them, programs without a rule may not reach anything by name.\n\nTip: block or allow single services under Rules instead."
                 : "Kernel traffic such as file and printer sharing (SMB) and NetBIOS will need its own rule.";
-            var choice = ChoiceDialog.Ask(owner, $"Stop allowing {what} automatically?", warning + "
-
-This applies in Ask and Allow-list modes.",
+            var choice = ChoiceDialog.Ask(owner, $"Stop allowing {what} automatically?", warning + "\n\nThis applies in Ask and Allow-list modes.",
                 ["Stop allowing automatically", "Cancel"], defaultIndex: 1, danger: true);
             if (choice != 0)
             {

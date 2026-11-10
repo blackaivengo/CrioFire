@@ -52,7 +52,7 @@ public partial class DashboardPage : UserControl, IPage
             .Where(c => c.State == "Established")
             .OrderBy(c => c.ProcessPath, StringComparer.OrdinalIgnoreCase)
             .Take(6)
-            .Select(LiveRow.From)
+            .Select(c => LiveRow.From(c))
             .ToList();
 
         var report = _model.Status is null ? null : Service.Call(new ApiRequest { Op = ApiOps.Report, Period = ReportBuilder.Day }, out _)?.Report;
