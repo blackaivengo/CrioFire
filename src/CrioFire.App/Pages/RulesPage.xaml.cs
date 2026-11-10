@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using CrioFire.Core;
+using CrioFire.Core.Api;
 using Microsoft.Win32;
 
 namespace CrioFire.App.Pages;
@@ -39,7 +41,7 @@ public partial class RulesPage : UserControl, IPage
                 return new RuleRow(
                     allow ? "Allow" : "Block",
                     r.Direction switch { "in" => "Inbound", "both" => "Both", _ => "Outbound" },
-                    Bars.Name(r.App),
+                    KnownApps.DisplayName(r.App),
                     r.App ?? r.Name,
                     r.ExpiresUtc is DateTime t ? Fmt.Time(t) : "always",
                     allow ? chipIce : chipFire,
@@ -75,10 +77,95 @@ public partial class RulesPage : UserControl, IPage
         NetTable.ItemsSource = netRows;
         NetEmpty.Visibility = netRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
+        var displayNames = ServiceDisplayNames();
+        var serviceRows = _model.ServiceRules
+            .OrderBy(r => r.Action)
+            .ThenBy(r => r.Service, StringComparer.OrdinalIgnoreCase)
+            .Select(r =>
+            {
+                var allow = r.Action == "allow";
+                var service = r.Service ?? "?";
+                return new ServiceRuleRow(
+                    allow ? "Allow" : "Block",
+                    Who.Direction(r.Direction),
+                    service,
+                    displayNames.TryGetValue(service, out var display) ? display : service,
+                    allow ? chipIce : chipFire,
+                    allow ? chipIceText : chipFireText);
+            })
+            .ToList();
+        ServiceTable.ItemsSource = serviceRows;
+        ServiceEmpty.Visibility = serviceRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        AutoList.ItemsSource = AutoRows();
+
         var allowed = rows.Count(r => r.Action == "Allow");
         Subtitle = _model.Status is null
             ? (_model.Error ?? "The CrioFire service is not running.")
-            : $"{allowed} programs allowed, {rows.Count - allowed} blocked, {netRows.Count} network rules.";
+            : $"{allowed} programs allowed, {rows.Count - allowed} blocked, {netRows.Count} network rules, {serviceRows.Count} service rules.";
+    }
+
+    private List<AutoRuleRow> AutoRows()
+    {
+        var learning = _model.Mode == "learning";
+        string State(AutoRuleInfo? r) => r is null ? "unknown" : !r.Enabled ? "Off" : r.Active ? "On" : "On in Ask and Allow-list modes";
+        var services = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.WindowsServices);
+        var kernel = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.WindowsKernel);
+        var known = _model.Status is not null;
+        return
+        [
+            new AutoRuleRow(AutoRulePolicy.WindowsServices, "Windows services (svchost.exe)",
+                "DNS name lookups, DHCP, Windows Update, time sync and other services hosted in svchost.exe may connect out.",
+                State(services), known, services?.Enabled ?? true),
+            new AutoRuleRow(AutoRulePolicy.WindowsKernel, "Windows kernel (System)",
+                "Kernel-mode traffic such as file and printer sharing (SMB), NetBIOS and ICMP may connect out.",
+                State(kernel), known, kernel?.Enabled ?? true),
+            new AutoRuleRow("loopback", "Local traffic (loopback)",
+                "Programs on this PC may talk to each other over 127.0.0.1 and ::1. A block rule for a program still stops its local traffic too.",
+                "Always on", false, true),
+            new AutoRuleRow("inbound", "Inbound connections",
+                "Connections from other machines are left to Windows Firewall unless you add inbound rules for a program, a service or a port.",
+                "Windows Firewall", false, true),
+            new AutoRuleRow("learning", "Programs without a rule",
+                learning ? "Learning mode: every program without a rule may connect out." : "Blocked in Ask and Allow-list modes.",
+                learning ? "Allowed (Learning mode)" : "Blocked", false, learning),
+        ];
+    }
+
+    private static Dictionary<string, string> ServiceDisplayNames()
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in WindowsServiceList.Read())
+        {
+            result[s.Name] = s.DisplayName;
+        }
+
+        return result;
+    }
+
+    private void OnAutoSwitch(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { Tag: string name } box && AutoRulePolicy.IsKnown(name) && Window.GetWindow(this) is { } owner)
+        {
+            _model.SetAutoRule(owner, name, box.IsChecked == true);
+        }
+    }
+
+    private void OnAddService(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is { } owner && ServiceRuleDialog.Ask(owner) is { } choice)
+        {
+            _model.SetServiceRule(choice.Service, choice.Action, choice.Direction);
+        }
+    }
+
+    private void OnServiceSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (ServiceTable.SelectedItem is not null)
+        {
+            Table.SelectedItem = null;
+            NetTable.SelectedItem = null;
+        }
     }
 
     private void OnAllow(object sender, RoutedEventArgs e) => Add("allow", null);
@@ -109,6 +196,7 @@ public partial class RulesPage : UserControl, IPage
         if (Table.SelectedItem is not null)
         {
             NetTable.SelectedItem = null;
+            ServiceTable.SelectedItem = null;
         }
     }
 
@@ -117,12 +205,17 @@ public partial class RulesPage : UserControl, IPage
         if (NetTable.SelectedItem is not null)
         {
             Table.SelectedItem = null;
+            ServiceTable.SelectedItem = null;
         }
     }
 
     private void OnRemove(object sender, RoutedEventArgs e)
     {
-        if (NetTable.SelectedItem is NetRuleRow net)
+        if (ServiceTable.SelectedItem is ServiceRuleRow service)
+        {
+            _model.RemoveServiceRules(service.Service);
+        }
+        else if (NetTable.SelectedItem is NetRuleRow net)
         {
             _model.RemoveNetRule(net.FilterId, net.Rule);
         }

@@ -7,7 +7,8 @@ namespace CrioFire.Core.Api;
 /// and directly by criofire.exe when it runs elevated (so both paths behave identically).
 /// Thread-safe: requests are handled one at a time.
 /// </summary>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null)
+/// <param name="allowedLog">The service's log of allowed connections (allowed.log), for reports and the allowed list.</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -22,12 +23,12 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             return ApiResponse.Failure("Not allowed: changing rules needs an administrator, or CrioFire's own app or command line.");
         }
 
-        if (request.Op == ApiOps.Report)
+        if (request.Op is ApiOps.Report or ApiOps.Allowed)
         {
-            // Reads only the log file, not the engine: no need to hold up other clients.
+            // Reads only the log files, not the engine: no need to hold up other clients.
             try
             {
-                return Report(request);
+                return request.Op == ApiOps.Report ? Report(request) : Allowed(request);
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException or UnauthorizedAccessException)
             {
@@ -50,6 +51,9 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.SetMode => SetMode(request),
                     ApiOps.Panic => Panic(),
                     ApiOps.AddNetRule => AddNetRule(request),
+                    ApiOps.SetServiceRule => SetServiceRule(request),
+                    ApiOps.RemoveServiceRules => RemoveServiceRules(request),
+                    ApiOps.SetAutoRule => SetAutoRule(request),
                     _ => ApiResponse.Failure($"Unknown operation '{request.Op}'."),
                 };
             }
@@ -89,7 +93,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             "allow" => RuleAction.Allow,
             _ => throw new ArgumentException("action must be block or allow."),
         };
-        var app = Path.GetFullPath(Required(request.App, "app"));
+        var app = KnownApps.Normalize(Required(request.App, "app"));
         var direction = ParseDirection(request.Direction, TrafficDirection.Outbound);
         if (request.ExpiresMinutes is not null && (request.ExpiresMinutes < 1 || request.ExpiresMinutes > 7 * 24 * 60))
         {
@@ -127,9 +131,57 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
 
         var now = DateTime.UtcNow;
         var (from, to, _) = ReportBuilder.Window(period, now, TimeZoneInfo.Local);
-        var events = TrafficHistory.Read(trafficLog, from - (to - from));   // the period before, for the comparison
+        var events = TrafficHistory.Read([trafficLog, allowedLog], from - (to - from));   // the period before, for the comparison
         return new ApiResponse { Ok = true, Report = ReportBuilder.Build(events, period, now) };
     }
+
+    private ApiResponse Allowed(ApiRequest request)
+    {
+        if (allowedLog is null)
+        {
+            throw new InvalidOperationException("The allowed list needs the criofire service, which records allowed connections.");
+        }
+
+        var minutes = request.Minutes is > 0 and <= 43200 ? request.Minutes.Value : 60;
+        var events = TrafficHistory.Read(allowedLog, DateTime.UtcNow.AddMinutes(-minutes));
+        return new ApiResponse { Ok = true, Allowed = AllowedGroup.From(events, request.IncludeLoopback == true) };
+    }
+
+    private ApiResponse SetServiceRule(ApiRequest request)
+    {
+        var action = request.Action?.ToLowerInvariant() switch
+        {
+            "block" => RuleAction.Block,
+            "allow" => RuleAction.Allow,
+            _ => throw new ArgumentException("action must be block or allow."),
+        };
+        var service = Required(request.Service, "service");
+        EnsureInstalled();
+        var ids = engine.SetServiceRule(service, action, ParseDirection(request.Direction, TrafficDirection.Outbound));
+        return new ApiResponse { Ok = true, Count = ids.Count };
+    }
+
+    private ApiResponse RemoveServiceRules(ApiRequest request)
+    {
+        var count = engine.RemoveServiceRules(Required(request.Service, "service"), ParseDirection(request.Direction, TrafficDirection.Both));
+        return new ApiResponse { Ok = true, Count = count };
+    }
+
+    private ApiResponse SetAutoRule(ApiRequest request)
+    {
+        var name = Required(request.AutoRule, "autoRule").ToLowerInvariant();
+        if (!AutoRulePolicy.IsKnown(name))
+        {
+            throw new ArgumentException($"autoRule must be one of: {string.Join(", ", AutoRulePolicy.Names)}.");
+        }
+
+        EnsureInstalled();
+        engine.SetAutoRule(name, request.Enabled ?? throw new ArgumentException("enabled is required."));
+        return new ApiResponse { Ok = true, AutoRules = AutoRules() };
+    }
+
+    private List<AutoRuleInfo> AutoRules() =>
+        engine.GetAutoRules().Select(r => new AutoRuleInfo(r.Name, r.Enabled, r.Active)).ToList();
 
     private ApiResponse Panic()
     {
@@ -149,14 +201,14 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 : null;
             return expiry is null ? info : info with { ExpiresUtc = expiry.ExpiresUtc };
         });
-        return new ApiResponse { Ok = true, Rules = rules.ToList() };
+        return new ApiResponse { Ok = true, Rules = rules.ToList(), AutoRules = AutoRules() };
     }
 
     private ApiResponse RemoveRules(ApiRequest request)
     {
         var app = Required(request.App, "app");
         var count = engine.RemoveAppRules(app, ParseDirection(request.Direction, TrafficDirection.Both));
-        temporaryRules?.Remove(Path.GetFullPath(app));
+        temporaryRules?.Remove(KnownApps.Normalize(app));
         return new ApiResponse { Ok = true, Count = count };
     }
 

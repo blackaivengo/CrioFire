@@ -19,9 +19,14 @@ public static class ApiOps
     public const string Panic = "panic";
     public const string Report = "report";
     public const string AddNetRule = "addNetRule";
+    public const string Allowed = "allowed";
+    public const string SetServiceRule = "setServiceRule";
+    public const string RemoveServiceRules = "removeServiceRules";
+    public const string SetAutoRule = "setAutoRule";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
-    public static bool IsWrite(string op) => op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule;
+    public static bool IsWrite(string op) =>
+        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule;
 }
 
 public sealed record ApiRequest
@@ -66,6 +71,18 @@ public sealed record ApiRequest
 
     /// <summary>addNetRule: remote addresses, CIDR blocks or ranges, e.g. "10.0.0.0/8,203.0.113.5".</summary>
     public string? Addresses { get; init; }
+
+    /// <summary>setServiceRule, removeServiceRules: the service's key name, e.g. "Dnscache".</summary>
+    public string? Service { get; init; }
+
+    /// <summary>setAutoRule: svchost or system.</summary>
+    public string? AutoRule { get; init; }
+
+    /// <summary>setAutoRule: switch it on or off.</summary>
+    public bool? Enabled { get; init; }
+
+    /// <summary>allowed: include traffic that stays on this PC (loopback). Default false.</summary>
+    public bool? IncludeLoopback { get; init; }
 }
 
 public sealed record ApiResponse
@@ -88,10 +105,21 @@ public sealed record ApiResponse
 
     public ReportInfo? Report { get; init; }
 
+    /// <summary>allowed: connections allowed in the window, grouped.</summary>
+    public List<AllowedGroup>? Allowed { get; init; }
+
+    /// <summary>list: CrioFire's automatic permits and whether they are on.</summary>
+    public List<AutoRuleInfo>? AutoRules { get; init; }
+
     public static ApiResponse Failure(string error) => new() { Ok = false, Error = error };
 }
 
 public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version);
+
+/// <param name="Name">svchost or system.</param>
+/// <param name="Enabled">Switched on (the saved choice).</param>
+/// <param name="Active">In force right now (on, and the mode is Ask or Allow-list).</param>
+public sealed record AutoRuleInfo(string Name, bool Enabled, bool Active);
 
 /// <param name="Protocol">Network rules: tcp, udp or any.</param>
 /// <param name="Ports">Network rules: ports and ranges, or null for any.</param>
@@ -109,10 +137,18 @@ public sealed record RuleInfo(
     string? Protocol = null,
     string? Ports = null,
     string? Addresses = null,
-    string? Summary = null)
+    string? Summary = null,
+    string? Service = null)
 {
     public static RuleInfo From(CrioFireFilter f)
     {
+        if (f.Service is { } s)
+        {
+            return new RuleInfo(
+                f.FilterId, f.Kind.ToString(), RuleDescription.ActionText(s.Action), RuleDescription.DirectionText(s.Direction), null, f.Layer?.Name, f.Name,
+                Service: s.ServiceName);
+        }
+
         if (f.Net is { } n)
         {
             return new RuleInfo(
@@ -128,7 +164,9 @@ public sealed record RuleInfo(
             f.Kind.ToString(),
             f.Rule is null ? (f.Kind == FilterKind.DefaultBlock ? "block" : f.Kind == FilterKind.BuiltInAllow ? "allow" : null) : RuleDescription.ActionText(f.Rule.Action),
             f.Rule is null ? null : RuleDescription.DirectionText(f.Rule.Direction),
-            f.Rule?.AppPath,
+            f.Rule?.AppPath ?? (f.Kind == FilterKind.BuiltInAllow
+                ? (string.Equals(f.BuiltIn, AutoRulePolicy.WindowsKernel, StringComparison.OrdinalIgnoreCase) ? KnownApps.Kernel : "svchost.exe")
+                : null),
             f.Layer?.Name,
             f.Name);
     }

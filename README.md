@@ -55,6 +55,10 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe allow "C:\Path\To\Chat.exe" --port 443   # with "block <app>": the app may use port 443 only
 .\criofire.exe block --addr 203.0.113.0/24              # block an address range outbound
 .\criofire.exe remove <filter-id>                        # remove a rule (all its filters) by an ID from list
+.\criofire.exe allowed                                   # what was allowed to connect, and why (last hour)
+.\criofire.exe block --service DiagTrack                 # block one Windows service, even inside svchost.exe
+.\criofire.exe block System --in                         # rules for the Windows kernel use the name "System"
+.\criofire.exe auto                                      # the automatic rules; "auto svchost off" turns one off
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
 .\criofire.exe mode learning                             # back to allowing programs without a rule
 .\criofire.exe panic                                     # recovery: remove every CrioFire rule
@@ -69,7 +73,28 @@ overlap, the more specific one wins: program + port/address, then port/address, 
 rule; between equally specific rules, block wins.
 
 While the `criofire` service runs, every connection CrioFire blocks is also appended to
-`%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB).
+`%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB), and every
+connection that was **allowed** goes to `allowed.log`, summed per minute, with the reason: your
+program, service or network rule, an automatic rule (Windows services, Windows kernel), loopback,
+or no rule at all (Learning mode, or inbound traffic left to Windows Firewall). For svchost.exe the
+service also notes which Windows service owned the socket, when it is still open.
+
+### Seeing and controlling everything
+
+Nothing that reaches the network is hidden, including what CrioFire or Windows allows by default:
+
+- **Activity → Allowed** lists every program and service that connected in the last hour, in or
+  out, with the reason and a count; **Block it** or **Always allow** works on any row.
+- **Windows services** get their own rules (`criofire block --service <name>`, or *Service rule...*
+  in the app), matched by the service SID, so one service can be blocked without touching the others
+  in the same svchost.exe. A service rule beats a rule for svchost.exe and the automatic rules.
+- **The Windows kernel** ("System": file sharing, NetBIOS, ICMP) can be allowed or blocked like a program.
+- **Automatic rules** are listed under Rules and can be switched off (`criofire auto svchost off`);
+  the choice is kept in `%ProgramData%\criofire\auto-rules.txt`. Loopback and inbound handling are
+  shown there too.
+- **Dashboard and Reports** show allowed traffic next to blocked traffic: totals, how much was
+  allowed automatically, the programs and services allowed most, the reasons and destinations, and
+  the same in the CSV export.
 
 ### The desktop app
 
@@ -83,11 +108,13 @@ default; switch with the sun/moon button or in **Settings** (remembered per user
   over the last 24 hours, the programs blocked most, programs waiting for your decision, and live
   connections. Switching to Ask or Allow-list offers to allow everything running now, then asks you
   to confirm within 60 seconds that your network still works.
-- **Activity**: connections blocked in the last hour; allow a program, allow it for an hour, or keep it blocked.
+- **Activity**: the last hour, *Blocked* (allow a program, allow it for an hour, or keep it blocked)
+  or *Allowed* (everything that got through and why, automatic rules included; block or always allow it).
 - **Rules**: program rules (with the time a temporary rule ends) and network rules; allow or block a
   program, add a network rule (port, address, protocol, direction, optionally one program, with a
   plain-language preview), or remove one.
-- **Connections**: live TCP and UDP connections with the program that owns each, every 3 seconds.
+- **Connections**: live TCP and UDP connections with the program, and for svchost.exe the services,
+  that own each, every 3 seconds; allow or block the selected one.
 - **Reports**: the last 24 hours, 7 days or 30 days: totals compared with the period before,
   blocked connections per hour or day (your rules vs. no rule yet), the programs and destinations
   blocked most, outbound vs. inbound. **Export CSV** for spreadsheets; **Save as PDF** prints the
@@ -133,8 +160,9 @@ commands such as `criofire panic` work even when the service is stopped.
 | `ask` | blocked outbound | the app shows an alert for each one: Allow, Allow for 1 hour, or Block |
 | `allowlist` | blocked outbound, silently | only programs with an allow rule connect |
 
-In `ask` and `allowlist` CrioFire always lets through loopback (connections that stay on this PC),
-Windows services hosted in `svchost.exe` (DNS, DHCP, Windows Update) and the Windows kernel.
+In `ask` and `allowlist` CrioFire lets through loopback (connections that stay on this PC) and, by
+default, Windows services hosted in `svchost.exe` (DNS, DHCP, Windows Update) and the Windows kernel.
+Both automatic rules can be switched off, and everything they allow is listed under Activity → Allowed.
 Inbound traffic stays under Windows Firewall plus any per-app inbound rules you add.
 `--allow-running` first gives every program running now an allow rule, a quick way to start.
 

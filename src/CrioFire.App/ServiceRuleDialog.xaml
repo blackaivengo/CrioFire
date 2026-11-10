@@ -1,0 +1,74 @@
+<Window x:Class="CrioFire.App.ServiceRuleDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Rule for a Windows service" Width="660" Height="640" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource BodyFont}" Foreground="{DynamicResource TextBrush}">
+  <Grid Margin="28">
+    <Border Margin="40,50,40,-10" CornerRadius="20" Background="{DynamicResource IceGlowBrush}" IsHitTestVisible="False">
+      <Border.Effect>
+        <BlurEffect Radius="44" />
+      </Border.Effect>
+    </Border>
+    <Border CornerRadius="16" Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="28,24">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock Text="Rule for a Windows service" Style="{StaticResource H2}" FontSize="20" />
+          <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,16" TextWrapping="Wrap"
+                     Text="Allow or block one service, even when it shares a svchost.exe process with others. Works for services that run with their own service SID, which most Windows services do." />
+          <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource SegGroup}" HorizontalAlignment="Left">
+              <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="ActionBlock" Content="Block" GroupName="Action" Style="{StaticResource SegFireItem}" IsChecked="True" Click="OnChanged" />
+                <RadioButton x:Name="ActionAllow" Content="Allow" GroupName="Action" Style="{StaticResource SegIceItem}" Click="OnChanged" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource SegGroup}" HorizontalAlignment="Right">
+              <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="DirOut" Content="Outbound" GroupName="Dir" Style="{StaticResource SegItem}" IsChecked="True" Click="OnChanged" />
+                <RadioButton x:Name="DirIn" Content="Inbound" GroupName="Dir" Style="{StaticResource SegItem}" Click="OnChanged" />
+                <RadioButton x:Name="DirBoth" Content="Both" GroupName="Dir" Style="{StaticResource SegItem}" Click="OnChanged" />
+              </StackPanel>
+            </Border>
+          </Grid>
+          <TextBox x:Name="FilterBox" Style="{StaticResource Field}" TextChanged="OnFilter" ToolTip="Type part of a service's name" Margin="0,0,0,10" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom">
+          <Border x:Name="PreviewBox" CornerRadius="10" Padding="14,10" Margin="0,14,0,0" Background="{DynamicResource ChipIceBrush}">
+            <TextBlock x:Name="PreviewText" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource ChipIceTextBrush}" Text="Choose a service." />
+          </Border>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="Cancel" Style="{StaticResource GhostButton}" IsCancel="True" Margin="0,0,8,0" />
+            <Button x:Name="SaveButton" Content="Add rule" Style="{StaticResource FireButton}" IsDefault="True" IsEnabled="False" Click="OnSave" />
+          </StackPanel>
+        </StackPanel>
+
+        <ListView x:Name="Table" SelectionMode="Single" SelectionChanged="OnChanged" MouseDoubleClick="OnDoubleClick">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="SERVICE" Width="300">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel>
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayName}" />
+                      <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="STATE" Width="90" DisplayMemberBinding="{Binding State}" />
+              <GridViewColumn Header="PID" Width="70" DisplayMemberBinding="{Binding Pid}" />
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </DockPanel>
+    </Border>
+    <Border Height="2" VerticalAlignment="Top" Margin="16,1,16,0" CornerRadius="1" Background="{StaticResource BrandBrush}" />
+  </Grid>
+</Window>

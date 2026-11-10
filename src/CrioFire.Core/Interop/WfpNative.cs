@@ -16,6 +16,7 @@ internal enum FWP_DATA_TYPE : uint
     FWP_UINT64 = 4,
     FWP_BYTE_ARRAY16_TYPE = 11,
     FWP_BYTE_BLOB_TYPE = 12,
+    FWP_SECURITY_DESCRIPTOR_TYPE = 14,
     FWP_RANGE_TYPE = 0x102,
 }
 
@@ -175,11 +176,25 @@ internal unsafe struct FWPM_FILTER0
 internal enum FWPM_ENGINE_OPTION : uint
 {
     FWPM_ENGINE_COLLECT_NET_EVENTS = 0,
+    FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS = 1,
+}
+
+internal static class FwpmNetEventKeywords
+{
+    /// <summary>FWPM_NET_EVENT_KEYWORD_CLASSIFY_ALLOW: also record connections that were allowed (Windows 8+).</summary>
+    public const uint CLASSIFY_ALLOW = 0x00000010;
 }
 
 internal static class FwpmNetEventTypes
 {
     public const uint FWPM_NET_EVENT_TYPE_CLASSIFY_DROP = 3;
+    public const uint FWPM_NET_EVENT_TYPE_CLASSIFY_ALLOW = 6;
+}
+
+internal static class FwpDirection
+{
+    public const uint FWP_DIRECTION_IN = 0x00003900;
+    public const uint FWP_DIRECTION_OUT = 0x00003901;
 }
 
 internal static class FwpmNetEventFlags
@@ -243,6 +258,37 @@ internal unsafe struct FWPM_NET_EVENT0
     public void* details;
 }
 
+/// <summary>FWPM_NET_EVENT_HEADER2: HEADER0's fields, then the address family and the app container SID.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FWPM_NET_EVENT_HEADER2
+{
+    public FWPM_NET_EVENT_HEADER0 common;
+    public uint addressFamily;       // FWP_AF
+    public void* packageSid;         // SID*
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FWPM_NET_EVENT2
+{
+    public FWPM_NET_EVENT_HEADER2 header;
+    public uint type;
+
+    /// <summary>Union of pointers; for CLASSIFY_ALLOW it is FWPM_NET_EVENT_CLASSIFY_ALLOW0*.</summary>
+    public void* details;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct FWPM_NET_EVENT_CLASSIFY_ALLOW0
+{
+    public ulong filterId;
+    public ushort layerId;
+    public uint reauthReason;
+    public uint originalProfile;
+    public uint currentProfile;
+    public uint msFwpDirection;
+    public int isLoopback;           // BOOL
+}
+
 [StructLayout(LayoutKind.Sequential)]
 internal struct FWPM_NET_EVENT_CLASSIFY_DROP0
 {
@@ -259,8 +305,56 @@ internal unsafe struct FWPM_NET_EVENT_ENUM_TEMPLATE0
     public FWPM_FILTER_CONDITION0* filterCondition;
 }
 
+internal static unsafe partial class Advapi32
+{
+    public const uint SDDL_REVISION_1 = 1;
+    public const uint SC_MANAGER_ENUMERATE_SERVICE = 0x0004;
+    public const int SC_ENUM_PROCESS_INFO = 0;
+    public const uint SERVICE_WIN32 = 0x00000030;
+    public const uint SERVICE_STATE_ALL = 0x00000003;
+    public const uint SERVICE_RUNNING = 0x00000004;
+    public const uint ERROR_MORE_DATA = 234;
+
+    [LibraryImport("advapi32.dll", EntryPoint = "ConvertStringSecurityDescriptorToSecurityDescriptorW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ConvertStringSecurityDescriptorToSecurityDescriptor(string sddl, uint revision, out IntPtr securityDescriptor, out uint size);
+
+    [LibraryImport("advapi32.dll", EntryPoint = "OpenSCManagerW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    public static partial IntPtr OpenSCManager(string? machineName, string? databaseName, uint desiredAccess);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool CloseServiceHandle(IntPtr handle);
+
+    [LibraryImport("advapi32.dll", EntryPoint = "EnumServicesStatusExW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool EnumServicesStatusEx(
+        IntPtr scManager, int infoLevel, uint serviceType, uint serviceState, byte* services, uint bufferSize,
+        uint* bytesNeeded, uint* servicesReturned, uint* resumeHandle, char* groupName);
+}
+
+/// <summary>ENUM_SERVICE_STATUS_PROCESSW: two string pointers, then SERVICE_STATUS_PROCESS (9 DWORDs).</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ENUM_SERVICE_STATUS_PROCESSW
+{
+    public char* lpServiceName;
+    public char* lpDisplayName;
+    public uint dwServiceType;
+    public uint dwCurrentState;
+    public uint dwControlsAccepted;
+    public uint dwWin32ExitCode;
+    public uint dwServiceSpecificExitCode;
+    public uint dwCheckPoint;
+    public uint dwWaitHint;
+    public uint dwProcessId;
+    public uint dwServiceFlags;
+}
+
 internal static unsafe partial class Kernel32
 {
+    [LibraryImport("kernel32.dll")]
+    public static partial IntPtr LocalFree(IntPtr memory);
+
     [LibraryImport("kernel32.dll", EntryPoint = "QueryDosDeviceW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
     public static partial uint QueryDosDevice(string deviceName, char* targetPath, uint maxChars);
 }
@@ -278,6 +372,12 @@ internal static unsafe partial class Fwpuclnt
 
     [LibraryImport(Dll)]
     public static partial uint FwpmNetEventDestroyEnumHandle0(IntPtr engineHandle, IntPtr enumHandle);
+
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventEnum2(IntPtr engineHandle, IntPtr enumHandle, uint numEntriesRequested, FWPM_NET_EVENT2*** entries, uint* numEntriesReturned);
+
+    [LibraryImport(Dll)]
+    public static partial uint FwpmEngineGetOption0(IntPtr engineHandle, FWPM_ENGINE_OPTION option, FWP_VALUE0** value);
 }
 
 internal static unsafe partial class Fwpuclnt

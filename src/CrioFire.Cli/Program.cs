@@ -116,6 +116,59 @@ static int Run(Backend api, Command command)
             return 0;
         }
 
+        case CommandKind.Block or CommandKind.Allow when command.Service is { } service:
+        {
+            var action = command.Kind == CommandKind.Block ? "block" : "allow";
+            var result = api.Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = service, Action = action, Direction = RuleDescription.DirectionText(command.Direction) });
+            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for the service {service} ({result.Count} filters).");
+            Console.WriteLine($"Undo with: criofire unblock --service {service}");
+            return 0;
+        }
+
+        case CommandKind.Unblock when command.Service is { } service:
+        {
+            var result = api.Call(new ApiRequest { Op = ApiOps.RemoveServiceRules, Service = service, Direction = RuleDescription.DirectionText(command.Direction) });
+            Console.WriteLine(result.Count == 0 ? "No CrioFire rules matched that service." : $"Removed {result.Count} filters.");
+            return 0;
+        }
+
+        case CommandKind.Allowed:
+        {
+            var groups = api.Call(new ApiRequest { Op = ApiOps.Allowed, Minutes = command.Minutes, IncludeLoopback = command.All }).Allowed!;
+            if (groups.Count == 0)
+            {
+                Console.WriteLine($"No allowed connections recorded in the last {command.Minutes} minutes (the criofire service records them).");
+                return 0;
+            }
+
+            Console.WriteLine($"{"Last (local)",-20} {"Count",6} {"Dir",-4} {"Proto",-6} {"Remote",-40} {"Why",-34} Program");
+            foreach (var g in groups)
+            {
+                var remote = g.Port > 0 ? $"{g.Remote}:{g.Port}" : g.Remote ?? "?";
+                var who = g.Service is null ? g.App ?? "?" : $"{g.App} (service: {g.Service})";
+                Console.WriteLine($"{g.LastUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} {g.Count,6} {g.Direction ?? "?",-4} {g.Protocol ?? "?",-6} {remote,-40} {AllowReasons.Label(g.Reason, g.Direction),-34} {who}");
+            }
+
+            return 0;
+        }
+
+        case CommandKind.AutoShow or CommandKind.AutoSet:
+        {
+            var autoRules = command.Kind == CommandKind.AutoSet
+                ? api.Call(new ApiRequest { Op = ApiOps.SetAutoRule, AutoRule = command.AutoRule, Enabled = command.Enabled }).AutoRules!
+                : api.Call(new ApiRequest { Op = ApiOps.List }).AutoRules ?? [];
+            foreach (var r in autoRules)
+            {
+                var what = r.Name == AutoRulePolicy.WindowsKernel ? "Windows kernel (System)" : "Windows services (svchost.exe)";
+                var state = r.Enabled ? (r.Active ? "on, in force" : "on (applies in ask/allowlist mode)") : "off";
+                Console.WriteLine($"{r.Name,-8} {what,-32} {state}");
+            }
+
+            Console.WriteLine("Always allowed as well: traffic that stays on this PC (loopback). Inbound traffic is left to");
+            Console.WriteLine("Windows Firewall unless you add inbound rules.");
+            return 0;
+        }
+
         case CommandKind.Block or CommandKind.Allow when command.Net is { } net:
         {
             var result = api.Call(new ApiRequest
@@ -135,7 +188,7 @@ static int Run(Backend api, Command command)
 
         case CommandKind.Block or CommandKind.Allow:
         {
-            var path = Path.GetFullPath(command.AppPath!);
+            var path = KnownApps.Normalize(command.AppPath!);
             var action = command.Kind == CommandKind.Block ? "block" : "allow";
             var result = api.Call(new ApiRequest { Op = ApiOps.SetRule, App = path, Action = action, Direction = RuleDescription.DirectionText(command.Direction), ExpiresMinutes = command.ExpiresMinutes });
             var until = command.ExpiresMinutes is int m ? $" for {m} minutes" : string.Empty;
@@ -150,7 +203,7 @@ static int Run(Backend api, Command command)
 
         case CommandKind.Unblock:
         {
-            var result = api.Call(new ApiRequest { Op = ApiOps.RemoveRules, App = Path.GetFullPath(command.AppPath!), Direction = RuleDescription.DirectionText(command.Direction) });
+            var result = api.Call(new ApiRequest { Op = ApiOps.RemoveRules, App = KnownApps.Normalize(command.AppPath!), Direction = RuleDescription.DirectionText(command.Direction) });
             Console.WriteLine(result.Count == 0 ? "No CrioFire rules matched that program." : $"Removed {result.Count} filters.");
             return 0;
         }
@@ -268,7 +321,7 @@ internal sealed class Backend : IDisposable
     {
         _engine = engine;
         // Same store as the service, which removes the rules when they expire.
-        _handler = new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath), new TrafficLog(TrafficLog.DefaultPath));
+        _handler = new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath), new TrafficLog(TrafficLog.DefaultPath), new TrafficLog(TrafficLog.AllowedPath));
         Description = "direct, administrator";
     }
 

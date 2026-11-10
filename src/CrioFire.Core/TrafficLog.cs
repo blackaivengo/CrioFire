@@ -21,6 +21,10 @@ public sealed class TrafficLog
     public static string DefaultPath => System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "criofire", "blocked.log");
 
+    /// <summary>Allowed connections, summed per minute (<see cref="AllowedSummary"/>).</summary>
+    public static string AllowedPath => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "criofire", "allowed.log");
+
     public string Path { get; }
 
     public long MaxBytes { get; }
@@ -30,10 +34,22 @@ public sealed class TrafficLog
     public void Append(IEnumerable<BlockedConnection> connections)
     {
         ArgumentNullException.ThrowIfNull(connections);
+        AppendLines(connections.Select(c => c.ToJsonLine()));
+    }
+
+    public void Append(IEnumerable<AllowedSummary> summaries)
+    {
+        ArgumentNullException.ThrowIfNull(summaries);
+        AppendLines(summaries.Select(s => s.ToJsonLine()));
+    }
+
+    public void AppendLines(IEnumerable<string> jsonLines)
+    {
+        ArgumentNullException.ThrowIfNull(jsonLines);
         var lines = new StringBuilder();
-        foreach (var c in connections)
+        foreach (var line in jsonLines)
         {
-            lines.Append(c.ToJsonLine()).Append('\n');
+            lines.Append(line).Append('\n');
         }
 
         if (lines.Length == 0)
@@ -59,7 +75,13 @@ public sealed class RecentEvents(TimeSpan window)
 {
     private readonly Dictionary<string, DateTime> _seen = [];
 
-    public IReadOnlyList<BlockedConnection> KeepNew(IEnumerable<BlockedConnection> events, DateTime nowUtc)
+    public IReadOnlyList<BlockedConnection> KeepNew(IEnumerable<BlockedConnection> events, DateTime nowUtc) =>
+        KeepNew(events, nowUtc, e => $"b|{e.TimeUtc.Ticks}|{e.FilterId}|{e.Local}|{e.Remote}|{(int)e.Protocol}", e => e.TimeUtc);
+
+    public IReadOnlyList<AllowedConnection> KeepNew(IEnumerable<AllowedConnection> events, DateTime nowUtc) =>
+        KeepNew(events, nowUtc, e => $"a|{e.TimeUtc.Ticks}|{e.FilterId}|{e.Local}|{e.Remote}|{(int)e.Protocol}|{(int)e.Direction}", e => e.TimeUtc);
+
+    private List<T> KeepNew<T>(IEnumerable<T> events, DateTime nowUtc, Func<T, string> key, Func<T, DateTime> time)
     {
         ArgumentNullException.ThrowIfNull(events);
 
@@ -70,11 +92,10 @@ public sealed class RecentEvents(TimeSpan window)
             _seen.Remove(stale);
         }
 
-        var fresh = new List<BlockedConnection>();
+        var fresh = new List<T>();
         foreach (var e in events)
         {
-            var key = $"{e.TimeUtc.Ticks}|{e.FilterId}|{e.Local}|{e.Remote}|{(int)e.Protocol}";
-            if (_seen.TryAdd(key, e.TimeUtc))
+            if (_seen.TryAdd(key(e), time(e)))
             {
                 fresh.Add(e);
             }

@@ -5,7 +5,8 @@ namespace CrioFire.Service;
 /// <summary>
 /// The service's main loop: makes sure CrioFire is registered with the filtering engine, then
 /// every <see cref="PollInterval"/> reads the connections CrioFire blocked and appends them to the
-/// traffic log (%ProgramData%\criofire\blocked.log). WFP filters are persistent, so blocking keeps
+/// traffic log (%ProgramData%\criofire\blocked.log), and every connection that was allowed, with
+/// the reason, summed per minute to allowed.log. WFP filters are persistent, so blocking keeps
 /// working even while this service is stopped.
 /// </summary>
 internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : BackgroundService
@@ -42,9 +43,12 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
         using (engine)
         {
             var log = new TrafficLog(TrafficLog.DefaultPath);
+            var allowedLog = new TrafficLog(TrafficLog.AllowedPath);
             var paths = NtPathMapper.FromSystem();
             var started = DateTime.UtcNow;
             var recent = new RecentEvents(Overlap);
+            var recentAllowed = new RecentEvents(Overlap);
+            var allowedWorks = true;
             var temporaryRules = new TemporaryRuleStore(TemporaryRuleStore.DefaultPath);
 
             using var timer = new PeriodicTimer(PollInterval);
@@ -63,6 +67,24 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         LogBlocked(logger, blocked.Count);
                     }
 
+                    if (allowedWorks)
+                    {
+                        try
+                        {
+                            var allowed = recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths), now);
+                            if (allowed.Count > 0)
+                            {
+                                allowedLog.Append(AllowedSummary.Aggregate(NameServices(allowed)));
+                            }
+                        }
+                        catch (EntryPointNotFoundException ex)
+                        {
+                            // Windows without FwpmNetEventEnum2: keep blocking, stop trying this.
+                            allowedWorks = false;
+                            LogAllowedUnavailable(logger, ex);
+                        }
+                    }
+
                     // "Allow for 1 hour" and similar: remove rules whose time is up.
                     var expired = temporaryRules.ExpireDue(engine, now);
                     if (expired > 0)
@@ -77,6 +99,36 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             }
         }
     }
+
+    /// <summary>For svchost.exe connections: finds which service owns the socket, when it is still open.</summary>
+    private static IReadOnlyList<AllowedConnection> NameServices(IReadOnlyList<AllowedConnection> allowed)
+    {
+        if (!allowed.Any(a => KnownApps.IsServiceHost(a.AppPath)))
+        {
+            return allowed;
+        }
+
+        IReadOnlyList<LiveConnection> table;
+        IReadOnlyDictionary<int, string[]> services;
+        try
+        {
+            table = ConnectionTable.Read();
+            services = WindowsServiceList.ByProcess(WindowsServiceList.Read());
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return allowed;
+        }
+
+        return allowed
+            .Select(a => KnownApps.IsServiceHost(a.AppPath)
+                ? a with { Service = ServiceAttribution.Find(table, services, a.Protocol, a.Local, a.Remote) }
+                : a)
+            .ToList();
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "This Windows version cannot report allowed connections; only blocked ones will be shown.")]
+    private static partial void LogAllowedUnavailable(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered CrioFire with the Windows Filtering Platform.")]
     private static partial void LogInstalled(ILogger logger);

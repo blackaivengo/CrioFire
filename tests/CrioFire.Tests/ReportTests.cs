@@ -163,7 +163,7 @@ public sealed class ReportTests : IDisposable
         var r = ReportBuilder.Build([Ev(Now, app: @"C:\a, b\x.exe")], ReportBuilder.Day, Now, Utc);
         var csv = ReportBuilder.ToCsv(r, Utc);
         Assert.Contains("Blocked,1", csv);
-        Assert.Contains("Period start,By your rules,No rule yet (mode),Total", csv);
+        Assert.Contains("Period start,By your rules,No rule yet (mode),Blocked,Allowed", csv);
         Assert.Contains("\"C:\\a, b\\x.exe\",1,1,2026-11-10 16:30", csv);
         Assert.Contains("203.0.113.5,443,1", csv);
     }

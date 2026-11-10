@@ -7,6 +7,7 @@
       <Button Content="Allow for 1 hour..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllowHour" />
       <Button Content="Block a program..." Style="{StaticResource FireButton}" Margin="0,0,10,0" Click="OnBlock" />
       <Button Content="Add network rule..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAddNet" />
+      <Button Content="Service rule..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAddService" />
       <Button Content="Remove selected" Style="{StaticResource GhostButton}" Click="OnRemove" />
     </StackPanel>
     <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
@@ -44,7 +45,7 @@
       </StackPanel>
     </ContentControl>
 
-    <ContentControl Style="{StaticResource IceCard}">
+    <ContentControl Style="{StaticResource IceCard}" Margin="0,0,0,22">
       <StackPanel>
         <TextBlock Text="Network rules" Style="{StaticResource H2}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,10"
@@ -81,6 +82,67 @@
             </GridView>
           </ListView.View>
         </ListView>
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock Text="Windows services" Style="{StaticResource H2}" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,10" TextWrapping="Wrap"
+                   Text="Rules for single services, even when several share one svchost.exe process. A service rule wins over a rule for svchost.exe and over the automatic rules below." />
+        <TextBlock x:Name="ServiceEmpty" Style="{StaticResource Muted}" Visibility="Collapsed"
+                   Text="No service rules. Block or allow one with 'Service rule...', or from the Allowed list on the Activity page." />
+        <ListView x:Name="ServiceTable" SelectionMode="Single" SelectionChanged="OnServiceSelected">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="ACTION" Width="100">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border Style="{StaticResource Chip}" Margin="0" Padding="10,3" Background="{Binding ChipBrush}">
+                      <TextBlock Text="{Binding Action}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding ChipTextBrush}" />
+                    </Border>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="DIRECTION" Width="100" DisplayMemberBinding="{Binding Direction}" />
+              <GridViewColumn Header="SERVICE" Width="600">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel>
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Service}" Style="{StaticResource Caption}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource IceCard}">
+      <StackPanel>
+        <TextBlock Text="Automatic rules" Style="{StaticResource H2}" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,6" TextWrapping="Wrap"
+                   Text="What CrioFire allows without a rule of yours, so Windows keeps working. Everything they let through is listed under Activity → Allowed, where you can block any single program or service." />
+        <ItemsControl x:Name="AutoList">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,12">
+                <DockPanel>
+                  <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Margin="16,0,0,0"
+                            IsChecked="{Binding IsOn, Mode=OneWay}" IsEnabled="{Binding CanSwitch}" Tag="{Binding Name}" Click="OnAutoSwitch" />
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding State}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                  <StackPanel Margin="0,0,16,0">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
     </ContentControl>
   </StackPanel>

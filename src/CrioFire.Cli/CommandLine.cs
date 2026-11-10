@@ -19,6 +19,9 @@ public enum CommandKind
     ModeShow,
     ModeSet,
     Setup,
+    Allowed,
+    AutoShow,
+    AutoSet,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -29,6 +32,9 @@ public enum CommandKind
 /// <param name="ExpiresMinutes">allow/block --for N: the rule is removed again after N minutes.</param>
 /// <param name="Net">allow/block with --port, --addr, --tcp or --udp: a network rule (program optional).</param>
 /// <param name="RemoveData">uninstall --remove-data: also delete %ProgramData%\criofire (logs, temporary rules).</param>
+/// <param name="Service">block/allow/unblock --service: a rule for one Windows service.</param>
+/// <param name="AutoRule">auto: svchost or system.</param>
+/// <param name="Enabled">auto ... on|off.</param>
 public sealed record Command(
     CommandKind Kind,
     string? AppPath = null,
@@ -41,7 +47,10 @@ public sealed record Command(
     bool AllowRunning = false,
     int? ExpiresMinutes = null,
     NetRule? Net = null,
-    bool RemoveData = false);
+    bool RemoveData = false,
+    string? Service = null,
+    string? AutoRule = null,
+    bool Enabled = true);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -71,6 +80,18 @@ internal static class CommandLine
                                                  criofire block --addr 203.0.113.0/24
                                                More specific rules win, and block wins a tie. Remove one
                                                with criofire remove <filter-id> (all its filters go).
+          criofire block|allow|unblock --service <name> [--out|--in|--both]
+                                               A rule for one Windows service, even inside a shared
+                                               svchost.exe (matched by its service SID), e.g.
+                                                 criofire block --service DiagTrack
+          criofire allowed [--minutes N] [--local]
+                                               Show what was allowed to connect and why (default: last
+                                               60 minutes; --local also shows loopback traffic)
+          criofire auto                        Show CrioFire's automatic rules
+          criofire auto <svchost|system> <on|off>
+                                               Switch an automatic rule of ask/allowlist mode on or off
+                                               (svchost: Windows services such as DNS; off breaks name
+                                               lookups for programs without their own rule)
           criofire mode                        Show the current mode
           criofire mode <learning|ask|allowlist> [--allow-running] [--yes]
                                                learning: programs without a rule may connect
@@ -144,6 +165,21 @@ internal static class CommandLine
                 return ParseMode(rest, out error);
             case "events":
                 return ParseEvents(rest, out error);
+            case "allowed":
+                return ParseAllowed(rest, out error);
+            case "auto":
+                if (rest.Length == 0)
+                {
+                    return new Command(CommandKind.AutoShow);
+                }
+
+                if (rest.Length == 2 && AutoRulePolicy.IsKnown(rest[0]) && rest[1].ToLowerInvariant() is "on" or "off")
+                {
+                    return new Command(CommandKind.AutoSet, AutoRule: rest[0].ToLowerInvariant(), Enabled: rest[1].Equals("on", StringComparison.OrdinalIgnoreCase));
+                }
+
+                error = "Usage: criofire auto [svchost|system on|off]";
+                return new Command(CommandKind.Help);
             case "remove":
                 if (rest.Length != 1 || !ulong.TryParse(rest[0], out var id))
                 {
@@ -243,10 +279,36 @@ internal static class CommandLine
         return new Command(CommandKind.Events, Minutes: minutes, All: all);
     }
 
+    private static Command ParseAllowed(string[] rest, out string? error)
+    {
+        error = null;
+        var minutes = 60;
+        var local = false;
+        for (var i = 0; i < rest.Length; i++)
+        {
+            switch (rest[i].ToLowerInvariant())
+            {
+                case "--local":
+                    local = true;
+                    break;
+                case "--minutes" when i + 1 < rest.Length && int.TryParse(rest[i + 1], out var m) && m is > 0 and <= 43200:
+                    minutes = m;
+                    i++;
+                    break;
+                default:
+                    error = "Usage: criofire allowed [--minutes N] [--local]   (N from 1 to 43200)";
+                    return new Command(CommandKind.Help);
+            }
+        }
+
+        return new Command(CommandKind.Allowed, Minutes: minutes, All: local);
+    }
+
     private static Command ParseAppCommand(CommandKind kind, string[] rest, out string? error)
     {
         error = null;
         string? path = null;
+        string? service = null;
         TrafficDirection? direction = null;
 
         int? expires = null;
@@ -287,6 +349,19 @@ internal static class CommandLine
                 }
 
                 protocol = p;
+                continue;
+            }
+
+            if (arg.Equals("--service", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 >= rest.Length || !ServiceRule.IsValidName(rest[i + 1]))
+                {
+                    error = "--service needs a service name, e.g. --service Dnscache (see the Name column of services.msc).";
+                    return new Command(CommandKind.Help);
+                }
+
+                service = rest[i + 1];
+                i++;
                 continue;
             }
 
@@ -335,6 +410,17 @@ internal static class CommandLine
                 error = "Give exactly one program path. Put paths with spaces in quotes.";
                 return new Command(CommandKind.Help);
             }
+        }
+
+        if (service is not null)
+        {
+            if (path is not null || ports is not null || addresses is not null || protocol is not null || expires is not null)
+            {
+                error = "--service cannot be combined with a program path, --port, --addr, --tcp, --udp or --for.";
+                return new Command(CommandKind.Help);
+            }
+
+            return new Command(kind, Direction: direction ?? (kind == CommandKind.Unblock ? TrafficDirection.Both : TrafficDirection.Outbound), Service: service);
         }
 
         if (ports is not null || addresses is not null || protocol is not null)

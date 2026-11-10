@@ -47,7 +47,7 @@
             <Border Style="{StaticResource Chip}" Background="{DynamicResource ChipIceBrush}">
               <StackPanel Orientation="Horizontal">
                 <Ellipse Width="6" Height="6" Fill="{DynamicResource IceBrush}" VerticalAlignment="Center" />
-                <TextBlock Text="Loopback and Windows services always allowed" Margin="8,0,0,0" FontSize="12" Foreground="{DynamicResource ChipIceTextBrush}" />
+                <TextBlock x:Name="AutoChip" Text="Loopback and Windows services always allowed" Margin="8,0,0,0" FontSize="12" Foreground="{DynamicResource ChipIceTextBrush}" />
               </StackPanel>
             </Border>
             <Border Style="{StaticResource Chip}" Background="{DynamicResource ChipIceBrush}">
@@ -97,7 +97,7 @@
             <Ellipse DockPanel.Dock="Right" Width="10" Height="10" Fill="{DynamicResource IceBrush}">
               <Ellipse.Effect><DropShadowEffect Color="#7DD8FF" BlurRadius="12" ShadowDepth="0" /></Ellipse.Effect>
             </Ellipse>
-            <TextBlock Text="Allowed programs" Style="{StaticResource Muted}" />
+            <TextBlock Text="Allowed, last 24 h" Style="{StaticResource Muted}" />
           </DockPanel>
           <TextBlock x:Name="KpiAllowed" Style="{StaticResource BigNumber}" Foreground="{DynamicResource IceTextBrush}" Margin="0,8" Text="–" />
           <TextBlock x:Name="KpiAllowedNote" Style="{StaticResource Muted}" FontSize="12" />
@@ -188,6 +188,56 @@
         </DockPanel>
       </ContentControl>
     </Grid>
+
+    <!-- Everything that was allowed, automatic rules included: each one can be blocked from here. -->
+    <ContentControl Style="{StaticResource IceCard}" Margin="0,0,0,22">
+      <StackPanel>
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Content="See everything allowed →" Style="{StaticResource GhostButton}" Foreground="{DynamicResource IceTextBrush}"
+                  Padding="0" MinHeight="24" Click="OnOpenAllowed" />
+          <StackPanel>
+            <TextBlock Text="Allowed most, last 24 hours" Style="{StaticResource H2}" />
+            <TextBlock x:Name="AllowedNote" Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,0" />
+          </StackPanel>
+        </DockPanel>
+        <TextBlock x:Name="AllowedEmpty" Style="{StaticResource Muted}" Margin="0,12,0,0" Visibility="Collapsed"
+                   Text="Nothing recorded yet. The CrioFire service lists every program and service it lets through here." />
+        <ItemsControl x:Name="AllowedList" Margin="0,8,0,0">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,9">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="1.6*" />
+                    <ColumnDefinition Width="0.8*" />
+                    <ColumnDefinition Width="1.2*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Margin="0,0,10,0" ToolTip="{Binding Detail}">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Border Grid.Column="1" Style="{StaticResource Chip}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0" Background="{Binding ChipBrush}">
+                    <TextBlock Text="{Binding Why}" FontSize="12" Foreground="{Binding ChipTextBrush}" />
+                  </Border>
+                  <TextBlock Grid.Column="2" Text="{Binding CountText}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" />
+                  <Grid Grid.Column="3" Height="6" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="{Binding Fill}" />
+                      <ColumnDefinition Width="{Binding Rest}" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.ColumnSpan="2" CornerRadius="3" Background="{DynamicResource TrackBrush}" />
+                    <Border CornerRadius="3" Background="{DynamicResource IceBrush}" />
+                  </Grid>
+                  <Button Grid.Column="4" Content="Block" Tag="{Binding}" Style="{StaticResource OutlineFireButton}" Margin="14,0,0,0" Click="OnBlockAllowed" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ContentControl>
 
     <Grid>
       <Grid.ColumnDefinitions>

@@ -233,6 +233,115 @@
         </ContentControl>
       </StackPanel>
     </Grid>
+
+    <!-- Allowed traffic: every program and service that got through, and why. -->
+    <Grid Margin="0,22,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <ContentControl Style="{StaticResource IceCard}" Margin="0,0,10,0" VerticalAlignment="Top">
+        <StackPanel>
+          <TextBlock Text="Programs and services that were allowed" Style="{StaticResource H2}" />
+          <TextBlock x:Name="AllowedHeadline" Style="{StaticResource Muted}" FontSize="12" Margin="0,4,0,12" TextWrapping="Wrap" />
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="2.2*" />
+              <ColumnDefinition Width="0.7*" />
+              <ColumnDefinition Width="1.6*" />
+              <ColumnDefinition Width="0.7*" />
+              <ColumnDefinition Width="0.9*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="PROGRAM OR SERVICE" Style="{StaticResource Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="ALLOWED" Style="{StaticResource Caption}" FontWeight="SemiBold" HorizontalAlignment="Right" Margin="0,0,14,0" />
+            <TextBlock Grid.Column="2" Text="WHY" Style="{StaticResource Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="3" Text="DIR" Style="{StaticResource Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="4" Text="LAST SEEN" Style="{StaticResource Caption}" FontWeight="SemiBold" />
+          </Grid>
+          <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Margin="0,8,0,0" />
+          <ItemsControl x:Name="AllowedList">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="2.2*" />
+                      <ColumnDefinition Width="0.7*" />
+                      <ColumnDefinition Width="1.6*" />
+                      <ColumnDefinition Width="0.7*" />
+                      <ColumnDefinition Width="0.9*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,10,0" ToolTip="{Binding Detail}">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding CountText}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" />
+                    <Border Grid.Column="2" Style="{StaticResource Chip}" Margin="0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{Binding ChipBrush}">
+                      <TextBlock Text="{Binding Why}" FontSize="12" FontWeight="Medium" Foreground="{Binding ChipTextBrush}" TextTrimming="CharacterEllipsis" />
+                    </Border>
+                    <TextBlock Grid.Column="3" Text="{Binding Direction}" Foreground="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="4" Text="{Binding LastSeen}" Foreground="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock x:Name="AllowedEmpty" Text="No allowed connections were recorded in this period." Style="{StaticResource Muted}" Margin="0,12,0,0" Visibility="Collapsed" />
+        </StackPanel>
+      </ContentControl>
+
+      <StackPanel Grid.Column="1" Margin="10,0,0,0">
+        <ContentControl Style="{StaticResource IceCard}" Margin="0,0,0,22">
+          <StackPanel>
+            <TextBlock Text="Why connections were allowed" Style="{StaticResource H2}" Margin="0,0,0,14" />
+            <ItemsControl x:Name="ReasonList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Margin="0,0,0,12">
+                    <DockPanel>
+                      <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" FontSize="13" Foreground="{DynamicResource IceTextBrush}" />
+                      <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                    </DockPanel>
+                    <Grid Height="6" Margin="0,6,0,0">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{Binding Fill}" />
+                        <ColumnDefinition Width="{Binding Rest}" />
+                      </Grid.ColumnDefinitions>
+                      <Border Grid.ColumnSpan="2" CornerRadius="3" Background="{DynamicResource TrackBrush}" />
+                      <Border CornerRadius="3" Background="{DynamicResource IceBrush}" />
+                    </Grid>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock x:Name="ReasonsEmpty" Text="Nothing yet." Style="{StaticResource Muted}" Visibility="Collapsed" />
+          </StackPanel>
+        </ContentControl>
+
+        <ContentControl Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Top allowed destinations" Style="{StaticResource H2}" Margin="0,0,0,8" />
+            <ItemsControl x:Name="AllowedDestinationList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,9">
+                    <DockPanel>
+                      <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" FontWeight="SemiBold" Foreground="{DynamicResource IceTextBrush}" />
+                      <TextBlock Text="{Binding Address}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      <Border Style="{StaticResource Chip}" Margin="10,0,10,0" Padding="8,2" HorizontalAlignment="Left" Background="{DynamicResource ChipIceBrush}">
+                        <TextBlock Text="{Binding Port}" FontSize="11" Foreground="{DynamicResource ChipIceTextBrush}" />
+                      </Border>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock x:Name="AllowedDestinationsEmpty" Text="No destinations yet." Style="{StaticResource Muted}" Visibility="Collapsed" />
+          </StackPanel>
+        </ContentControl>
+      </StackPanel>
+    </Grid>
     </StackPanel>
   </StackPanel>
 </UserControl>

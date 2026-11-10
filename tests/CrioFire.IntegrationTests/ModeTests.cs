@@ -199,7 +199,7 @@ public sealed class ModeTests : IDisposable
         return address;
     }
 
-    private static List<string> RunningProgramsExceptPeer()
+    internal static List<string> RunningProgramsExceptPeer()
     {
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var process in Process.GetProcesses())

@@ -51,9 +51,14 @@ internal sealed record PendingAlert(EventInfo Event)
 /// </summary>
 internal sealed class AppModel
 {
+    private bool _showAllowed;
+
     public StatusInfo? Status { get; private set; }
 
     public IReadOnlyList<RuleInfo> Rules { get; private set; } = [];
+
+    /// <summary>CrioFire's automatic permits (Windows services, Windows kernel) and whether they are on.</summary>
+    public IReadOnlyList<AutoRuleInfo> AutoRules { get; private set; } = [];
 
     public ObservableCollection<PendingAlert> Pending { get; } = [];
 
@@ -82,6 +87,130 @@ internal sealed class AppModel
         .Where(r => r.Kind == nameof(FilterKind.NetRule))
         .GroupBy(r => (r.Action, r.Direction, r.Protocol, r.Ports, r.Addresses, r.App?.ToUpperInvariant()))
         .Select(g => g.First());
+
+    /// <summary>Service rules, one entry per service/action/direction.</summary>
+    public IEnumerable<RuleInfo> ServiceRules => Rules
+        .Where(r => r.Kind == nameof(FilterKind.ServiceRule))
+        .GroupBy(r => (r.Service?.ToUpperInvariant(), r.Action, r.Direction))
+        .Select(g => g.First());
+
+    public bool SetServiceRule(string service, string action, string direction = "out")
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = service, Action = action, Direction = direction }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, action == "allow" ? $"Allowed the service {service}." : $"Blocked the service {service}.");
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
+    public bool RemoveServiceRules(string service)
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.RemoveServiceRules, Service = service }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, $"Removed the rules for the service {service}.");
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
+    /// <summary>Switches an automatic permit on or off; turning one off is confirmed first.</summary>
+    public bool SetAutoRule(Window owner, string name, bool enabled)
+    {
+        var what = AutoRuleName(name);
+        if (!enabled)
+        {
+            var warning = name == AutoRulePolicy.WindowsServices
+                ? "Windows services such as DNS (name lookups), DHCP and Windows Update will need their own rules. Until you add them, programs without a rule may not reach anything by name.
+
+Tip: block or allow single services under Rules instead."
+                : "Kernel traffic such as file and printer sharing (SMB) and NetBIOS will need its own rule.";
+            var choice = ChoiceDialog.Ask(owner, $"Stop allowing {what} automatically?", warning + "
+
+This applies in Ask and Allow-list modes.",
+                ["Stop allowing automatically", "Cancel"], defaultIndex: 1, danger: true);
+            if (choice != 0)
+            {
+                NotifyChanged();
+                return false;
+            }
+        }
+
+        var result = Call(new ApiRequest { Op = ApiOps.SetAutoRule, AutoRule = name, Enabled = enabled });
+        if (result is not null)
+        {
+            AutoRules = result.AutoRules ?? AutoRules;
+            Message?.Invoke(this, enabled ? $"{what} are allowed automatically again." : $"{what} are no longer allowed automatically.");
+        }
+
+        RefreshCore();
+        NotifyChanged();
+        return result is not null;
+    }
+
+    public static string AutoRuleName(string name) =>
+        name == AutoRulePolicy.WindowsKernel ? "Windows kernel connections" : "Windows services";
+
+    /// <summary>
+    /// Allows or blocks whatever made a connection: a program, the Windows kernel, or one service in
+    /// svchost.exe. Blocking all of svchost.exe would cut off DNS, so it is only done when asked twice.
+    /// </summary>
+    public bool Decide(Window owner, string? app, string? services, string action)
+    {
+        if (string.IsNullOrEmpty(app))
+        {
+            Say("CrioFire could not tell which program made this connection.");
+            return false;
+        }
+
+        if (!KnownApps.IsServiceHost(app))
+        {
+            return SetRule(app, action);
+        }
+
+        var names = (services ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var verb = action == "allow" ? "Allow" : "Block";
+        if (names.Length == 1)
+        {
+            return SetServiceRule(names[0], action);
+        }
+
+        var choices = names.Select(n => $"{verb} the service {n}").ToList();
+        choices.Add("Choose a service...");
+        choices.Add($"{verb} every Windows service (svchost.exe)");
+        choices.Add("Cancel");
+        var message = names.Length == 0
+            ? "This connection came from svchost.exe, which runs many Windows services, and the socket was already closed so CrioFire could not tell which service it was. Pick the service, or look for it under Live connections while it is connected."
+            : "This connection came from a svchost.exe process that runs several services. Which one?";
+        var choice = ChoiceDialog.Ask(owner, $"{verb} a Windows service", message, choices, defaultIndex: 0, danger: action == "block");
+        if (choice is null || choice == choices.Count - 1)
+        {
+            return false;
+        }
+
+        if (choice < names.Length)
+        {
+            return SetServiceRule(names[choice.Value], action);
+        }
+
+        if (choice == names.Length)
+        {
+            return ServiceRuleDialog.Ask(owner, null, action) is { } picked && SetServiceRule(picked.Service, picked.Action, picked.Direction);
+        }
+
+        if (action == "block" && ChoiceDialog.Ask(owner, "Block every Windows service?",
+                "DNS, DHCP, Windows Update and dozens of other services will lose network access, and programs will no longer find anything by name. Undo it under Rules.",
+                ["Block svchost.exe", "Cancel"], defaultIndex: 1, danger: true) != 0)
+        {
+            return false;
+        }
+
+        return SetRule(app, action);
+    }
 
     public bool AddNetRule(NetRule rule)
     {
@@ -123,7 +252,9 @@ internal sealed class AppModel
         Status = status?.Status;
         if (status is not null)
         {
-            Rules = Service.Call(new ApiRequest { Op = ApiOps.List }, out error)?.Rules ?? [];
+            var list = Service.Call(new ApiRequest { Op = ApiOps.List }, out error);
+            Rules = list?.Rules ?? [];
+            AutoRules = list?.AutoRules ?? [];
         }
 
         Error = error;
@@ -147,7 +278,7 @@ internal sealed class AppModel
         if (ok)
         {
             Resolve(app);
-            var name = Path.GetFileName(app);
+            var name = KnownApps.DisplayName(app);
             Message?.Invoke(this, action == "allow"
                 ? (expiresMinutes is int m ? $"Allowed {name} for {m} minutes." : $"Allowed {name}.")
                 : $"Blocked {name}.");
@@ -162,7 +293,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.RemoveRules, App = app }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, $"Removed the rules for {Path.GetFileName(app)}.");
+            Message?.Invoke(this, $"Removed the rules for {KnownApps.DisplayName(app)}.");
             NotifyChanged();
         }
 
@@ -278,6 +409,21 @@ internal sealed class AppModel
     }
 
     public void GoTo(string page) => NavigateRequested?.Invoke(this, page);
+
+    /// <summary>Opens the Activity page on its list of allowed connections.</summary>
+    public void ShowAllowed()
+    {
+        _showAllowed = true;
+        GoTo("Activity");
+    }
+
+    /// <summary>True once after <see cref="ShowAllowed"/>: the Activity page switches to its allowed list.</summary>
+    public bool TakeShowAllowed()
+    {
+        var value = _showAllowed;
+        _showAllowed = false;
+        return value;
+    }
 
     public void NotifyChanged() => Changed?.Invoke(this, EventArgs.Empty);
 

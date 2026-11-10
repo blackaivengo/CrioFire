@@ -44,6 +44,9 @@ public enum FilterKind
 
     /// <summary>A user rule by port and/or remote address, optionally for one program.</summary>
     NetRule,
+
+    /// <summary>A user rule for one Windows service (matched by its service SID).</summary>
+    ServiceRule,
 }
 
 /// <summary>Descriptions for CrioFire's non-rule filters, e.g. <c>criofire:v1|default|ask</c>.</summary>
@@ -65,6 +68,11 @@ public static class FilterDescriptions
             return (FilterKind.NetRule, null);
         }
 
+        if (ServiceRule.TryParse(description, out _))
+        {
+            return (FilterKind.ServiceRule, null);
+        }
+
         var parts = description?.Split('|') ?? [];
         if (parts.Length == 3 && parts[0] == RuleDescription.Prefix)
         {
@@ -80,6 +88,13 @@ public static class FilterDescriptions
         }
 
         return (FilterKind.Unknown, null);
+    }
+
+    /// <summary>The name in a built-in permit's description (svchost, system), or null.</summary>
+    public static string? BuiltInName(string? description)
+    {
+        var parts = description?.Split('|') ?? [];
+        return parts.Length == 3 && parts[0] == RuleDescription.Prefix && parts[1] == "builtin" && parts[2].Length > 0 ? parts[2] : null;
     }
 
     public static string ModeText(FirewallMode mode) => mode switch
@@ -212,4 +227,6 @@ public sealed record CrioFireFilter(
     RuleDescription? Rule,
     FilterKind Kind = FilterKind.AppRule,
     FirewallMode? Mode = null,
-    NetRule? Net = null);
+    NetRule? Net = null,
+    string? BuiltIn = null,
+    ServiceRule? Service = null);

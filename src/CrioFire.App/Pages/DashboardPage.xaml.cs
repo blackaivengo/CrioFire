@@ -41,10 +41,9 @@ public partial class DashboardPage : UserControl, IPage
         var allowApps = rules.Where(r => r.Action == "allow").Select(r => r.App).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var blockApps = rules.Where(r => r.Action == "block").Select(r => r.App).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var temporary = rules.Where(r => r.ExpiresUtc is not null).Select(r => r.App).Distinct(StringComparer.OrdinalIgnoreCase).Count();
-        AllowChip.Text = allowApps == 1 ? "1 program allowed" : $"{allowApps} programs allowed";
+        AllowChip.Text = (allowApps == 1 ? "1 program allowed" : $"{allowApps} programs allowed") + (temporary == 0 ? string.Empty : $" ({temporary} temporary)");
         BlockChip.Text = blockApps == 1 ? "1 block rule" : $"{blockApps} block rules";
-        KpiAllowed.Text = Fmt.Count(allowApps);
-        KpiAllowedNote.Text = temporary == 0 ? "no temporary rules" : $"{temporary} temporary";
+        AutoChip.Text = AutoChipText();
 
         var live = ConnectionTable.Read().Where(c => c.Remote is not null).ToList();
         KpiLive.Text = Fmt.Count(live.Count);
@@ -57,6 +56,7 @@ public partial class DashboardPage : UserControl, IPage
             .ToList();
 
         var report = _model.Status is null ? null : Service.Call(new ApiRequest { Op = ApiOps.Report, Period = ReportBuilder.Day }, out _)?.Report;
+        UpdateAllowed(report);
         if (report is null)
         {
             KpiBlocked.Text = "–";
@@ -83,6 +83,60 @@ public partial class DashboardPage : UserControl, IPage
         TopApps.ItemsSource = top.Select(p => new ShareRow(Bars.Name(p.App), p.App, Fmt.Count(p.Count), (double)p.Count / max)).ToList();
         TopAppsEmpty.Visibility = top.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    private string AutoChipText()
+    {
+        if (_model.Mode == "learning")
+        {
+            return "Learning: programs without a rule may connect";
+        }
+
+        var on = _model.AutoRules.Where(r => r.Enabled).Select(r => r.Name == AutoRulePolicy.WindowsKernel ? "the Windows kernel" : "Windows services").ToList();
+        return on.Count == 0 ? "Only loopback is allowed automatically" : $"Loopback and {string.Join(" and ", on)} allowed automatically";
+    }
+
+    private void UpdateAllowed(ReportInfo? report)
+    {
+        if (report is null)
+        {
+            KpiAllowed.Text = "–";
+            KpiAllowedNote.Text = "needs the CrioFire service";
+            AllowedList.ItemsSource = null;
+            AllowedNote.Text = string.Empty;
+            AllowedEmpty.Visibility = Visibility.Visible;
+            return;
+        }
+
+        KpiAllowed.Text = Fmt.Count(report.AllowedTotal);
+        KpiAllowedNote.Text = $"{Fmt.Count(report.AllowedAutomatic)} automatically · {Fmt.Count(report.AllowedProgramCount)} programs and services";
+        AllowedNote.Text = $"{Fmt.Count(report.AllowedTotal)} connections allowed, {Fmt.Count(report.AllowedAutomatic)} of them by automatic rules or with no rule.";
+
+        var chipIce = (System.Windows.Media.Brush)FindResource("ChipIceBrush");
+        var chipIceText = (System.Windows.Media.Brush)FindResource("ChipIceTextBrush");
+        var chipAuto = (System.Windows.Media.Brush)FindResource("InsetBrush");
+        var chipAutoText = (System.Windows.Media.Brush)FindResource("Text2Brush");
+        var top = (report.TopAllowedPrograms ?? []).Where(p => p.Reason != nameof(AllowReason.Loopback)).Take(6).ToList();
+        var max = Math.Max(1, top.Count == 0 ? 1 : top.Max(p => p.Count));
+        AllowedList.ItemsSource = top.Select(p =>
+        {
+            var (name, detail) = Who.Of(p.App, p.Service);
+            var automatic = AllowReasons.IsAutomatic(p.Reason);
+            return new AllowedRow(name, detail, p.App, p.Service, Fmt.Count(p.Count), (double)p.Count / max,
+                AllowReasons.Label(p.Reason, p.Direction), p.Direction, Fmt.Ago(p.LastUtc),
+                automatic ? chipAuto : chipIce, automatic ? chipAutoText : chipIceText);
+        }).ToList();
+        AllowedEmpty.Visibility = top.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnBlockAllowed(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: AllowedRow row } && Window.GetWindow(this) is { } owner)
+        {
+            _model.Decide(owner, row.App, row.Service, "block");
+        }
+    }
+
+    private void OnOpenAllowed(object sender, RoutedEventArgs e) => _model.ShowAllowed();
 
     private void UpdateProtection()
     {

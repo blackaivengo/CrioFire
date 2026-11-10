@@ -5,8 +5,23 @@ using System.Text.Json;
 
 namespace CrioFire.Core;
 
-/// <summary>One blocked connection as read back from the traffic log.</summary>
-public sealed record LoggedEvent(DateTime TimeUtc, string? App, string? Protocol, string? Remote, string? Direction, string? Kind)
+/// <summary>
+/// One line of the traffic logs: a blocked connection (blocked.log), or allowed connections summed
+/// per minute (allowed.log, <paramref name="Allowed"/> true, with <paramref name="Count"/>,
+/// <paramref name="Reason"/> and the service <paramref name="Port"/>; <paramref name="Remote"/> is then the address only).
+/// </summary>
+public sealed record LoggedEvent(
+    DateTime TimeUtc,
+    string? App,
+    string? Protocol,
+    string? Remote,
+    string? Direction,
+    string? Kind,
+    bool Allowed = false,
+    int Count = 1,
+    string? Reason = null,
+    string? Service = null,
+    int Port = 0)
 {
     /// <summary>Stopped by the mode's catch-all block (the program had no rule) rather than by a rule.</summary>
     public bool ByMode => Kind == nameof(FilterKind.DefaultBlock);
@@ -33,11 +48,38 @@ public static class TrafficHistory
                 return null;
             }
 
+            if (r.TryGetProperty("allowed", out var allowed) && allowed.ValueKind == JsonValueKind.True)
+            {
+                var count = r.TryGetProperty("count", out var c) && c.TryGetInt32(out var n) && n > 0 ? n : 1;
+                var port = r.TryGetProperty("port", out var p) && p.TryGetInt32(out var portNumber) ? portNumber : 0;
+                return new LoggedEvent(
+                    timeUtc, Text(r, "app"), Text(r, "protocol"), Text(r, "remote"), Text(r, "direction"), null,
+                    Allowed: true, Count: count, Reason: Text(r, "reason"), Service: Text(r, "service"), Port: port);
+            }
+
             return new LoggedEvent(timeUtc, Text(r, "app"), Text(r, "protocol"), Text(r, "remote"), Text(r, "direction"), Text(r, "kind"));
         }
         catch (JsonException)
         {
             return null;
+        }
+    }
+
+    /// <summary>Events at or after <paramref name="fromUtc"/> from several logs (e.g. blocked and allowed).</summary>
+    public static IEnumerable<LoggedEvent> Read(IEnumerable<TrafficLog?> logs, DateTime fromUtc)
+    {
+        ArgumentNullException.ThrowIfNull(logs);
+        foreach (var log in logs)
+        {
+            if (log is null)
+            {
+                continue;
+            }
+
+            foreach (var e in Read(log, fromUtc))
+            {
+                yield return e;
+            }
         }
     }
 
@@ -68,7 +110,8 @@ public static class TrafficHistory
         r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 }
 
-public sealed record ReportBucket(DateTime StartUtc, int ByRule, int ByMode)
+/// <param name="Allowed">Allowed connections in the bucket (not part of <see cref="Total"/>, which counts blocked ones).</param>
+public sealed record ReportBucket(DateTime StartUtc, int ByRule, int ByMode, int Allowed = 0)
 {
     public int Total => ByRule + ByMode;
 }
@@ -76,6 +119,14 @@ public sealed record ReportBucket(DateTime StartUtc, int ByRule, int ByMode)
 public sealed record ReportProgram(string App, int Count, int ByRule, DateTime LastUtc);
 
 public sealed record ReportDestination(string Address, int Port, int Count);
+
+/// <summary>A program (or one service in svchost.exe) that was allowed to connect.</summary>
+/// <param name="Reason">The most common reason it was allowed (an <see cref="AllowReason"/> name).</param>
+/// <param name="Automatic">How many of its connections were allowed without a rule anyone made.</param>
+/// <param name="Direction">out, in, or both.</param>
+public sealed record ReportAllowedProgram(string App, string? Service, int Count, int Automatic, string Reason, string Direction, DateTime LastUtc);
+
+public sealed record ReportReason(string Reason, int Count);
 
 /// <summary>What CrioFire blocked over a period: totals, a time series and the top programs and destinations.</summary>
 public sealed record ReportInfo(
@@ -92,7 +143,14 @@ public sealed record ReportInfo(
     int DestinationCount,
     List<ReportBucket> Buckets,
     List<ReportProgram> TopPrograms,
-    List<ReportDestination> TopDestinations);
+    List<ReportDestination> TopDestinations,
+    int AllowedTotal = 0,
+    int AllowedAutomatic = 0,
+    int AllowedPrevious = 0,
+    int AllowedProgramCount = 0,
+    List<ReportReason>? AllowedReasons = null,
+    List<ReportAllowedProgram>? TopAllowedPrograms = null,
+    List<ReportDestination>? TopAllowedDestinations = null);
 
 /// <summary>Builds a <see cref="ReportInfo"/> from logged events. Pure logic, unit-tested.</summary>
 public static class ReportBuilder
@@ -101,6 +159,9 @@ public static class ReportBuilder
     public const string Week = "7d";
     public const string Month = "30d";
     public const int TopCount = 10;
+
+    /// <summary>Allowed programs get a longer list: the point is to see every one of them.</summary>
+    public const int TopAllowedCount = 50;
 
     public static bool IsPeriod(string? period) => period is Day or Week or Month;
 
@@ -147,6 +208,11 @@ public static class ReportBuilder
 
         var byRule = new int[starts.Count];
         var byMode = new int[starts.Count];
+        var allowedBuckets = new int[starts.Count];
+        var allowedPrograms = new Dictionary<(string App, string Service), AllowedTally>();
+        var allowedDestinations = new Dictionary<(string, int), int>();
+        var reasons = new Dictionary<string, int>(StringComparer.Ordinal);
+        int allowedTotal = 0, allowedAutomatic = 0, allowedPrevious = 0;
         var programs = new Dictionary<string, (int Count, int ByRule, DateTime Last)>(StringComparer.OrdinalIgnoreCase);
         var destinations = new Dictionary<(string, int), int>();
         int total = 0, rule = 0, mode = 0, outbound = 0, inbound = 0, previous = 0;
@@ -156,12 +222,47 @@ public static class ReportBuilder
             var time = DateTime.SpecifyKind(e.TimeUtc, DateTimeKind.Utc);
             if (time >= previousFrom && time < fromUtc)
             {
-                previous++;
+                if (e.Allowed)
+                {
+                    allowedPrevious += e.Count;
+                }
+                else
+                {
+                    previous++;
+                }
+
                 continue;
             }
 
             if (time < fromUtc || time >= toUtc)
             {
+                continue;
+            }
+
+            if (e.Allowed)
+            {
+                var n = e.Count;
+                var reason = e.Reason ?? nameof(AllowReason.NoRule);
+                var automatic = AllowReasons.IsAutomatic(reason);
+                allowedTotal += n;
+                allowedAutomatic += automatic ? n : 0;
+                allowedBuckets[BucketIndex(starts, time)] += n;
+                reasons[reason] = reasons.GetValueOrDefault(reason) + n;
+
+                var key = (string.IsNullOrEmpty(e.App) ? "(unknown program)" : e.App, e.Service ?? string.Empty);
+                if (!allowedPrograms.TryGetValue(key, out var tally))
+                {
+                    tally = new AllowedTally();
+                    allowedPrograms[key] = tally;
+                }
+
+                tally.Add(n, automatic, reason, e.Direction, time);
+                if (!string.IsNullOrEmpty(e.Remote))
+                {
+                    var dk = (e.Remote, e.Port);
+                    allowedDestinations[dk] = allowedDestinations.GetValueOrDefault(dk) + n;
+                }
+
                 continue;
             }
 
@@ -201,10 +302,23 @@ public static class ReportBuilder
         return new ReportInfo(
             period, fromUtc, toUtc, total, rule, mode, outbound, inbound, previous,
             programs.Count, destinations.Count,
-            starts.Select((s, i) => new ReportBucket(s, byRule[i], byMode[i])).ToList(),
+            starts.Select((s, i) => new ReportBucket(s, byRule[i], byMode[i], allowedBuckets[i])).ToList(),
             programs.OrderByDescending(kv => kv.Value.Count).ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase).Take(TopCount)
                 .Select(kv => new ReportProgram(kv.Key, kv.Value.Count, kv.Value.ByRule, kv.Value.Last)).ToList(),
             destinations.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key.Item1, StringComparer.Ordinal).Take(TopCount)
+                .Select(kv => new ReportDestination(kv.Key.Item1, kv.Key.Item2, kv.Value)).ToList(),
+            allowedTotal,
+            allowedAutomatic,
+            allowedPrevious,
+            allowedPrograms.Count,
+            reasons.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal)
+                .Select(kv => new ReportReason(kv.Key, kv.Value)).ToList(),
+            allowedPrograms.OrderByDescending(kv => kv.Value.Count).ThenBy(kv => kv.Key.App, StringComparer.OrdinalIgnoreCase).ThenBy(kv => kv.Key.Service, StringComparer.OrdinalIgnoreCase)
+                .Take(TopAllowedCount)
+                .Select(kv => new ReportAllowedProgram(
+                    kv.Key.App, kv.Key.Service.Length == 0 ? null : kv.Key.Service, kv.Value.Count, kv.Value.Automatic,
+                    kv.Value.TopReason, kv.Value.DirectionText, kv.Value.Last)).ToList(),
+            allowedDestinations.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key.Item1, StringComparer.Ordinal).Take(TopCount)
                 .Select(kv => new ReportDestination(kv.Key.Item1, kv.Key.Item2, kv.Value)).ToList());
     }
 
@@ -225,11 +339,13 @@ public static class ReportBuilder
         sb.AppendLine(c, $"No rule yet (mode),{report.ByMode}");
         sb.AppendLine(c, $"Outbound,{report.Outbound}");
         sb.AppendLine(c, $"Inbound,{report.Inbound}");
+        sb.AppendLine(c, $"Allowed,{report.AllowedTotal}");
+        sb.AppendLine(c, $"Allowed automatically,{report.AllowedAutomatic}");
         sb.AppendLine();
-        sb.AppendLine("Period start,By your rules,No rule yet (mode),Total");
+        sb.AppendLine("Period start,By your rules,No rule yet (mode),Blocked,Allowed");
         foreach (var b in report.Buckets)
         {
-            sb.AppendLine(c, $"{Local(b.StartUtc)},{b.ByRule},{b.ByMode},{b.Total}");
+            sb.AppendLine(c, $"{Local(b.StartUtc)},{b.ByRule},{b.ByMode},{b.Total},{b.Allowed}");
         }
 
         sb.AppendLine();
@@ -246,7 +362,55 @@ public static class ReportBuilder
             sb.AppendLine(c, $"{Quote(d.Address)},{d.Port},{d.Count}");
         }
 
+        sb.AppendLine();
+        sb.AppendLine("Allowed because,Connections");
+        foreach (var r in report.AllowedReasons ?? [])
+        {
+            sb.AppendLine(c, $"{Quote(AllowReasons.Label(r.Reason, null))},{r.Count}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("Allowed program,Service,Direction,Allowed,Automatically,Main reason,Last seen");
+        foreach (var p in report.TopAllowedPrograms ?? [])
+        {
+            sb.AppendLine(c, $"{Quote(p.App)},{Quote(p.Service ?? string.Empty)},{p.Direction},{p.Count},{p.Automatic},{Quote(AllowReasons.Label(p.Reason, p.Direction))},{Local(p.LastUtc)}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("Allowed destination,Port,Allowed");
+        foreach (var d in report.TopAllowedDestinations ?? [])
+        {
+            sb.AppendLine(c, $"{Quote(d.Address)},{d.Port},{d.Count}");
+        }
+
         return sb.ToString();
+    }
+
+    private sealed class AllowedTally
+    {
+        private readonly Dictionary<string, int> _reasons = new(StringComparer.Ordinal);
+        private bool _out;
+        private bool _in;
+
+        public int Count { get; private set; }
+
+        public int Automatic { get; private set; }
+
+        public DateTime Last { get; private set; }
+
+        public string TopReason => _reasons.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).First().Key;
+
+        public string DirectionText => _out && _in ? "both" : _in ? "in" : "out";
+
+        public void Add(int count, bool automatic, string reason, string? direction, DateTime time)
+        {
+            Count += count;
+            Automatic += automatic ? count : 0;
+            _reasons[reason] = _reasons.GetValueOrDefault(reason) + count;
+            _in |= direction == "in";
+            _out |= direction != "in";
+            Last = time > Last ? time : Last;
+        }
     }
 
     private static int BucketIndex(List<DateTime> starts, DateTime time)

@@ -102,6 +102,43 @@ public partial class ReportsPage : UserControl, IPage
         DestinationList.ItemsSource = r.TopDestinations.Take(6)
             .Select(d => new DestinationRow(d.Address, d.Port.ToString(c), Fmt.Count(d.Count))).ToList();
         DestinationsEmpty.Visibility = r.TopDestinations.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        ShowAllowed(r, chipIce, chipIceText);
+    }
+
+    private void ShowAllowed(ReportInfo r, Brush chipIce, Brush chipIceText)
+    {
+        var c = CultureInfo.CurrentCulture;
+        var chipAuto = (Brush)FindResource("InsetBrush");
+        var chipAutoText = (Brush)FindResource("Text2Brush");
+        var change = r.AllowedPrevious == 0 ? string.Empty
+            : $" ({((r.AllowedTotal - r.AllowedPrevious) >= 0 ? "▲" : "▼")} {Math.Abs((r.AllowedTotal - r.AllowedPrevious) * 100.0 / r.AllowedPrevious):0}% vs the period before)";
+        AllowedHeadline.Text = $"{Fmt.Count(r.AllowedTotal)} connections from {Fmt.Count(r.AllowedProgramCount)} programs and services{change}; "
+            + $"{Fmt.Count(r.AllowedAutomatic)} were allowed by automatic rules or with no rule at all.";
+
+        var programs = r.TopAllowedPrograms ?? [];
+        var top = Math.Max(1, programs.Count == 0 ? 1 : programs.Max(p => p.Count));
+        AllowedList.ItemsSource = programs.Select(p =>
+        {
+            var (name, detail) = Who.Of(p.App, p.Service);
+            var automatic = AllowReasons.IsAutomatic(p.Reason);
+            return new AllowedRow(name, detail, p.App, p.Service, Fmt.Count(p.Count), (double)p.Count / top,
+                AllowReasons.Label(p.Reason, p.Direction), Who.Direction(p.Direction), Fmt.Ago(p.LastUtc),
+                automatic ? chipAuto : chipIce, automatic ? chipAutoText : chipIceText);
+        }).ToList();
+        AllowedEmpty.Visibility = programs.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        var reasons = r.AllowedReasons ?? [];
+        var most = Math.Max(1, reasons.Count == 0 ? 1 : reasons.Max(x => x.Count));
+        ReasonList.ItemsSource = reasons
+            .Select(x => new ShareRow(AllowReasons.Label(x.Reason, null), x.Reason, Fmt.Count(x.Count), (double)x.Count / most))
+            .ToList();
+        ReasonsEmpty.Visibility = reasons.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        var destinations = r.TopAllowedDestinations ?? [];
+        AllowedDestinationList.ItemsSource = destinations.Take(6)
+            .Select(d => new DestinationRow(d.Address, d.Port.ToString(c), Fmt.Count(d.Count))).ToList();
+        AllowedDestinationsEmpty.Visibility = destinations.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private string BucketLabel(ReportBucket b, int count)
@@ -134,6 +171,9 @@ public partial class ReportsPage : UserControl, IPage
 
         SumBlockedNote.Text = SumProgramsNote.Text = string.Empty;
         DayBars.ItemsSource = DayLabels.ItemsSource = ProgramList.ItemsSource = DestinationList.ItemsSource = null;
+        AllowedList.ItemsSource = ReasonList.ItemsSource = AllowedDestinationList.ItemsSource = null;
+        AllowedHeadline.Text = string.Empty;
+        AllowedEmpty.Visibility = ReasonsEmpty.Visibility = AllowedDestinationsEmpty.Visibility = Visibility.Visible;
         DonutArc.Data = null;
         OutShare.Text = "–";
         ChartEmpty.Visibility = ProgramsEmpty.Visibility = DestinationsEmpty.Visibility = Visibility.Visible;

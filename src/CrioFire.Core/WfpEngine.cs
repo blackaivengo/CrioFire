@@ -33,6 +33,7 @@ public sealed unsafe class WfpEngine : IDisposable
     // Filter weights inside CrioFire's sublayer (0-15): a user's rule beats the built-in permits,
     // which beat the catch-all block of Ask/Allow-list mode.
     private const byte RuleWeight = 10;
+    private const byte ServiceRuleWeight = 11;   // a service rule beats a rule for all of svchost.exe
     private const byte BuiltInWeight = 5;
     private const byte DefaultBlockWeight = 0;
 
@@ -123,6 +124,117 @@ public sealed unsafe class WfpEngine : IDisposable
         ThrowIfDisposed();
         var value = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT32, value = new FWP_VALUE_UNION { uint32 = 1 } };
         Check("FwpmEngineSetOption0", Fwpuclnt.FwpmEngineSetOption0(_handle, FWPM_ENGINE_OPTION.FWPM_ENGINE_COLLECT_NET_EVENTS, &value));
+        _ = SetAllowedEventCollection(true);
+    }
+
+    /// <summary>
+    /// Turns recording of allowed connections (net event keyword CLASSIFY_ALLOW) on or off, keeping
+    /// any other keywords set by other software. Machine-wide; Uninstall turns it off again.
+    /// Returns false when this Windows version refuses it (blocking still works without it).
+    /// </summary>
+    public bool SetAllowedEventCollection(bool enabled)
+    {
+        ThrowIfDisposed();
+        FWP_VALUE0* current = null;
+        if (Fwpuclnt.FwpmEngineGetOption0(_handle, FWPM_ENGINE_OPTION.FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS, &current) != FwpErrors.ERROR_SUCCESS)
+        {
+            return false;
+        }
+
+        uint keywords;
+        try
+        {
+            keywords = current != null && current->type == FWP_DATA_TYPE.FWP_UINT32 ? current->value.uint32 : 0;
+        }
+        finally
+        {
+            if (current != null)
+            {
+                Fwpuclnt.FwpmFreeMemory0((void**)&current);
+            }
+        }
+
+        var wanted = enabled ? keywords | FwpmNetEventKeywords.CLASSIFY_ALLOW : keywords & ~FwpmNetEventKeywords.CLASSIFY_ALLOW;
+        if (wanted == keywords)
+        {
+            return true;
+        }
+
+        var value = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT32, value = new FWP_VALUE_UNION { uint32 = wanted } };
+        return Fwpuclnt.FwpmEngineSetOption0(_handle, FWPM_ENGINE_OPTION.FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS, &value) == FwpErrors.ERROR_SUCCESS;
+    }
+
+    /// <summary>
+    /// Reads connections the filtering engine allowed between <paramref name="fromUtc"/> and
+    /// <paramref name="toUtc"/>, with the reason: a CrioFire rule, an automatic permit, loopback,
+    /// or no CrioFire rule at all. Needs <see cref="SetAllowedEventCollection"/> on.
+    /// </summary>
+    public IReadOnlyList<AllowedConnection> ReadAllowedConnections(DateTime fromUtc, DateTime? toUtc = null, NtPathMapper? paths = null)
+    {
+        ThrowIfDisposed();
+        paths ??= NtPathMapper.FromSystem();
+        var ours = ListFilters().ToDictionary(f => f.FilterId);
+        var result = new List<AllowedConnection>();
+
+        var template = new FWPM_NET_EVENT_ENUM_TEMPLATE0
+        {
+            startTime = FILETIME.FromDateTime(fromUtc.ToUniversalTime()),
+            endTime = FILETIME.FromDateTime((toUtc ?? DateTime.UtcNow).ToUniversalTime()),
+        };
+
+        IntPtr enumHandle;
+        Check("FwpmNetEventCreateEnumHandle0", Fwpuclnt.FwpmNetEventCreateEnumHandle0(_handle, &template, &enumHandle));
+        try
+        {
+            while (true)
+            {
+                FWPM_NET_EVENT2** entries = null;
+                uint count = 0;
+                Check("FwpmNetEventEnum2", Fwpuclnt.FwpmNetEventEnum2(_handle, enumHandle, 512, &entries, &count));
+                try
+                {
+                    for (var i = 0; i < count; i++)
+                    {
+                        var e = entries[i];
+                        if (e->type != FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_ALLOW || e->details == null)
+                        {
+                            continue;
+                        }
+
+                        var allow = (FWPM_NET_EVENT_CLASSIFY_ALLOW0*)e->details;
+                        ours.TryGetValue(allow->filterId, out var rule);
+                        var blocked = Decode(&e->header.common, allow->filterId, rule, paths);
+                        var direction = allow->msFwpDirection == FwpDirection.FWP_DIRECTION_IN
+                            ? TrafficDirection.Inbound
+                            : allow->msFwpDirection == FwpDirection.FWP_DIRECTION_OUT
+                                ? TrafficDirection.Outbound
+                                : rule?.Layer?.Direction ?? TrafficDirection.Outbound;
+                        result.Add(new AllowedConnection(
+                            blocked.TimeUtc, blocked.AppPath, blocked.Protocol, blocked.Local, blocked.Remote,
+                            direction, allow->isLoopback != 0, allow->filterId, rule));
+                    }
+                }
+                finally
+                {
+                    if (entries != null)
+                    {
+                        Fwpuclnt.FwpmFreeMemory0((void**)&entries);
+                    }
+                }
+
+                if (count < 512)
+                {
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            _ = Fwpuclnt.FwpmNetEventDestroyEnumHandle0(_handle, enumHandle);
+        }
+
+        result.Sort((a, b) => a.TimeUtc.CompareTo(b.TimeUtc));
+        return result;
     }
 
     /// <summary>
@@ -247,6 +359,7 @@ public sealed unsafe class WfpEngine : IDisposable
         }
 
         tx.Commit();
+        _ = SetAllowedEventCollection(false);
     }
 
     /// <summary>
@@ -259,13 +372,14 @@ public sealed unsafe class WfpEngine : IDisposable
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(appPath);
 
-        var fullPath = Path.GetFullPath(appPath);
-        if (!File.Exists(fullPath))
+        var fullPath = KnownApps.Normalize(appPath);
+        var kernel = KnownApps.IsKernel(fullPath);
+        if (!kernel && !File.Exists(fullPath))
         {
             throw new FileNotFoundException("No program at that path.", fullPath);
         }
 
-        using var appId = AppId.FromFile(fullPath);
+        using var appId = kernel ? AppId.ForKernel() : AppId.FromFile(fullPath);
         using var tx = BeginTransaction();
         var layers = FilterLayers.For(direction);
         RemoveAppRulesInternal(fullPath, layers);
@@ -291,9 +405,11 @@ public sealed unsafe class WfpEngine : IDisposable
     /// Programs to give an outbound allow rule at the same time (programs that already have a
     /// CrioFire rule are left alone), e.g. the programs running right now.
     /// </param>
-    public void SetMode(FirewallMode mode, IEnumerable<string>? alsoAllow = null)
+    /// <param name="policy">Which automatic permits to add; default: the saved <see cref="AutoRulePolicy"/>.</param>
+    public void SetMode(FirewallMode mode, IEnumerable<string>? alsoAllow = null, AutoRulePolicy? policy = null)
     {
         ThrowIfDisposed();
+        policy ??= AutoRulePolicy.Load(AutoRulePolicy.DefaultPath);
         var existingRules = ListFilters()
             .Where(f => f.Rule is not null)
             .Select(f => f.Rule!.AppPath)
@@ -330,16 +446,7 @@ public sealed unsafe class WfpEngine : IDisposable
 
             if (mode != FirewallMode.Learning)
             {
-                var svchost = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "svchost.exe");
-                using (var svchostId = AppId.FromFile(svchost))
-                using (var systemId = AppId.ForKernel())
-                {
-                    foreach (var layer in new[] { FilterLayers.ConnectV4, FilterLayers.ConnectV6 })
-                    {
-                        AddAppIdFilter(layer, svchostId, "CrioFire: allow Windows services", FilterDescriptions.BuiltInAllow("svchost"), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
-                        AddAppIdFilter(layer, systemId, "CrioFire: allow Windows kernel", FilterDescriptions.BuiltInAllow("system"), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
-                    }
-                }
+                AddBuiltIns(policy);
 
                 foreach (var layer in new[] { FilterLayers.ConnectV4, FilterLayers.ConnectV6 })
                 {
@@ -369,11 +476,100 @@ public sealed unsafe class WfpEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Switches one automatic permit (svchost or system) on or off, saves the choice and, in Ask
+    /// and Allow-list modes, applies it at once. Turning "svchost" off in Ask mode stops DNS for
+    /// every program without its own rule.
+    /// </summary>
+    public void SetAutoRule(string name, bool enabled, string? policyPath = null)
+    {
+        ThrowIfDisposed();
+        policyPath ??= AutoRulePolicy.DefaultPath;
+        var policy = AutoRulePolicy.Load(policyPath);
+        policy.Set(name, enabled);
+        policy.Save(policyPath);
+
+        var filters = ListFilters();
+        if (!filters.Any(f => f.Kind == FilterKind.DefaultBlock))
+        {
+            return;   // Learning mode: nothing to change until the mode changes
+        }
+
+        using var tx = BeginTransaction();
+        foreach (var filter in filters.Where(f => f.Kind == FilterKind.BuiltInAllow))
+        {
+            DeleteFilter(filter.FilterId, ignoreMissing: true);
+        }
+
+        AddBuiltIns(policy);
+        tx.Commit();
+    }
+
+    /// <summary>Which automatic permits are switched on, and which are in force right now.</summary>
+    public IReadOnlyList<(string Name, bool Enabled, bool Active)> GetAutoRules(string? policyPath = null)
+    {
+        ThrowIfDisposed();
+        var policy = AutoRulePolicy.Load(policyPath ?? AutoRulePolicy.DefaultPath);
+        var active = ListFilters().Where(f => f.Kind == FilterKind.BuiltInAllow).Select(f => f.BuiltIn).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return AutoRulePolicy.Names.Select(n => (n, policy.IsEnabled(n), active.Contains(n))).ToList();
+    }
+
+    /// <summary>
+    /// Sets the rule for one Windows service, replacing an earlier one in the same direction.
+    /// Matched by the service SID, so it works inside a shared svchost.exe for services that run
+    /// with a service SID (most Windows services do).
+    /// </summary>
+    public IReadOnlyList<ulong> SetServiceRule(string serviceName, RuleAction action, TrafficDirection direction)
+    {
+        ThrowIfDisposed();
+        if (!ServiceRule.IsValidName(serviceName))
+        {
+            throw new ArgumentException("Not a valid service name.", nameof(serviceName));
+        }
+
+        var rule = new ServiceRule(action, direction, serviceName);
+        using var sd = SecurityDescriptor.FromSddl(ServiceSid.Sddl(ServiceSid.For(serviceName)));
+        using var tx = BeginTransaction();
+        var layers = FilterLayers.For(direction);
+        RemoveServiceRulesInternal(serviceName, layers);
+
+        var condition = new FWPM_FILTER_CONDITION0
+        {
+            fieldKey = WfpIds.ConditionAleUserId,
+            matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL,
+            conditionValue = new FWP_VALUE0
+            {
+                type = FWP_DATA_TYPE.FWP_SECURITY_DESCRIPTOR_TYPE,
+                value = new FWP_VALUE_UNION { byteBlob = sd.Blob },
+            },
+        };
+        var name = $"CrioFire: {RuleDescription.ActionText(action)} service {serviceName}";
+        var type = action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT;
+        var added = new List<ulong>();
+        foreach (var layer in layers)
+        {
+            added.Add(AddFilter(layer, name, rule.Format(), type, ServiceRuleWeight, &condition, 1));
+        }
+
+        tx.Commit();
+        return added;
+    }
+
+    /// <summary>Removes CrioFire's rules for one Windows service in the given direction.</summary>
+    public int RemoveServiceRules(string serviceName, TrafficDirection direction = TrafficDirection.Both)
+    {
+        ThrowIfDisposed();
+        using var tx = BeginTransaction();
+        var removed = RemoveServiceRulesInternal(serviceName, FilterLayers.For(direction));
+        tx.Commit();
+        return removed;
+    }
+
     /// <summary>Removes CrioFire's rules for one application in the given direction.</summary>
     public int RemoveAppRules(string appPath, TrafficDirection direction = TrafficDirection.Both)
     {
         ThrowIfDisposed();
-        var fullPath = Path.GetFullPath(appPath);
+        var fullPath = KnownApps.Normalize(appPath);
         using var tx = BeginTransaction();
         var removed = RemoveAppRulesInternal(fullPath, FilterLayers.For(direction));
         tx.Commit();
@@ -497,7 +693,9 @@ public sealed unsafe class WfpEngine : IDisposable
                         var rule = RuleDescription.TryParse(description, out var parsed) ? parsed : null;
                         var (kind, mode) = FilterDescriptions.Classify(description);
                         var net = kind == FilterKind.NetRule && NetRule.TryParse(description, out var parsedNet) ? parsedNet : null;
-                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net));
+                        var service = kind == FilterKind.ServiceRule && ServiceRule.TryParse(description, out var parsedService) ? parsedService : null;
+                        var builtIn = kind == FilterKind.BuiltInAllow ? FilterDescriptions.BuiltInName(description) : null;
+                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net, builtIn, service));
                     }
                 }
                 finally
@@ -583,6 +781,47 @@ public sealed unsafe class WfpEngine : IDisposable
             Check("FwpmFilterAdd0", Fwpuclnt.FwpmFilterAdd0(_handle, &filter, null, &id));
             return id;
         }
+    }
+
+    private void AddBuiltIns(AutoRulePolicy policy)
+    {
+        var layers = new[] { FilterLayers.ConnectV4, FilterLayers.ConnectV6 };
+        if (policy.IsEnabled(AutoRulePolicy.WindowsServices))
+        {
+            var svchost = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "svchost.exe");
+            using var svchostId = AppId.FromFile(svchost);
+            foreach (var layer in layers)
+            {
+                AddAppIdFilter(layer, svchostId, "CrioFire: allow Windows services", FilterDescriptions.BuiltInAllow(AutoRulePolicy.WindowsServices), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
+            }
+        }
+
+        if (policy.IsEnabled(AutoRulePolicy.WindowsKernel))
+        {
+            using var systemId = AppId.ForKernel();
+            foreach (var layer in layers)
+            {
+                AddAppIdFilter(layer, systemId, "CrioFire: allow Windows kernel", FilterDescriptions.BuiltInAllow(AutoRulePolicy.WindowsKernel), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
+            }
+        }
+    }
+
+    private int RemoveServiceRulesInternal(string serviceName, IReadOnlyList<FilterLayer> layers)
+    {
+        var removed = 0;
+        foreach (var filter in ListFilters())
+        {
+            if (filter.Service is not null
+                && filter.Layer is not null
+                && layers.Contains(filter.Layer)
+                && string.Equals(filter.Service.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase))
+            {
+                DeleteFilter(filter.FilterId, ignoreMissing: true);
+                removed++;
+            }
+        }
+
+        return removed;
     }
 
     private int RemoveNetRuleInternal(IReadOnlyList<CrioFireFilter> filters, string description)
@@ -786,6 +1025,47 @@ public sealed unsafe class WfpEngine : IDisposable
             {
                 _ = Fwpuclnt.FwpmTransactionAbort0(handle);
                 _done = true;
+            }
+        }
+    }
+
+    /// <summary>A self-relative security descriptor in an FWP_BYTE_BLOB, made from SDDL; frees itself.</summary>
+    private sealed class SecurityDescriptor : IDisposable
+    {
+        private IntPtr _sd;
+
+        private SecurityDescriptor(IntPtr sd, uint size)
+        {
+            _sd = sd;
+            Blob = (FWP_BYTE_BLOB*)NativeMemory.Alloc((nuint)sizeof(FWP_BYTE_BLOB));
+            Blob->size = size;
+            Blob->data = (byte*)sd;
+        }
+
+        public FWP_BYTE_BLOB* Blob { get; private set; }
+
+        public static SecurityDescriptor FromSddl(string sddl)
+        {
+            if (!Advapi32.ConvertStringSecurityDescriptorToSecurityDescriptor(sddl, Advapi32.SDDL_REVISION_1, out var sd, out var size))
+            {
+                throw new WfpException("ConvertStringSecurityDescriptorToSecurityDescriptor", (uint)Marshal.GetLastPInvokeError());
+            }
+
+            return new SecurityDescriptor(sd, size);
+        }
+
+        public void Dispose()
+        {
+            if (Blob != null)
+            {
+                NativeMemory.Free(Blob);
+                Blob = null;
+            }
+
+            if (_sd != IntPtr.Zero)
+            {
+                _ = Kernel32.LocalFree(_sd);
+                _sd = IntPtr.Zero;
             }
         }
     }

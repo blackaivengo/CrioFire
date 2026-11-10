@@ -2,12 +2,30 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <StackPanel>
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
-      <Button Content="Allow this program" Style="{StaticResource IceButton}" Margin="0,0,10,0" Click="OnAllow" />
-      <Button Content="Allow for 1 hour" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllowHour" />
-      <Button Content="Keep it blocked" Style="{StaticResource OutlineFireButton}" Click="OnBlock" />
-    </StackPanel>
-    <ContentControl Style="{StaticResource Card}">
+    <DockPanel Margin="0,0,0,20">
+      <Border DockPanel.Dock="Left" Style="{StaticResource SegGroup}" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="ShowBlocked" Content="Blocked" GroupName="Show" Style="{StaticResource SegFireItem}" IsChecked="True" Click="OnShow" />
+          <RadioButton x:Name="ShowAllowed" Content="Allowed" GroupName="Show" Style="{StaticResource SegIceItem}" Click="OnShow" />
+        </StackPanel>
+      </Border>
+      <CheckBox x:Name="LocalSwitch" DockPanel.Dock="Left" Style="{StaticResource Switch}" Margin="18,0,0,0" VerticalAlignment="Center"
+                Click="OnShow" Visibility="Collapsed" ToolTip="Traffic between programs on this PC (127.0.0.1, ::1) is always allowed.">
+        <TextBlock Text="Show local (loopback)" VerticalAlignment="Center" />
+      </CheckBox>
+      <StackPanel x:Name="BlockedActions" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Allow this program" Style="{StaticResource IceButton}" Margin="0,0,10,0" Click="OnAllow" />
+        <Button Content="Allow for 1 hour" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllowHour" />
+        <Button Content="Keep it blocked" Style="{StaticResource OutlineFireButton}" Click="OnBlock" />
+      </StackPanel>
+      <StackPanel x:Name="AllowedActions" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed">
+        <Button Content="Always allow" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllowAllowed"
+                ToolTip="Make an allow rule, so it keeps working even if automatic rules are switched off" />
+        <Button Content="Block it" Style="{StaticResource FireButton}" Click="OnBlockAllowed" />
+      </StackPanel>
+    </DockPanel>
+
+    <ContentControl x:Name="BlockedCard" Style="{StaticResource Card}">
       <StackPanel>
         <TextBlock x:Name="Empty" Style="{StaticResource Muted}" Visibility="Collapsed" Text="Nothing blocked in the last hour." />
         <ListView x:Name="Table" SelectionMode="Single">
@@ -30,6 +48,43 @@
                 <GridViewColumn.CellTemplate>
                   <DataTemplate>
                     <TextBlock Text="{Binding Program}" ToolTip="{Binding App}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl x:Name="AllowedCard" Style="{StaticResource IceCard}" Visibility="Collapsed">
+      <StackPanel>
+        <TextBlock x:Name="AllowedEmpty" Style="{StaticResource Muted}" Visibility="Collapsed" TextWrapping="Wrap"
+                   Text="Nothing recorded in the last hour. The CrioFire service records allowed connections while it runs." />
+        <ListView x:Name="AllowedTable" SelectionMode="Single">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="LAST" Width="80" DisplayMemberBinding="{Binding Time}" />
+              <GridViewColumn Header="WHY" Width="230">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border Style="{StaticResource Chip}" Margin="0" Padding="9,3" Background="{Binding ChipBrush}">
+                      <TextBlock Text="{Binding Why}" FontSize="12" Foreground="{Binding ChipTextBrush}" />
+                    </Border>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="DIR" Width="60" DisplayMemberBinding="{Binding Direction}" />
+              <GridViewColumn Header="PROTO" Width="64" DisplayMemberBinding="{Binding Protocol}" />
+              <GridViewColumn Header="REMOTE" Width="210" DisplayMemberBinding="{Binding Remote}" />
+              <GridViewColumn Header="COUNT" Width="70" DisplayMemberBinding="{Binding CountText}" />
+              <GridViewColumn Header="PROGRAM OR SERVICE" Width="330">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel ToolTip="{Binding Detail}">
+                      <TextBlock Text="{Binding Program}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
