@@ -6,13 +6,15 @@
       <Button Content="Allow a program..." Style="{StaticResource IceButton}" Margin="0,0,10,0" Click="OnAllow" />
       <Button Content="Allow for 1 hour..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllowHour" />
       <Button Content="Block a program..." Style="{StaticResource FireButton}" Margin="0,0,10,0" Click="OnBlock" />
+      <Button Content="Add network rule..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAddNet" />
       <Button Content="Remove selected" Style="{StaticResource GhostButton}" Click="OnRemove" />
     </StackPanel>
-    <ContentControl Style="{StaticResource Card}">
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
       <StackPanel>
+        <TextBlock Text="Programs" Style="{StaticResource H2}" Margin="0,0,0,10" />
         <TextBlock x:Name="Empty" Style="{StaticResource Muted}" Visibility="Collapsed"
                    Text="No rules yet. Allow or block a program above, or answer an alert in Ask mode." />
-        <ListView x:Name="Table" SelectionMode="Single">
+        <ListView x:Name="Table" SelectionMode="Single" SelectionChanged="OnProgramSelected">
           <ListView.View>
             <GridView>
               <GridViewColumn Header="ACTION" Width="100">
@@ -36,6 +38,46 @@
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
               <GridViewColumn Header="UNTIL" Width="110" DisplayMemberBinding="{Binding Until}" />
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource IceCard}">
+      <StackPanel>
+        <TextBlock Text="Network rules" Style="{StaticResource H2}" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,10"
+                   Text="By port and remote address, for every program or one. They win over program rules, and the more specific rule wins." />
+        <TextBlock x:Name="NetEmpty" Style="{StaticResource Muted}" Visibility="Collapsed"
+                   Text="No network rules. Add one to block a port like 445 inbound, keep a program to port 443, or block an address range." />
+        <ListView x:Name="NetTable" SelectionMode="Single" SelectionChanged="OnNetSelected">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="ACTION" Width="100">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border Style="{StaticResource Chip}" Margin="0" Padding="10,3" Background="{Binding ChipBrush}">
+                      <TextBlock Text="{Binding Action}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding ChipTextBrush}" />
+                    </Border>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="DIRECTION" Width="100" DisplayMemberBinding="{Binding Direction}" />
+              <GridViewColumn Header="RULE" Width="380">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Rule}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Rule}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="PROGRAM" Width="320">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Program}" ToolTip="{Binding App}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
             </GridView>
           </ListView.View>
         </ListView>

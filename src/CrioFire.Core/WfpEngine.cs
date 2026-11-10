@@ -380,18 +380,75 @@ public sealed unsafe class WfpEngine : IDisposable
         return removed;
     }
 
-    /// <summary>Removes one CrioFire filter by ID. Refuses filters that CrioFire does not own.</summary>
-    public void RemoveFilter(ulong filterId)
+    /// <summary>
+    /// Removes one CrioFire filter by ID; for a network rule, all of that rule's filters (one per
+    /// layer). Refuses filters that CrioFire does not own. Returns how many filters were removed.
+    /// </summary>
+    public int RemoveFilter(ulong filterId)
     {
         ThrowIfDisposed();
         using var tx = BeginTransaction();
-        if (!ListFilters().Any(f => f.FilterId == filterId))
+        var filters = ListFilters();
+        var target = filters.FirstOrDefault(f => f.FilterId == filterId)
+            ?? throw new InvalidOperationException($"Filter {filterId} does not belong to CrioFire, or does not exist.");
+
+        var removed = 0;
+        if (target.Net is { } net)
         {
-            throw new InvalidOperationException($"Filter {filterId} does not belong to CrioFire, or does not exist.");
+            removed = RemoveNetRuleInternal(filters, net.Format());
+        }
+        else
+        {
+            DeleteFilter(filterId, ignoreMissing: false);
+            removed = 1;
         }
 
-        DeleteFilter(filterId, ignoreMissing: false);
         tx.Commit();
+        return removed;
+    }
+
+    /// <summary>
+    /// Adds a rule by port and/or remote address, optionally for one program, replacing an
+    /// identical rule. One filter per matching layer: an IPv4-only address list adds no IPv6
+    /// filters (an IPv6 filter without the address condition would match everything).
+    /// </summary>
+    public IReadOnlyList<ulong> AddNetRule(NetRule rule)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(rule);
+        if (rule.AppPath is not null && !File.Exists(rule.AppPath))
+        {
+            throw new FileNotFoundException("No program at that path.", rule.AppPath);
+        }
+
+        using var appId = rule.AppPath is null ? null : AppId.FromFile(rule.AppPath);
+        using var tx = BeginTransaction();
+        var description = rule.Format();
+        RemoveNetRuleInternal(ListFilters(), description);
+
+        var name = $"CrioFire: {RuleDescription.ActionText(rule.Action)} {rule.Summary()}";
+        var action = rule.Action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT;
+        var added = new List<ulong>();
+        foreach (var layer in FilterLayers.For(rule.Direction))
+        {
+            var v6 = layer == FilterLayers.ConnectV6 || layer == FilterLayers.RecvAcceptV6;
+            var family = v6 ? System.Net.Sockets.AddressFamily.InterNetworkV6 : System.Net.Sockets.AddressFamily.InterNetwork;
+            var addresses = rule.AddressList.Where(a => a.Family == family).ToList();
+            if (rule.AddressList.Count > 0 && addresses.Count == 0)
+            {
+                continue;
+            }
+
+            added.Add(AddNetFilter(layer, rule, addresses, appId, name, description, action));
+        }
+
+        if (added.Count == 0)
+        {
+            throw new ArgumentException("None of the addresses can be used: give at least one IPv4 or IPv6 address.");
+        }
+
+        tx.Commit();
+        return added;
     }
 
     /// <summary>Recovery: removes every CrioFire filter (keeps provider and sublayer). Returns the count.</summary>
@@ -439,7 +496,8 @@ public sealed unsafe class WfpEngine : IDisposable
                         var description = f->displayData.description == null ? null : new string(f->displayData.description);
                         var rule = RuleDescription.TryParse(description, out var parsed) ? parsed : null;
                         var (kind, mode) = FilterDescriptions.Classify(description);
-                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode));
+                        var net = kind == FilterKind.NetRule && NetRule.TryParse(description, out var parsedNet) ? parsedNet : null;
+                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net));
                     }
                 }
                 finally
@@ -525,6 +583,137 @@ public sealed unsafe class WfpEngine : IDisposable
             Check("FwpmFilterAdd0", Fwpuclnt.FwpmFilterAdd0(_handle, &filter, null, &id));
             return id;
         }
+    }
+
+    private int RemoveNetRuleInternal(IReadOnlyList<CrioFireFilter> filters, string description)
+    {
+        var removed = 0;
+        foreach (var filter in filters.Where(f => f.Net is not null && f.Net.Format() == description))
+        {
+            DeleteFilter(filter.FilterId, ignoreMissing: true);
+            removed++;
+        }
+
+        return removed;
+    }
+
+    /// <summary>
+    /// Builds one filter's conditions. WFP ORs conditions on the same field and ANDs different
+    /// fields: (app) AND (protocol: tcp OR udp) AND (port: a OR b) AND (address: x OR y).
+    /// </summary>
+    private ulong AddNetFilter(FilterLayer layer, NetRule rule, List<AddressRange> addresses, AppId? appId, string name, string description, uint action)
+    {
+        byte[] protocols = rule.Protocol switch
+        {
+            NetProtocol.Tcp => [6],
+            NetProtocol.Udp => [17],
+            _ when rule.PortList.Count > 0 => [6, 17],   // ports only exist for TCP and UDP
+            _ => [],
+        };
+        var ports = rule.PortList;
+        var count = (appId is null ? 0 : 1) + protocols.Length + ports.Count + addresses.Count;
+        var portField = layer.Direction == TrafficDirection.Outbound ? WfpIds.ConditionIpRemotePort : WfpIds.ConditionIpLocalPort;
+
+        // Everything a condition points at must stay put until FwpmFilterAdd0 has copied it.
+        var conditions = (FWPM_FILTER_CONDITION0*)NativeMemory.AllocZeroed((nuint)count, (nuint)sizeof(FWPM_FILTER_CONDITION0));
+        var ranges = (FWP_RANGE0*)NativeMemory.AllocZeroed((nuint)Math.Max(1, ports.Count + addresses.Count), (nuint)sizeof(FWP_RANGE0));
+        var v6Bytes = (byte*)NativeMemory.AllocZeroed((nuint)Math.Max(1, addresses.Count * 32));
+        try
+        {
+            var i = 0;
+            var r = 0;
+            if (appId is not null)
+            {
+                conditions[i++] = new FWPM_FILTER_CONDITION0
+                {
+                    fieldKey = WfpIds.ConditionAleAppId,
+                    matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL,
+                    conditionValue = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_BYTE_BLOB_TYPE, value = new FWP_VALUE_UNION { byteBlob = appId.Blob } },
+                };
+            }
+
+            foreach (var protocol in protocols)
+            {
+                conditions[i++] = new FWPM_FILTER_CONDITION0
+                {
+                    fieldKey = WfpIds.ConditionIpProtocol,
+                    matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL,
+                    conditionValue = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT8, value = new FWP_VALUE_UNION { uint8 = protocol } },
+                };
+            }
+
+            foreach (var port in ports)
+            {
+                var low = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT16, value = new FWP_VALUE_UNION { uint16 = port.Low } };
+                if (port.Low == port.High)
+                {
+                    conditions[i++] = new FWPM_FILTER_CONDITION0 { fieldKey = portField, matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL, conditionValue = low };
+                }
+                else
+                {
+                    ranges[r] = new FWP_RANGE0 { valueLow = low, valueHigh = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT16, value = new FWP_VALUE_UNION { uint16 = port.High } } };
+                    conditions[i++] = new FWPM_FILTER_CONDITION0
+                    {
+                        fieldKey = portField,
+                        matchType = FWP_MATCH_TYPE.FWP_MATCH_RANGE,
+                        conditionValue = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_RANGE_TYPE, value = new FWP_VALUE_UNION { rangeValue = &ranges[r] } },
+                    };
+                    r++;
+                }
+            }
+
+            var a = 0;
+            foreach (var address in addresses)
+            {
+                FWP_VALUE0 low, high;
+                if (address.Family == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    low = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT32, value = new FWP_VALUE_UNION { uint32 = HostOrder(address.Low) } };
+                    high = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT32, value = new FWP_VALUE_UNION { uint32 = HostOrder(address.High) } };
+                }
+                else
+                {
+                    var lowBytes = v6Bytes + (a * 32);
+                    var highBytes = lowBytes + 16;
+                    address.Low.GetAddressBytes().AsSpan().CopyTo(new Span<byte>(lowBytes, 16));
+                    address.High.GetAddressBytes().AsSpan().CopyTo(new Span<byte>(highBytes, 16));
+                    low = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_BYTE_ARRAY16_TYPE, value = new FWP_VALUE_UNION { byteArray16 = lowBytes } };
+                    high = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_BYTE_ARRAY16_TYPE, value = new FWP_VALUE_UNION { byteArray16 = highBytes } };
+                }
+
+                a++;
+                if (address.Low.Equals(address.High))
+                {
+                    conditions[i++] = new FWPM_FILTER_CONDITION0 { fieldKey = WfpIds.ConditionIpRemoteAddress, matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL, conditionValue = low };
+                }
+                else
+                {
+                    ranges[r] = new FWP_RANGE0 { valueLow = low, valueHigh = high };
+                    conditions[i++] = new FWPM_FILTER_CONDITION0
+                    {
+                        fieldKey = WfpIds.ConditionIpRemoteAddress,
+                        matchType = FWP_MATCH_TYPE.FWP_MATCH_RANGE,
+                        conditionValue = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_RANGE_TYPE, value = new FWP_VALUE_UNION { rangeValue = &ranges[r] } },
+                    };
+                    r++;
+                }
+            }
+
+            return AddFilter(layer, name, description, action, rule.Weight, conditions, (uint)count);
+        }
+        finally
+        {
+            NativeMemory.Free(conditions);
+            NativeMemory.Free(ranges);
+            NativeMemory.Free(v6Bytes);
+        }
+    }
+
+    /// <summary>IPv4 address as WFP's FWP_UINT32: host byte order.</summary>
+    private static uint HostOrder(System.Net.IPAddress address)
+    {
+        var b = address.GetAddressBytes();
+        return ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
     }
 
     private int RemoveAppRulesInternal(string fullPath, IReadOnlyList<FilterLayer> layers)

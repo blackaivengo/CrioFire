@@ -44,11 +44,22 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe unblock "C:\Path\To\SomeApp.exe"          # undo
 .\criofire.exe allow "C:\Path\To\Browser.exe"             # allow a program (matters in ask/allowlist)
 .\criofire.exe allow "C:\Path\To\Tool.exe" --for 60       # allow for an hour, then the rule is removed
+.\criofire.exe block --in --tcp --port 445              # block a port inbound, for every program
+.\criofire.exe allow "C:\Path\To\Chat.exe" --port 443   # with "block <app>": the app may use port 443 only
+.\criofire.exe block --addr 203.0.113.0/24              # block an address range outbound
+.\criofire.exe remove <filter-id>                        # remove a rule (all its filters) by an ID from list
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
 .\criofire.exe mode learning                             # back to allowing programs without a rule
 .\criofire.exe panic                                     # recovery: remove every CrioFire rule
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
+
+**Network rules** (`--port`, `--addr`, `--tcp`, `--udp`, optionally with a program) match by
+port and remote address. Ports are the remote port for outbound connections and the local port for
+inbound ones; lists and ranges work (`80,443,8000-8100`). Addresses can be single IPv4/IPv6
+addresses, CIDR blocks (`10.0.0.0/8`, `2001:db8::/32`) or ranges (`10.0.0.1-10.0.0.50`). When rules
+overlap, the more specific one wins: program + port/address, then port/address, then a plain program
+rule; between equally specific rules, block wins.
 
 While the `criofire` service runs, every connection CrioFire blocks is also appended to
 `%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB).
@@ -66,7 +77,9 @@ default; switch with the sun/moon button or in **Settings** (remembered per user
   connections. Switching to Ask or Allow-list offers to allow everything running now, then asks you
   to confirm within 60 seconds that your network still works.
 - **Activity**: connections blocked in the last hour; allow a program, allow it for an hour, or keep it blocked.
-- **Rules**: every allow and block rule, with the time a temporary rule ends; add or remove rules.
+- **Rules**: program rules (with the time a temporary rule ends) and network rules; allow or block a
+  program, add a network rule (port, address, protocol, direction, optionally one program, with a
+  plain-language preview), or remove one.
 - **Connections**: live TCP and UDP connections with the program that owns each, every 3 seconds.
 - **Reports**: the last 24 hours, 7 days or 30 days: totals compared with the period before,
   blocked connections per hour or day (your rules vs. no rule yet), the programs and destinations

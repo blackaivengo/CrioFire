@@ -93,13 +93,31 @@ static int Run(Backend api, Command command)
                 return 0;
             }
 
-            Console.WriteLine($"{"Filter ID",-12} {"Action",-7} {"Kind",-13} {"Layer",-14} Program");
+            Console.WriteLine($"{"Filter ID",-12} {"Action",-7} {"Kind",-13} {"Layer",-14} Rule");
             foreach (var r in rules.OrderBy(r => r.Kind, StringComparer.Ordinal).ThenBy(r => r.App, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.FilterId))
             {
                 var until = r.ExpiresUtc is DateTime t ? $"  (until {t.ToLocalTime():HH:mm})" : string.Empty;
-                Console.WriteLine($"{r.FilterId,-12} {r.Action ?? "?",-7} {r.Kind,-13} {r.Layer ?? "?",-14} {r.App ?? r.Name}{until}");
+                var what = r.Summary ?? r.App ?? r.Name;
+                Console.WriteLine($"{r.FilterId,-12} {r.Action ?? "?",-7} {r.Kind,-13} {r.Layer ?? "?",-14} {what}{until}");
             }
 
+            return 0;
+        }
+
+        case CommandKind.Block or CommandKind.Allow when command.Net is { } net:
+        {
+            var result = api.Call(new ApiRequest
+            {
+                Op = ApiOps.AddNetRule,
+                Action = RuleDescription.ActionText(net.Action),
+                Direction = RuleDescription.DirectionText(net.Direction),
+                Protocol = NetRule.ProtocolText(net.Protocol),
+                Ports = net.Ports,
+                Addresses = net.Addresses,
+                App = net.AppPath,
+            });
+            Console.WriteLine($"{(net.Action == RuleAction.Block ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(net.Direction)}: {net.Summary()} ({result.Count} filters).");
+            Console.WriteLine("Remove it with: criofire remove <filter-id>   (see criofire list)");
             return 0;
         }
 
@@ -126,9 +144,11 @@ static int Run(Backend api, Command command)
         }
 
         case CommandKind.Remove:
-            api.Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = command.FilterId });
-            Console.WriteLine($"Removed filter {command.FilterId}.");
+        {
+            var removed = api.Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = command.FilterId }).Count ?? 1;
+            Console.WriteLine(removed > 1 ? $"Removed the rule with filter {command.FilterId} ({removed} filters)." : $"Removed filter {command.FilterId}.");
             return 0;
+        }
 
         case CommandKind.Events:
         {

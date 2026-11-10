@@ -26,6 +26,7 @@ public enum CommandKind
 /// <param name="Yes">mode: keep the new mode without the "is your network still working?" check.</param>
 /// <param name="AllowRunning">mode: also allow every program running right now.</param>
 /// <param name="ExpiresMinutes">allow/block --for N: the rule is removed again after N minutes.</param>
+/// <param name="Net">allow/block with --port, --addr, --tcp or --udp: a network rule (program optional).</param>
 public sealed record Command(
     CommandKind Kind,
     string? AppPath = null,
@@ -36,7 +37,8 @@ public sealed record Command(
     FirewallMode Mode = FirewallMode.Learning,
     bool Yes = false,
     bool AllowRunning = false,
-    int? ExpiresMinutes = null);
+    int? ExpiresMinutes = null,
+    NetRule? Net = null);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -55,6 +57,17 @@ internal static class CommandLine
                                                --for makes it temporary (needs the criofire service running)
           criofire unblock <app.exe> [--out|--in|--both]
                                                Remove CrioFire's rules for one program (default: both)
+          criofire block|allow [<app.exe>] [--tcp|--udp] [--port <ports>] [--addr <addresses>]
+                               [--out|--in|--both]
+                                               A network rule: by port (80,443,8000-8100; the remote port
+                                               outbound, the local port inbound) and/or remote address
+                                               (203.0.113.5, 10.0.0.0/8, 10.0.0.1-10.0.0.50), optionally
+                                               only for one program. Examples:
+                                                 criofire block --in --tcp --port 445
+                                                 criofire allow "C:\Apps\chat.exe" --port 443
+                                                 criofire block --addr 203.0.113.0/24
+                                               More specific rules win, and block wins a tie. Remove one
+                                               with criofire remove <filter-id> (all its filters go).
           criofire mode                        Show the current mode
           criofire mode <learning|ask|allowlist> [--allow-running] [--yes]
                                                learning: programs without a rule may connect
@@ -201,9 +214,46 @@ internal static class CommandLine
         TrafficDirection? direction = null;
 
         int? expires = null;
+        string? ports = null;
+        string? addresses = null;
+        NetProtocol? protocol = null;
         for (var i = 0; i < rest.Length; i++)
         {
             var arg = rest[i];
+            if (kind != CommandKind.Unblock && (arg.Equals("--port", StringComparison.OrdinalIgnoreCase) || arg.Equals("--addr", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (i + 1 >= rest.Length || rest[i + 1].StartsWith("--", StringComparison.Ordinal))
+                {
+                    error = $"{arg} needs a value, e.g. --port 443 or --addr 10.0.0.0/8.";
+                    return new Command(CommandKind.Help);
+                }
+
+                if (arg.Equals("--port", StringComparison.OrdinalIgnoreCase))
+                {
+                    ports = ports is null ? rest[i + 1] : ports + "," + rest[i + 1];
+                }
+                else
+                {
+                    addresses = addresses is null ? rest[i + 1] : addresses + "," + rest[i + 1];
+                }
+
+                i++;
+                continue;
+            }
+
+            if (kind != CommandKind.Unblock && (arg.Equals("--tcp", StringComparison.OrdinalIgnoreCase) || arg.Equals("--udp", StringComparison.OrdinalIgnoreCase)))
+            {
+                var p = arg.Equals("--tcp", StringComparison.OrdinalIgnoreCase) ? NetProtocol.Tcp : NetProtocol.Udp;
+                if (protocol is not null && protocol != p)
+                {
+                    error = "Give only one of --tcp or --udp (leave both out for any).";
+                    return new Command(CommandKind.Help);
+                }
+
+                protocol = p;
+                continue;
+            }
+
             if (arg.Equals("--for", StringComparison.OrdinalIgnoreCase) && kind != CommandKind.Unblock)
             {
                 if (i + 1 >= rest.Length || !int.TryParse(rest[i + 1], out var minutes) || minutes is < 1 or > 10080)
@@ -249,6 +299,25 @@ internal static class CommandLine
                 error = "Give exactly one program path. Put paths with spaces in quotes.";
                 return new Command(CommandKind.Help);
             }
+        }
+
+        if (ports is not null || addresses is not null || protocol is not null)
+        {
+            if (expires is not null)
+            {
+                error = "--for works with program rules only, not with --port, --addr, --tcp or --udp.";
+                return new Command(CommandKind.Help);
+            }
+
+            var rule = NetRule.Create(
+                kind == CommandKind.Block ? RuleAction.Block : RuleAction.Allow,
+                direction ?? TrafficDirection.Outbound,
+                protocol ?? NetProtocol.Any,
+                ports,
+                addresses,
+                path,
+                out error);
+            return rule is null ? new Command(CommandKind.Help) : new Command(kind, path, rule.Direction, Net: rule);
         }
 
         if (path is null)

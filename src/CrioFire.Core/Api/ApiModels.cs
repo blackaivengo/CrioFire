@@ -18,9 +18,10 @@ public static class ApiOps
     public const string SetMode = "setMode";
     public const string Panic = "panic";
     public const string Report = "report";
+    public const string AddNetRule = "addNetRule";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
-    public static bool IsWrite(string op) => op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic;
+    public static bool IsWrite(string op) => op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule;
 }
 
 public sealed record ApiRequest
@@ -56,6 +57,15 @@ public sealed record ApiRequest
 
     /// <summary>report: 24h, 7d or 30d.</summary>
     public string? Period { get; init; }
+
+    /// <summary>addNetRule: tcp, udp or any.</summary>
+    public string? Protocol { get; init; }
+
+    /// <summary>addNetRule: ports and ranges, e.g. "80,443,8000-8100" (remote port outbound, local port inbound).</summary>
+    public string? Ports { get; init; }
+
+    /// <summary>addNetRule: remote addresses, CIDR blocks or ranges, e.g. "10.0.0.0/8,203.0.113.5".</summary>
+    public string? Addresses { get; init; }
 }
 
 public sealed record ApiResponse
@@ -83,16 +93,45 @@ public sealed record ApiResponse
 
 public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version);
 
-public sealed record RuleInfo(ulong FilterId, string Kind, string? Action, string? Direction, string? App, string? Layer, string Name, DateTime? ExpiresUtc = null)
+/// <param name="Protocol">Network rules: tcp, udp or any.</param>
+/// <param name="Ports">Network rules: ports and ranges, or null for any.</param>
+/// <param name="Addresses">Network rules: remote addresses, or null for any.</param>
+/// <param name="Summary">Network rules: a short description such as "TCP · port 445".</param>
+public sealed record RuleInfo(
+    ulong FilterId,
+    string Kind,
+    string? Action,
+    string? Direction,
+    string? App,
+    string? Layer,
+    string Name,
+    DateTime? ExpiresUtc = null,
+    string? Protocol = null,
+    string? Ports = null,
+    string? Addresses = null,
+    string? Summary = null)
 {
-    public static RuleInfo From(CrioFireFilter f) => new(
-        f.FilterId,
-        f.Kind.ToString(),
-        f.Rule is null ? (f.Kind == FilterKind.DefaultBlock ? "block" : f.Kind == FilterKind.BuiltInAllow ? "allow" : null) : RuleDescription.ActionText(f.Rule.Action),
-        f.Rule is null ? null : RuleDescription.DirectionText(f.Rule.Direction),
-        f.Rule?.AppPath,
-        f.Layer?.Name,
-        f.Name);
+    public static RuleInfo From(CrioFireFilter f)
+    {
+        if (f.Net is { } n)
+        {
+            return new RuleInfo(
+                f.FilterId, f.Kind.ToString(), RuleDescription.ActionText(n.Action), RuleDescription.DirectionText(n.Direction), n.AppPath, f.Layer?.Name, f.Name,
+                Protocol: NetRule.ProtocolText(n.Protocol),
+                Ports: n.Ports.Length == 0 ? null : n.Ports,
+                Addresses: n.Addresses.Length == 0 ? null : n.Addresses,
+                Summary: n.Summary());
+        }
+
+        return new RuleInfo(
+            f.FilterId,
+            f.Kind.ToString(),
+            f.Rule is null ? (f.Kind == FilterKind.DefaultBlock ? "block" : f.Kind == FilterKind.BuiltInAllow ? "allow" : null) : RuleDescription.ActionText(f.Rule.Action),
+            f.Rule is null ? null : RuleDescription.DirectionText(f.Rule.Direction),
+            f.Rule?.AppPath,
+            f.Layer?.Name,
+            f.Name);
+    }
 }
 
 /// <param name="Kind">The kind of CrioFire filter that blocked it (e.g. DefaultBlock in Ask mode), or null for other firewalls.</param>

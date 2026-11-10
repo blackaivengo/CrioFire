@@ -49,6 +49,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.RemoveFilter => RemoveFilter(request),
                     ApiOps.SetMode => SetMode(request),
                     ApiOps.Panic => Panic(),
+                    ApiOps.AddNetRule => AddNetRule(request),
                     _ => ApiResponse.Failure($"Unknown operation '{request.Op}'."),
                 };
             }
@@ -143,7 +144,9 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         var rules = engine.ListFilters().Select(f =>
         {
             var info = RuleInfo.From(f);
-            var expiry = expiries.FirstOrDefault(t => string.Equals(t.App, info.App, StringComparison.OrdinalIgnoreCase));
+            var expiry = f.Kind == FilterKind.AppRule
+                ? expiries.FirstOrDefault(t => string.Equals(t.App, info.App, StringComparison.OrdinalIgnoreCase))
+                : null;
             return expiry is null ? info : info with { ExpiresUtc = expiry.ExpiresUtc };
         });
         return new ApiResponse { Ok = true, Rules = rules.ToList() };
@@ -159,8 +162,28 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
 
     private ApiResponse RemoveFilter(ApiRequest request)
     {
-        engine.RemoveFilter(request.FilterId ?? throw new ArgumentException("filterId is required."));
-        return new ApiResponse { Ok = true, Count = 1 };
+        var removed = engine.RemoveFilter(request.FilterId ?? throw new ArgumentException("filterId is required."));
+        return new ApiResponse { Ok = true, Count = removed };
+    }
+
+    private ApiResponse AddNetRule(ApiRequest request)
+    {
+        var action = request.Action?.ToLowerInvariant() switch
+        {
+            "block" => RuleAction.Block,
+            "allow" => RuleAction.Allow,
+            _ => throw new ArgumentException("action must be block or allow."),
+        };
+        if (!NetRule.TryParseProtocol(request.Protocol, out var protocol))
+        {
+            throw new ArgumentException("protocol must be tcp, udp or any.");
+        }
+
+        var rule = NetRule.Create(action, ParseDirection(request.Direction, TrafficDirection.Outbound), protocol, request.Ports, request.Addresses, request.App, out var error)
+            ?? throw new ArgumentException(error);
+        EnsureInstalled();
+        var ids = engine.AddNetRule(rule);
+        return new ApiResponse { Ok = true, Count = ids.Count };
     }
 
     private ApiResponse SetMode(ApiRequest request)

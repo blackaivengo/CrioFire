@@ -60,3 +60,6 @@ public sealed record ActivityRow(string Time, string Why, string Direction, stri
 
 public sealed record RuleRow(string Action, string Direction, string Program, string App, string Until,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
+
+public sealed record NetRuleRow(string Action, string Direction, string Rule, string Program, string? App, ulong FilterId,
+    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);

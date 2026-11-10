@@ -41,6 +41,9 @@ public enum FilterKind
 
     /// <summary>A CrioFire filter whose description this version does not understand.</summary>
     Unknown,
+
+    /// <summary>A user rule by port and/or remote address, optionally for one program.</summary>
+    NetRule,
 }
 
 /// <summary>Descriptions for CrioFire's non-rule filters, e.g. <c>criofire:v1|default|ask</c>.</summary>
@@ -55,6 +58,11 @@ public static class FilterDescriptions
         if (RuleDescription.TryParse(description, out _))
         {
             return (FilterKind.AppRule, null);
+        }
+
+        if (NetRule.TryParse(description, out _))
+        {
+            return (FilterKind.NetRule, null);
         }
 
         var parts = description?.Split('|') ?? [];
@@ -203,4 +211,5 @@ public sealed record CrioFireFilter(
     FilterLayer? Layer,
     RuleDescription? Rule,
     FilterKind Kind = FilterKind.AppRule,
-    FirewallMode? Mode = null);
+    FirewallMode? Mode = null,
+    NetRule? Net = null);

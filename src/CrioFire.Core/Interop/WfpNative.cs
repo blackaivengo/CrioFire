@@ -14,12 +14,15 @@ internal enum FWP_DATA_TYPE : uint
     FWP_UINT16 = 2,
     FWP_UINT32 = 3,
     FWP_UINT64 = 4,
+    FWP_BYTE_ARRAY16_TYPE = 11,
     FWP_BYTE_BLOB_TYPE = 12,
+    FWP_RANGE_TYPE = 0x102,
 }
 
 internal enum FWP_MATCH_TYPE : uint
 {
     FWP_MATCH_EQUAL = 0,
+    FWP_MATCH_RANGE = 5,
     FWP_MATCH_FLAGS_NONE_SET = 8,
 }
 
@@ -81,6 +84,16 @@ internal unsafe struct FWP_VALUE_UNION
     [FieldOffset(0)] public uint uint32;
     [FieldOffset(0)] public ulong* uint64;
     [FieldOffset(0)] public FWP_BYTE_BLOB* byteBlob;
+    [FieldOffset(0)] public byte* byteArray16;       // FWP_BYTE_ARRAY16*: an IPv6 address, network order
+    [FieldOffset(0)] public FWP_RANGE0* rangeValue;  // FWP_CONDITION_VALUE0 only
+}
+
+/// <summary>FWP_RANGE0: an inclusive range for FWP_MATCH_RANGE; both ends have the same type.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct FWP_RANGE0
+{
+    public FWP_VALUE0 valueLow;
+    public FWP_VALUE0 valueHigh;
 }
 
 /// <summary>FWP_VALUE0; FWP_CONDITION_VALUE0 has the same layout.</summary>

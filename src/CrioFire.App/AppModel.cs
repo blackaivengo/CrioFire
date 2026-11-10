@@ -77,6 +77,46 @@ internal sealed class AppModel
         .GroupBy(r => (r.App?.ToUpperInvariant(), r.Action, r.Direction))
         .Select(g => g.First());
 
+    /// <summary>Network rules (port/address), one entry per rule rather than per filter.</summary>
+    public IEnumerable<RuleInfo> NetRules => Rules
+        .Where(r => r.Kind == nameof(FilterKind.NetRule))
+        .GroupBy(r => (r.Action, r.Direction, r.Protocol, r.Ports, r.Addresses, r.App?.ToUpperInvariant()))
+        .Select(g => g.First());
+
+    public bool AddNetRule(NetRule rule)
+    {
+        var ok = Call(new ApiRequest
+        {
+            Op = ApiOps.AddNetRule,
+            Action = RuleDescription.ActionText(rule.Action),
+            Direction = RuleDescription.DirectionText(rule.Direction),
+            Protocol = NetRule.ProtocolText(rule.Protocol),
+            Ports = rule.Ports,
+            Addresses = rule.Addresses,
+            App = rule.AppPath,
+        }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, $"{(rule.Action == RuleAction.Block ? "Blocking" : "Allowing")} {rule.Summary()}.");
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
+    /// <summary>Removes a network rule (all its filters) by the ID of any one of its filters.</summary>
+    public bool RemoveNetRule(ulong filterId, string what)
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = filterId }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, $"Removed the rule for {what}.");
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
     public bool RefreshCore()
     {
         var status = Service.Call(new ApiRequest { Op = ApiOps.Status }, out var error);

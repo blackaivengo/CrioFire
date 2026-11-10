@@ -48,10 +48,37 @@ public partial class RulesPage : UserControl, IPage
             .ToList();
         Table.ItemsSource = rows;
         Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        var netRows = _model.NetRules
+            .OrderBy(r => r.Action)
+            .ThenBy(r => r.Summary, StringComparer.OrdinalIgnoreCase)
+            .Select(r =>
+            {
+                var allow = r.Action == "allow";
+                var rule = string.Join(" · ", new[]
+                {
+                    r.Protocol is null or "any" ? null : r.Protocol.ToUpperInvariant(),
+                    r.Ports is null ? null : (r.Direction == "in" ? "local port " : "port ") + r.Ports,
+                    r.Addresses,
+                }.Where(p => p is not null));
+                return new NetRuleRow(
+                    allow ? "Allow" : "Block",
+                    r.Direction switch { "in" => "Inbound", "both" => "Both", _ => "Outbound" },
+                    rule,
+                    r.App is null ? "Any program" : Bars.Name(r.App),
+                    r.App,
+                    r.FilterId,
+                    allow ? chipIce : chipFire,
+                    allow ? chipIceText : chipFireText);
+            })
+            .ToList();
+        NetTable.ItemsSource = netRows;
+        NetEmpty.Visibility = netRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
         var allowed = rows.Count(r => r.Action == "Allow");
         Subtitle = _model.Status is null
             ? (_model.Error ?? "The CrioFire service is not running.")
-            : $"{allowed} allow and {rows.Count - allowed} block rules.";
+            : $"{allowed} programs allowed, {rows.Count - allowed} blocked, {netRows.Count} network rules.";
     }
 
     private void OnAllow(object sender, RoutedEventArgs e) => Add("allow", null);
@@ -69,9 +96,37 @@ public partial class RulesPage : UserControl, IPage
         }
     }
 
+    private void OnAddNet(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is { } owner && NetRuleDialog.Ask(owner) is { } rule)
+        {
+            _model.AddNetRule(rule);
+        }
+    }
+
+    private void OnProgramSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (Table.SelectedItem is not null)
+        {
+            NetTable.SelectedItem = null;
+        }
+    }
+
+    private void OnNetSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (NetTable.SelectedItem is not null)
+        {
+            Table.SelectedItem = null;
+        }
+    }
+
     private void OnRemove(object sender, RoutedEventArgs e)
     {
-        if (Table.SelectedItem is RuleRow row)
+        if (NetTable.SelectedItem is NetRuleRow net)
+        {
+            _model.RemoveNetRule(net.FilterId, net.Rule);
+        }
+        else if (Table.SelectedItem is RuleRow row)
         {
             _model.RemoveRules(row.App);
         }
