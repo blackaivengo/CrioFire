@@ -21,7 +21,8 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     LogInstalled(logger);
                 }
 
-                LogStarted(logger, engine.ListFilters().Count);
+                var filterCount = engine.ListFilters().Count;
+                LogStarted(logger, filterCount);
             }
         }
         catch (WfpException ex)

@@ -2,7 +2,7 @@ using CrioFire.Core;
 
 namespace CrioFire.Cli;
 
-internal enum CommandKind
+public enum CommandKind
 {
     Help,
     Version,
@@ -16,7 +16,7 @@ internal enum CommandKind
     Panic,
 }
 
-internal sealed record Command(CommandKind Kind, string? AppPath = null, TrafficDirection Direction = TrafficDirection.Outbound, ulong FilterId = 0);
+public sealed record Command(CommandKind Kind, string? AppPath = null, TrafficDirection Direction = TrafficDirection.Outbound, ulong FilterId = 0);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
