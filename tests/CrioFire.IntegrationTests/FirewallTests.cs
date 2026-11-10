@@ -21,7 +21,9 @@ public sealed class FirewallTests : IDisposable
         {
             Assert.SkipUnless(Environment.GetEnvironmentVariable("CRIOFIRE_INTEGRATION") == "1",
                 "Set CRIOFIRE_INTEGRATION=1 to run tests that change the firewall.");
-            Assert.SkipUnless(IsAdministrator(), "Firewall tests need administrator rights.");
+
+            // Opted in but not elevated is a mistake (in CI it would silently test nothing): fail loudly.
+            Assert.True(IsAdministrator(), "CRIOFIRE_INTEGRATION=1 is set, but firewall tests need an administrator terminal.");
 
             if (_engine is null)
             {
@@ -84,7 +86,7 @@ public sealed class FirewallTests : IDisposable
     public async Task OutboundBlockStopsInternetTraffic()
     {
         var engine = Engine;
-        var addresses = await Dns.GetHostAddressesAsync("github.com");
+        var addresses = await Dns.GetHostAddressesAsync("github.com", TestContext.Current.CancellationToken);
         var address = addresses.First(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
 
         var before = await Peer.ConnectAsync(address, 443);

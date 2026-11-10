@@ -40,7 +40,12 @@ jobs:
       - name: Test (unit tests and real firewall tests)
         env:
           CRIOFIRE_INTEGRATION: '1'   # runners are administrators, so the WFP tests really run
-        run: dotnet test CrioFire.slnx --configuration Release --no-build
+        run: dotnet test CrioFire.slnx --configuration Release --no-build --logger "trx" --results-directory TestResults
+
+      - name: Test report
+        if: always()
+        shell: pwsh
+        run: ./build/test-report.ps1 -ResultsDir TestResults -Title "Tests (${{ matrix.arch }})" -RequireProject CrioFire.IntegrationTests
 
       - name: Publish (unsigned, for inspection)
         shell: pwsh
