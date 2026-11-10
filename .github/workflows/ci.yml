@@ -37,7 +37,9 @@ jobs:
       - name: Build
         run: dotnet build CrioFire.slnx --configuration Release --no-restore
 
-      - name: Test
+      - name: Test (unit tests and real firewall tests)
+        env:
+          CRIOFIRE_INTEGRATION: '1'   # runners are administrators, so the WFP tests really run
         run: dotnet test CrioFire.slnx --configuration Release --no-build
 
       - name: Publish (unsigned, for inspection)

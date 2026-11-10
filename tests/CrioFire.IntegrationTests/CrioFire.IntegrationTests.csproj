@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Real Windows Filtering Platform tests: they add and remove CrioFire filters on the machine.
+    They run only as administrator with CRIOFIRE_INTEGRATION=1 (set in CI); otherwise every test is skipped.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CrioFire.Core\CrioFire.Core.csproj" />
+    <!-- Build the peer program alongside, but do not reference it as a library. -->
+    <ProjectReference Include="..\CrioFire.TestPeer\CrioFire.TestPeer.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <!-- Where the peer program is built, read by the tests at run time. -->
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>TestPeerPath</_Parameter1>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\CrioFire.TestPeer\bin\$(Configuration)\$(TargetFramework)\CrioFire.TestPeer.exe</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

@@ -28,6 +28,19 @@ dotnet build CrioFire.slnx -c Release
 dotnet test CrioFire.slnx -c Release
 ```
 
+`tests/CrioFire.IntegrationTests` really blocks and unblocks a small test program
+(`CrioFire.TestPeer.exe`) through the Windows Filtering Platform and checks that its connections
+fail and recover: outbound and inbound, IPv4 and IPv6, loopback and internet. They change the
+machine's firewall, so they skip unless you opt in from an **administrator** terminal:
+
+```powershell
+$env:CRIOFIRE_INTEGRATION = '1'
+dotnet test tests/CrioFire.IntegrationTests -c Release
+```
+
+Each test removes everything it adds; if a run is interrupted, `criofire uninstall` cleans up.
+CI runs them on every push on x64 and ARM64 (GitHub's Windows runners are administrators).
+
 ## Code of conduct
 
 See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

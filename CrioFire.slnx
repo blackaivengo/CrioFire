@@ -6,6 +6,8 @@
     <Project Path="src/CrioFire.Service/CrioFire.Service.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/CrioFire.IntegrationTests/CrioFire.IntegrationTests.csproj" />
+    <Project Path="tests/CrioFire.TestPeer/CrioFire.TestPeer.csproj" />
     <Project Path="tests/CrioFire.Tests/CrioFire.Tests.csproj" />
   </Folder>
 </Solution>
