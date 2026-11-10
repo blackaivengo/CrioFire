@@ -150,6 +150,116 @@ internal unsafe struct FWPM_FILTER0
     public FWP_VALUE0 effectiveWeight;
 }
 
+// ---- Net events (fwpmtypes.h): what the filtering engine dropped. Version 0 structs, enumerated by polling.
+
+internal enum FWPM_ENGINE_OPTION : uint
+{
+    FWPM_ENGINE_COLLECT_NET_EVENTS = 0,
+}
+
+internal static class FwpmNetEventTypes
+{
+    public const uint FWPM_NET_EVENT_TYPE_CLASSIFY_DROP = 3;
+}
+
+internal static class FwpmNetEventFlags
+{
+    public const uint IP_PROTOCOL_SET = 0x00000001;
+    public const uint LOCAL_ADDR_SET = 0x00000002;
+    public const uint REMOTE_ADDR_SET = 0x00000004;
+    public const uint LOCAL_PORT_SET = 0x00000008;
+    public const uint REMOTE_PORT_SET = 0x00000010;
+    public const uint APP_ID_SET = 0x00000020;
+    public const uint IP_VERSION_SET = 0x00000100;
+}
+
+/// <summary>Win32 FILETIME: 100 ns ticks since 1601-01-01 UTC, as two 32-bit halves.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct FILETIME
+{
+    public uint dwLowDateTime;
+    public uint dwHighDateTime;
+
+    public static FILETIME FromDateTime(DateTime utc)
+    {
+        var ticks = utc.ToFileTimeUtc();
+        return new FILETIME { dwLowDateTime = unchecked((uint)ticks), dwHighDateTime = (uint)(ticks >> 32) };
+    }
+
+    public readonly DateTime ToDateTime() => DateTime.FromFileTimeUtc(((long)dwHighDateTime << 32) | dwLowDateTime);
+}
+
+/// <summary>Union of UINT32 (IPv4, host byte order) and FWP_BYTE_ARRAY16 (IPv6, network order).</summary>
+[StructLayout(LayoutKind.Explicit, Size = 16)]
+internal unsafe struct FWP_ADDR_UNION
+{
+    [FieldOffset(0)] public uint v4;
+    [FieldOffset(0)] public fixed byte v6[16];
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FWPM_NET_EVENT_HEADER0
+{
+    public FILETIME timeStamp;
+    public uint flags;
+    public uint ipVersion;          // FWP_IP_VERSION: 0 = V4, 1 = V6
+    public byte ipProtocol;
+    public FWP_ADDR_UNION localAddr;
+    public FWP_ADDR_UNION remoteAddr;
+    public ushort localPort;
+    public ushort remotePort;
+    public uint scopeId;
+    public FWP_BYTE_BLOB appId;      // NT path, UTF-16, NUL-terminated
+    public void* userId;             // SID*
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FWPM_NET_EVENT0
+{
+    public FWPM_NET_EVENT_HEADER0 header;
+    public uint type;
+
+    /// <summary>Union of pointers to the per-type details; for CLASSIFY_DROP it is FWPM_NET_EVENT_CLASSIFY_DROP0*.</summary>
+    public void* details;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct FWPM_NET_EVENT_CLASSIFY_DROP0
+{
+    public ulong filterId;
+    public ushort layerId;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FWPM_NET_EVENT_ENUM_TEMPLATE0
+{
+    public FILETIME startTime;
+    public FILETIME endTime;
+    public uint numFilterConditions;
+    public FWPM_FILTER_CONDITION0* filterCondition;
+}
+
+internal static unsafe partial class Kernel32
+{
+    [LibraryImport("kernel32.dll", EntryPoint = "QueryDosDeviceW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    public static partial uint QueryDosDevice(string deviceName, char* targetPath, uint maxChars);
+}
+
+internal static unsafe partial class Fwpuclnt
+{
+    [LibraryImport(Dll)]
+    public static partial uint FwpmEngineSetOption0(IntPtr engineHandle, FWPM_ENGINE_OPTION option, FWP_VALUE0* newValue);
+
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventCreateEnumHandle0(IntPtr engineHandle, FWPM_NET_EVENT_ENUM_TEMPLATE0* enumTemplate, IntPtr* enumHandle);
+
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventEnum0(IntPtr engineHandle, IntPtr enumHandle, uint numEntriesRequested, FWPM_NET_EVENT0*** entries, uint* numEntriesReturned);
+
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventDestroyEnumHandle0(IntPtr engineHandle, IntPtr enumHandle);
+}
+
 internal static unsafe partial class Fwpuclnt
 {
     private const string Dll = "fwpuclnt.dll";

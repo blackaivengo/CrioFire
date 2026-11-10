@@ -60,3 +60,48 @@ public class InteropLayoutTests
     public void ProviderFieldOffsetsMatchWindowsSdk(string field, int offset) =>
         Assert.Equal(offset, Marshal.OffsetOf<FWPM_PROVIDER0>(field).ToInt32());
 }
+
+public class NetEventLayoutTests
+{
+    [Fact]
+    public void NetEventStructsMatchWindowsSdk()
+    {
+        Assert.Equal(8, Unsafe.SizeOf<FILETIME>());
+        Assert.Equal(16, Unsafe.SizeOf<FWP_ADDR_UNION>());
+        Assert.Equal(88, Unsafe.SizeOf<FWPM_NET_EVENT_HEADER0>());
+        Assert.Equal(104, Unsafe.SizeOf<FWPM_NET_EVENT0>());
+        Assert.Equal(16, Unsafe.SizeOf<FWPM_NET_EVENT_CLASSIFY_DROP0>());
+        Assert.Equal(32, Unsafe.SizeOf<FWPM_NET_EVENT_ENUM_TEMPLATE0>());
+    }
+
+    [Theory]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.flags), 8)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.ipVersion), 12)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.ipProtocol), 16)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.localAddr), 20)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.remoteAddr), 36)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.localPort), 52)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.remotePort), 54)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.scopeId), 56)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.appId), 64)]
+    [InlineData(nameof(FWPM_NET_EVENT_HEADER0.userId), 80)]
+    public void HeaderFieldOffsetsMatchWindowsSdk(string field, int offset) =>
+        Assert.Equal(offset, Marshal.OffsetOf<FWPM_NET_EVENT_HEADER0>(field).ToInt32());
+
+    [Fact]
+    public void EventAndTemplateOffsets()
+    {
+        Assert.Equal(88, Marshal.OffsetOf<FWPM_NET_EVENT0>(nameof(FWPM_NET_EVENT0.type)).ToInt32());
+        Assert.Equal(96, Marshal.OffsetOf<FWPM_NET_EVENT0>(nameof(FWPM_NET_EVENT0.details)).ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf<FWPM_NET_EVENT_CLASSIFY_DROP0>(nameof(FWPM_NET_EVENT_CLASSIFY_DROP0.layerId)).ToInt32());
+        Assert.Equal(16, Marshal.OffsetOf<FWPM_NET_EVENT_ENUM_TEMPLATE0>(nameof(FWPM_NET_EVENT_ENUM_TEMPLATE0.numFilterConditions)).ToInt32());
+        Assert.Equal(24, Marshal.OffsetOf<FWPM_NET_EVENT_ENUM_TEMPLATE0>(nameof(FWPM_NET_EVENT_ENUM_TEMPLATE0.filterCondition)).ToInt32());
+    }
+
+    [Fact]
+    public void FileTimeRoundTrips()
+    {
+        var t = new DateTime(2026, 11, 9, 20, 30, 15, DateTimeKind.Utc).AddTicks(1234567);
+        Assert.Equal(t, FILETIME.FromDateTime(t).ToDateTime());
+    }
+}

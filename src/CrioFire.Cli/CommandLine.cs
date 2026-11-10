@@ -14,9 +14,12 @@ public enum CommandKind
     Unblock,
     Remove,
     Panic,
+    Events,
 }
 
-public sealed record Command(CommandKind Kind, string? AppPath = null, TrafficDirection Direction = TrafficDirection.Outbound, ulong FilterId = 0);
+/// <param name="Minutes">events: how far back to look.</param>
+/// <param name="All">events: include drops by other firewalls, not only CrioFire's.</param>
+public sealed record Command(CommandKind Kind, string? AppPath = null, TrafficDirection Direction = TrafficDirection.Outbound, ulong FilterId = 0, int Minutes = 10, bool All = false);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -33,6 +36,9 @@ internal static class CommandLine
           criofire unblock <app.exe> [--out|--in|--both]
                                                Remove CrioFire's rules for one program (default: both)
           criofire remove <filter-id>          Remove one CrioFire filter by ID
+          criofire events [--minutes N] [--all]
+                                               Show connections CrioFire blocked (default: last 10 minutes;
+                                               --all also shows drops by other firewalls)
           criofire panic                       Recovery: remove every CrioFire rule at once
           criofire uninstall                   Remove all rules and unregister CrioFire
           criofire --version
@@ -79,6 +85,8 @@ internal static class CommandLine
             case "block":
             case "unblock":
                 return ParseAppCommand(verb == "block" ? CommandKind.Block : CommandKind.Unblock, rest, out error);
+            case "events":
+                return ParseEvents(rest, out error);
             case "remove":
                 if (rest.Length != 1 || !ulong.TryParse(rest[0], out var id))
                 {
@@ -91,6 +99,31 @@ internal static class CommandLine
                 error = $"Unknown command '{args[0]}'.";
                 return new Command(CommandKind.Help);
         }
+    }
+
+    private static Command ParseEvents(string[] rest, out string? error)
+    {
+        error = null;
+        var minutes = 10;
+        var all = false;
+        for (var i = 0; i < rest.Length; i++)
+        {
+            switch (rest[i].ToLowerInvariant())
+            {
+                case "--all":
+                    all = true;
+                    break;
+                case "--minutes" when i + 1 < rest.Length && int.TryParse(rest[i + 1], out var m) && m is > 0 and <= 10080:
+                    minutes = m;
+                    i++;
+                    break;
+                default:
+                    error = "Usage: criofire events [--minutes N] [--all]   (N from 1 to 10080)";
+                    return new Command(CommandKind.Help);
+            }
+        }
+
+        return new Command(CommandKind.Events, Minutes: minutes, All: all);
     }
 
     private static Command ParseAppCommand(CommandKind kind, string[] rest, out string? error)

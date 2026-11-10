@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using System.Net;
+using System.Net.Sockets;
 using CrioFire.Core.Interop;
 
 namespace CrioFire.Core;
@@ -102,6 +104,114 @@ public sealed unsafe class WfpEngine : IDisposable
         }
 
         tx.Commit();
+        EnableNetEventCollection();
+    }
+
+    /// <summary>
+    /// Turns on the engine's net event collection (FWPM_ENGINE_COLLECT_NET_EVENTS), so dropped
+    /// connections can be read back with <see cref="ReadBlockedConnections"/>. A machine-wide
+    /// setting that Windows usually has on already; CrioFire never turns it off.
+    /// </summary>
+    public void EnableNetEventCollection()
+    {
+        ThrowIfDisposed();
+        var value = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT32, value = new FWP_VALUE_UNION { uint32 = 1 } };
+        Check("FwpmEngineSetOption0", Fwpuclnt.FwpmEngineSetOption0(_handle, FWPM_ENGINE_OPTION.FWPM_ENGINE_COLLECT_NET_EVENTS, &value));
+    }
+
+    /// <summary>
+    /// Reads connection attempts the filtering engine dropped between <paramref name="fromUtc"/> and
+    /// <paramref name="toUtc"/> (default: now). The engine keeps a limited in-memory history, so poll
+    /// regularly. With <paramref name="crioFireOnly"/>, drops caused by other firewalls are left out.
+    /// </summary>
+    public IReadOnlyList<BlockedConnection> ReadBlockedConnections(DateTime fromUtc, DateTime? toUtc = null, bool crioFireOnly = true, NtPathMapper? paths = null)
+    {
+        ThrowIfDisposed();
+        paths ??= NtPathMapper.FromSystem();
+        var ours = ListFilters().ToDictionary(f => f.FilterId);
+        var result = new List<BlockedConnection>();
+
+        var template = new FWPM_NET_EVENT_ENUM_TEMPLATE0
+        {
+            startTime = FILETIME.FromDateTime(fromUtc.ToUniversalTime()),
+            endTime = FILETIME.FromDateTime((toUtc ?? DateTime.UtcNow).ToUniversalTime()),
+        };
+
+        IntPtr enumHandle;
+        Check("FwpmNetEventCreateEnumHandle0", Fwpuclnt.FwpmNetEventCreateEnumHandle0(_handle, &template, &enumHandle));
+        try
+        {
+            while (true)
+            {
+                FWPM_NET_EVENT0** entries = null;
+                uint count = 0;
+                Check("FwpmNetEventEnum0", Fwpuclnt.FwpmNetEventEnum0(_handle, enumHandle, 256, &entries, &count));
+                try
+                {
+                    for (var i = 0; i < count; i++)
+                    {
+                        var e = entries[i];
+                        if (e->type != FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_DROP || e->details == null)
+                        {
+                            continue;
+                        }
+
+                        var drop = (FWPM_NET_EVENT_CLASSIFY_DROP0*)e->details;
+                        ours.TryGetValue(drop->filterId, out var rule);
+                        if (crioFireOnly && rule is null)
+                        {
+                            continue;
+                        }
+
+                        result.Add(Decode(&e->header, drop->filterId, rule, paths));
+                    }
+                }
+                finally
+                {
+                    if (entries != null)
+                    {
+                        Fwpuclnt.FwpmFreeMemory0((void**)&entries);
+                    }
+                }
+
+                if (count < 256)
+                {
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            _ = Fwpuclnt.FwpmNetEventDestroyEnumHandle0(_handle, enumHandle);
+        }
+
+        result.Sort((a, b) => a.TimeUtc.CompareTo(b.TimeUtc));
+        return result;
+    }
+
+    private static BlockedConnection Decode(FWPM_NET_EVENT_HEADER0* h, ulong filterId, CrioFireFilter? rule, NtPathMapper paths)
+    {
+        string? app = null;
+        if ((h->flags & FwpmNetEventFlags.APP_ID_SET) != 0 && h->appId.data != null)
+        {
+            var nt = NetEventDecoding.DecodeAppId(new ReadOnlySpan<byte>(h->appId.data, checked((int)h->appId.size)));
+            app = nt is null ? null : paths.ToDosPath(nt);
+        }
+
+        var isV6 = (h->flags & FwpmNetEventFlags.IP_VERSION_SET) != 0 && h->ipVersion == 1;
+        IPAddress? Address(FWP_ADDR_UNION* a) => isV6
+            ? new IPAddress(new ReadOnlySpan<byte>(a->v6, 16))
+            : NetEventDecoding.FromHostOrderV4(a->v4);
+
+        IPEndPoint? local = (h->flags & FwpmNetEventFlags.LOCAL_ADDR_SET) != 0
+            ? new IPEndPoint(Address(&h->localAddr)!, (h->flags & FwpmNetEventFlags.LOCAL_PORT_SET) != 0 ? h->localPort : 0)
+            : null;
+        IPEndPoint? remote = (h->flags & FwpmNetEventFlags.REMOTE_ADDR_SET) != 0
+            ? new IPEndPoint(Address(&h->remoteAddr)!, (h->flags & FwpmNetEventFlags.REMOTE_PORT_SET) != 0 ? h->remotePort : 0)
+            : null;
+
+        var protocol = (h->flags & FwpmNetEventFlags.IP_PROTOCOL_SET) != 0 ? (ProtocolType)h->ipProtocol : ProtocolType.Unknown;
+        return new BlockedConnection(h->timeStamp.ToDateTime(), app, protocol, local, remote, filterId, rule);
     }
 
     /// <summary>Removes every CrioFire filter, then the sublayer and provider.</summary>

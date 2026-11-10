@@ -83,6 +83,24 @@ try
             Console.WriteLine($"Removed filter {command.FilterId}.");
             return 0;
 
+        case CommandKind.Events:
+            var events = engine.ReadBlockedConnections(DateTime.UtcNow.AddMinutes(-command.Minutes), crioFireOnly: !command.All);
+            if (events.Count == 0)
+            {
+                Console.WriteLine($"No blocked connections in the last {command.Minutes} minutes.");
+                return 0;
+            }
+
+            Console.WriteLine($"{"Time (local)",-20} {"By",-9} {"Dir",-4} {"Proto",-6} {"Remote",-40} Program");
+            foreach (var e in events)
+            {
+                var by = e.IsCrioFire ? "CrioFire" : "other";
+                var dir = e.Direction switch { TrafficDirection.Outbound => "out", TrafficDirection.Inbound => "in", _ => "?" };
+                Console.WriteLine($"{e.TimeUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} {by,-9} {dir,-4} {e.ProtocolName,-6} {e.Remote?.ToString() ?? "?",-40} {e.AppPath ?? "?"}");
+            }
+
+            return 0;
+
         case CommandKind.Panic:
             var count = engine.RemoveAllFilters();
             Console.WriteLine($"Recovery done: removed {count} CrioFire filters. Network access is back to Windows' own rules.");

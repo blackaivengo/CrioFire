@@ -3,35 +3,71 @@ using CrioFire.Core;
 namespace CrioFire.Service;
 
 /// <summary>
-/// Prototype worker: makes sure CrioFire is registered with the filtering engine at start-up
-/// and reports how many rules are active. WFP filters are persistent, so they keep working
-/// even if this service stops.
+/// The service's main loop: makes sure CrioFire is registered with the filtering engine, then
+/// every <see cref="PollInterval"/> reads the connections CrioFire blocked and appends them to the
+/// traffic log (%ProgramData%\criofire\blocked.log). WFP filters are persistent, so blocking keeps
+/// working even while this service is stopped.
 /// </summary>
 internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : BackgroundService
 {
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan Overlap = TimeSpan.FromSeconds(10);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        WfpEngine engine;
         try
         {
-            using (var engine = WfpEngine.Open())
+            engine = WfpEngine.Open();
+            if (!engine.IsInstalled())
             {
-                if (!engine.IsInstalled())
-                {
-                    engine.Install();
-                    LogInstalled(logger);
-                }
-
-                var filterCount = engine.ListFilters().Count;
-                LogStarted(logger, filterCount);
+                engine.Install();
+                LogInstalled(logger);
             }
+            else
+            {
+                engine.EnableNetEventCollection();
+            }
+
+            var filterCount = engine.ListFilters().Count;
+            LogStarted(logger, filterCount);
         }
         catch (WfpException ex)
         {
             LogWfpError(logger, ex);
+            await Task.Delay(Timeout.Infinite, stoppingToken).ConfigureAwait(false);
+            return;
         }
 
-        // TODO(phase 1): host the local API pipe and subscribe to WFP net events for alerts.
-        await Task.Delay(Timeout.Infinite, stoppingToken).ConfigureAwait(false);
+        using (engine)
+        {
+            var log = new TrafficLog(TrafficLog.DefaultPath);
+            var paths = NtPathMapper.FromSystem();
+            var started = DateTime.UtcNow;
+            var recent = new RecentEvents(Overlap);
+
+            using var timer = new PeriodicTimer(PollInterval);
+            while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
+            {
+                try
+                {
+                    // Re-read a short overlap each time, because the engine can record an event a
+                    // moment after its timestamp; RecentEvents drops the ones already logged.
+                    var now = DateTime.UtcNow;
+                    var from = now - Overlap < started ? started : now - Overlap;
+                    var blocked = recent.KeepNew(engine.ReadBlockedConnections(from, now, crioFireOnly: true, paths), now);
+                    if (blocked.Count > 0)
+                    {
+                        log.Append(blocked);
+                        LogBlocked(logger, blocked.Count);
+                    }
+                }
+                catch (Exception ex) when (ex is WfpException or IOException or UnauthorizedAccessException)
+                {
+                    LogPollError(logger, ex);
+                }
+            }
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered CrioFire with the Windows Filtering Platform.")]
@@ -42,4 +78,10 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Filtering engine call failed.")]
     private static partial void LogWfpError(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Logged {Count} blocked connections.")]
+    private static partial void LogBlocked(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading blocked connections failed; will retry.")]
+    private static partial void LogPollError(ILogger logger, Exception exception);
 }

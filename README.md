@@ -37,10 +37,14 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe install                                   # register CrioFire with WFP
 .\criofire.exe block "C:\Path\To\SomeApp.exe"            # block its outbound traffic
 .\criofire.exe list                                      # show CrioFire's filters
+.\criofire.exe events                                    # connections CrioFire blocked (last 10 min)
 .\criofire.exe unblock "C:\Path\To\SomeApp.exe"          # undo
 .\criofire.exe panic                                     # recovery: remove every CrioFire rule
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
+
+While the `criofire` service runs, every connection CrioFire blocks is also appended to
+`%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB).
 
 Safety by design: rules only ever match a single program, so the prototype cannot cut the
 whole PC off the network. Filters are persistent and survive reboots until you remove them.

@@ -25,7 +25,7 @@ internal static class Peer
     /// The peer listens on <paramref name="address"/>; the test process then connects to it.
     /// Returns whether the test's connection succeeded and the peer's exit code (0 = accepted).
     /// </summary>
-    public static async Task<(bool Connected, int PeerExitCode)> ListenAndConnectAsync(IPAddress address)
+    public static async Task<(bool Connected, int PeerExitCode, int Port)> ListenAndConnectAsync(IPAddress address)
     {
         using var process = Start("listen", address.ToString(), "6");
         var line = await process.StandardOutput.ReadLineAsync() ?? throw new InvalidOperationException("Peer did not start listening.");
@@ -47,7 +47,7 @@ internal static class Peer
         }
 
         await WaitAsync(process, TimeSpan.FromSeconds(15));
-        return (connected, process.ExitCode);
+        return (connected, process.ExitCode, port);
     }
 
     private static Process Start(params string[] args)

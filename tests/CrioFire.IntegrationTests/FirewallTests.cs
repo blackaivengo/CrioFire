@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Principal;
 using CrioFire.Core;
 
@@ -198,12 +199,69 @@ public sealed class FirewallTests : IDisposable
     }
 
     [Fact]
+    public async Task BlockedOutboundAttemptIsReportedWithAppAndRule()
+    {
+        var engine = Engine;
+        var start = DateTime.UtcNow.AddSeconds(-2);
+        var address = IPAddress.Loopback;
+        using var listener = new LocalListener(address);
+
+        var ids = engine.SetAppRule(Peer.ExePath, RuleAction.Block, TrafficDirection.Outbound);
+        var attempt = await Peer.ConnectAsync(address, listener.Port);
+        Assert.True(attempt.ExitCode != 0, $"Connection should be blocked: {attempt.Output}");
+
+        var hit = await WaitForEventAsync(engine, start, e => e.Remote?.Port == listener.Port);
+        Assert.Contains(hit.FilterId, ids);
+        Assert.Equal(Peer.ExePath, hit.AppPath, ignoreCase: true);
+        Assert.Equal(ProtocolType.Tcp, hit.Protocol);
+        Assert.Equal(TrafficDirection.Outbound, hit.Direction);
+        Assert.Equal(address, hit.Remote!.Address);
+        Assert.InRange(hit.TimeUtc, start, DateTime.UtcNow.AddSeconds(5));
+    }
+
+    [Fact]
+    public async Task BlockedInboundAttemptIsReportedWithAppAndRule()
+    {
+        var engine = Engine;
+        var start = DateTime.UtcNow.AddSeconds(-2);
+
+        var ids = engine.SetAppRule(Peer.ExePath, RuleAction.Block, TrafficDirection.Inbound);
+        var attempt = await Peer.ListenAndConnectAsync(IPAddress.Loopback);
+        Assert.False(attempt.Connected, "Inbound connection should be blocked.");
+
+        var hit = await WaitForEventAsync(engine, start, e => e.Local?.Port == attempt.Port);
+        Assert.Contains(hit.FilterId, ids);
+        Assert.Equal(Peer.ExePath, hit.AppPath, ignoreCase: true);
+        Assert.Equal(TrafficDirection.Inbound, hit.Direction);
+    }
+
+    [Fact]
     public void BlockingAMissingProgramFailsCleanly()
     {
         var engine = Engine;
         Assert.Throws<FileNotFoundException>(() =>
             engine.SetAppRule(@"C:\does-not-exist\nothing.exe", RuleAction.Block, TrafficDirection.Outbound));
         Assert.Empty(engine.ListFilters());
+    }
+
+    /// <summary>The engine records drops asynchronously; poll for up to 10 seconds.</summary>
+    private static async Task<BlockedConnection> WaitForEventAsync(WfpEngine engine, DateTime since, Func<BlockedConnection, bool> match)
+    {
+        for (var i = 0; i < 40; i++)
+        {
+            var hit = engine.ReadBlockedConnections(since).FirstOrDefault(match);
+            if (hit is not null)
+            {
+                return hit;
+            }
+
+            await Task.Delay(250, TestContext.Current.CancellationToken);
+        }
+
+        var all = engine.ReadBlockedConnections(since, crioFireOnly: false);
+        Assert.Fail($"No matching blocked-connection event. Saw {all.Count} drop events in total: "
+            + string.Join("; ", all.Take(10).Select(e => $"{e.AppPath} {e.Local}->{e.Remote} filter {e.FilterId}")));
+        throw new InvalidOperationException("unreachable");
     }
 
     private static void SkipIfNoIPv6(IPAddress address) =>
