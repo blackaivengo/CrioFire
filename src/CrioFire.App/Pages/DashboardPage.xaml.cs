@@ -19,6 +19,11 @@ public partial class DashboardPage : UserControl, IPage
     {
         _model = model;
         InitializeComponent();
+        foreach (var list in new FrameworkElement[] { TopApps, AllowedList, PendingList, LiveList })
+        {
+            RowMenu.Attach(list, model, RowMenu.From);
+        }
+
         PendingList.ItemsSource = model.Pending;
         model.Pending.CollectionChanged += (_, _) => UpdatePending();
     }

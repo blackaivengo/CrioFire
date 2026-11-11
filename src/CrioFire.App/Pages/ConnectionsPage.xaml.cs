@@ -16,6 +16,7 @@ public partial class ConnectionsPage : UserControl, IPage
     {
         _model = model;
         InitializeComponent();
+        RowMenu.Attach(Table, model, RowMenu.From);
     }
 
     public string Title => "Live connections";

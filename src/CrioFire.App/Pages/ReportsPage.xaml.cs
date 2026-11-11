@@ -21,6 +21,10 @@ public partial class ReportsPage : UserControl, IPage
     {
         _model = model;
         InitializeComponent();
+        foreach (var list in new FrameworkElement[] { ProgramList, DestinationList, AllowedList, AllowedDestinationList })
+        {
+            RowMenu.Attach(list, model, RowMenu.From);
+        }
     }
 
     public string Title => "Reports";

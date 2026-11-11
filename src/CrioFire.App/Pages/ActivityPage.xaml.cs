@@ -1,9 +1,5 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Threading;
-using System.Net;
-using System.Net.Sockets;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -24,7 +20,6 @@ public partial class ActivityPage : UserControl, IPage
 
     private readonly AppModel _model;
     private readonly DispatcherTimer _searchDelay = new() { Interval = TimeSpan.FromMilliseconds(350) };
-    private readonly Dictionary<string, string> _hostNames = [];
     private int _offset;
     private string? _app;
     private string? _service;
@@ -35,6 +30,7 @@ public partial class ActivityPage : UserControl, IPage
     {
         _model = model;
         InitializeComponent();
+        RowMenu.Attach(Table, model, RowMenu.From, Selected);
         _searchDelay.Tick += (_, _) =>
         {
             _searchDelay.Stop();
@@ -233,155 +229,25 @@ public partial class ActivityPage : UserControl, IPage
         DetailWhy.Text = row.Why;
         DetailChip.Background = row.ChipBrush;
         DetailWhy.Foreground = row.ChipTextBrush;
-        DetailFacts.ItemsSource = Facts(i);
+        DetailFacts.ItemsSource = ConnectionFacts.For(Target(i), _model);
         OnlyThisButton.Content = i.Service is not null && !i.Service.Contains(',', StringComparison.Ordinal) ? "Only this service" : "Only this program";
         OnlyThisButton.IsEnabled = i.App is not null;
         OpenFolderButton.IsEnabled = i.App is not null && File.Exists(i.App);
 
-        if (i.Remote is { } address && !_hostNames.ContainsKey(address) && NetworkFacts.AddressScope(address) != "unknown")
+        if (ConnectionFacts.NeedsLookup(i.Remote))
         {
-            LookUpHost(address);
+            LookUpHost(i.Remote!);
         }
     }
 
-    private List<Fact> Facts(TrafficItem i)
-    {
-        var c = CultureInfo.CurrentCulture;
-        var facts = new List<Fact>();
-        var inbound = i.Direction == "in";
-        var times = i.Count == 1 ? "once" : $"{Fmt.Count(i.Count)} times";
-        var span = i.FirstUtc == i.LastUtc
-            ? i.LastUtc.ToLocalTime().ToString("g", c)
-            : $"{i.FirstUtc.ToLocalTime().ToString("g", c)} – {i.LastUtc.ToLocalTime().ToString("g", c)}";
-        facts.Add(new Fact("Connection", $"{(inbound ? "Inbound (another machine connected to this PC)" : "Outbound (this PC connected out)")}, {i.Protocol ?? "?"}, {times}: {span}"));
-
-        if (i.Remote is { } remote)
-        {
-            var host = _hostNames.TryGetValue(remote, out var name) ? (name.Length == 0 ? "no host name found" : name) : "looking up the host name…";
-            facts.Add(new Fact(inbound ? "From" : "To", $"{remote} · {NetworkFacts.AddressScope(remote)} · {host}"));
-        }
-
-        if (i.Port > 0)
-        {
-            var known = NetworkFacts.PortName(i.Port) ?? "no well-known service";
-            facts.Add(new Fact(inbound ? "Port on this PC" : "Port on the other side", $"{i.Port} ({known})"));
-        }
-
-        if (i.Local is { } local)
-        {
-            facts.Add(new Fact("Local address and port", inbound
-                ? local
-                : $"{local} (Windows picks this source port for each new connection)"));
-        }
-
-        facts.Add(new Fact(i.Allowed ? "Why it was allowed" : "Why it was blocked",
-            i.WhyLabel + (i.FilterId != 0 ? $" · CrioFire filter {i.FilterId}" : string.Empty)));
-
-        facts.Add(new Fact("Program", ProgramFacts(i.App)));
-        if (i.Service is { } services)
-        {
-            var all = WindowsServiceList.Read().ToDictionary(s => s.Name, s => s.DisplayName, StringComparer.OrdinalIgnoreCase);
-            facts.Add(new Fact("Windows service", string.Join(", ", services.Split(',', StringSplitOptions.TrimEntries)
-                .Select(s => all.TryGetValue(s, out var display) ? $"{display} ({s})" : s))));
-        }
-
-        facts.Add(new Fact("Rules for it", RuleFacts(i)));
-        facts.Add(new Fact("Right now", LiveFacts(i.App)));
-        return facts;
-    }
-
-    private static string ProgramFacts(string? app)
-    {
-        if (string.IsNullOrEmpty(app))
-        {
-            return "Unknown: Windows did not report a program.";
-        }
-
-        if (KnownApps.IsKernel(app))
-        {
-            return "The Windows kernel: file and printer sharing, NetBIOS, ICMP and other system traffic.";
-        }
-
-        if (!File.Exists(app))
-        {
-            return $"{app} (not found on this PC any more)";
-        }
-
-        try
-        {
-            var v = FileVersionInfo.GetVersionInfo(app);
-            var parts = new[] { v.FileDescription, v.CompanyName, string.IsNullOrWhiteSpace(v.FileVersion) ? null : $"version {v.FileVersion}" }
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .ToList();
-            return parts.Count == 0 ? "No description in the file." : string.Join(" · ", parts);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return "Could not read the file's details.";
-        }
-    }
-
-    private string RuleFacts(TrafficItem i)
-    {
-        var lines = new List<string>();
-        foreach (var r in _model.Rules)
-        {
-            var mine = (r.Kind == nameof(FilterKind.AppRule) || r.Kind == nameof(FilterKind.NetRule)) && i.App is not null
-                && string.Equals(r.App, i.App, StringComparison.OrdinalIgnoreCase);
-            var service = r.Kind == nameof(FilterKind.ServiceRule) && i.Service is not null && r.Service is not null
-                && i.Service.Split(',', StringSplitOptions.TrimEntries).Contains(r.Service, StringComparer.OrdinalIgnoreCase);
-            if (mine || service)
-            {
-                var text = r.Summary ?? $"{r.Action} {r.Direction}" + (service ? $" (service {r.Service})" : string.Empty);
-                if (!lines.Contains(text))
-                {
-                    lines.Add(text);
-                }
-            }
-        }
-
-        return lines.Count == 0 ? "None. The mode decides (" + AppModel.ModeName(_model.Mode) + " mode)." : string.Join("\n", lines);
-    }
-
-    private static string LiveFacts(string? app)
-    {
-        if (string.IsNullOrEmpty(app))
-        {
-            return "–";
-        }
-
-        var live = ConnectionTable.Read()
-            .Where(c => KnownApps.IsKernel(app) ? c.ProcessId == 4 : string.Equals(c.ProcessPath, app, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        if (live.Count == 0)
-        {
-            return "No open connections or listening ports.";
-        }
-
-        var pids = string.Join(", ", live.Select(c => c.ProcessId).Distinct().Order());
-        var listening = live.Count(c => c.Remote is null);
-        return $"{live.Count - listening} open connections, {listening} listening ports · process {pids}";
-    }
+    private static MenuTarget Target(TrafficItem i) => new(i.App, i.Service, i.Remote, i.Port, i);
 
     private async void LookUpHost(string address)
     {
-        _hostNames[address] = string.Empty;   // one lookup per address
-        string name;
-        try
-        {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
-            var entry = await Dns.GetHostEntryAsync(address, timeout.Token);
-            name = entry.HostName == address ? string.Empty : entry.HostName;
-        }
-        catch (Exception ex) when (ex is SocketException or OperationCanceledException or ArgumentException)
-        {
-            name = string.Empty;
-        }
-
-        _hostNames[address] = name;
+        await ConnectionFacts.LookUpAsync(address);
         if (_shown?.Item.Remote == address)
         {
-            DetailFacts.ItemsSource = Facts(_shown.Item);
+            DetailFacts.ItemsSource = ConnectionFacts.For(Target(_shown.Item), _model);
         }
     }
 
@@ -460,31 +326,13 @@ public partial class ActivityPage : UserControl, IPage
         _model.NotifyChanged();
     }
 
-    private void OnOpenFolder(object sender, RoutedEventArgs e)
-    {
-        if (_shown?.Item.App is { } app && File.Exists(app))
-        {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{app}\"") { UseShellExecute = true });
-        }
-    }
+    private void OnOpenFolder(object sender, RoutedEventArgs e) => RowMenu.OpenFolder(_shown?.Item.App);
 
     private void OnCopy(object sender, RoutedEventArgs e)
     {
-        if (_shown is not { } row)
+        if (_shown is { } row)
         {
-            return;
-        }
-
-        var text = string.Join(Environment.NewLine,
-            new[] { row.Program, row.Detail, row.Why }.Concat(Facts(row.Item).Select(f => $"{f.Label}: {f.Value}")));
-        try
-        {
-            Clipboard.SetText(text);
-            _model.Say("Copied the details.");
-        }
-        catch (System.Runtime.InteropServices.ExternalException)
-        {
-            _model.Say("The clipboard is busy; try again.");
+            RowMenu.Copy(_model, ConnectionFacts.AsText($"{row.Program} · {row.Why}", row.Detail, ConnectionFacts.For(Target(row.Item), _model)));
         }
     }
 }
