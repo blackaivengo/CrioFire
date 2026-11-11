@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -212,33 +213,30 @@ public partial class MainWindow : Window
     {
         var version = ++_navigation;
         _pageTimer.Stop();
-        var isNew = !_pages.TryGetValue(name, out var page);
+        var shownAt = Stopwatch.StartNew();
 
-        // A page opened for the first time builds its controls on this thread, so the indicator goes
-        // up at once and gets one frame drawn first. A page already built only waits for its data,
-        // and the indicator appears only if that takes a moment, to avoid a flash on fast PCs.
-        using var busy = Busy($"Opening {PageName(name)}…", immediately: isNew);
-        if (page is null)
+        // The indicator goes up at once on every switch and gets a frame drawn before any work
+        // starts. Most of the wait is on this thread (filling the lists and laying them out), and a
+        // delayed indicator could never appear while that runs.
+        using var busy = Busy($"Opening {PageName(name)}…", immediately: true);
+        await Dispatcher.Yield(DispatcherPriority.Background);
+        if (version != _navigation)
         {
-            await Dispatcher.Yield(DispatcherPriority.Background);
-            if (version != _navigation)
-            {
-                return;
-            }
+            return;
+        }
 
-            if (!_pages.TryGetValue(name, out page))
+        if (!_pages.TryGetValue(name, out var page))
+        {
+            page = name switch
             {
-                page = name switch
-                {
-                    "Activity" => new ActivityPage(_model),
-                    "Rules" => new RulesPage(_model),
-                    "Connections" => new ConnectionsPage(_model),
-                    "Reports" => new ReportsPage(_model),
-                    "Settings" => new SettingsPage(_model),
-                    _ => (IPage)new DashboardPage(_model),
-                };
-                _pages[name] = page;
-            }
+                "Activity" => new ActivityPage(_model),
+                "Rules" => new RulesPage(_model),
+                "Connections" => new ConnectionsPage(_model),
+                "Reports" => new ReportsPage(_model),
+                "Settings" => new SettingsPage(_model),
+                _ => (IPage)new DashboardPage(_model),
+            };
+            _pages[name] = page;
         }
 
         await LoadSafely(page);
@@ -256,7 +254,18 @@ public partial class MainWindow : Window
             _pageTimer.Interval = every;
             _pageTimer.Start();
         }
+
+        // Keep the indicator up until the new page has been laid out and drawn underneath it, and
+        // for a moment at least, so a fast switch shows a brief indicator rather than a flicker.
+        await Dispatcher.Yield(DispatcherPriority.Background);
+        var rest = MinimumBusy - shownAt.Elapsed;
+        if (rest > TimeSpan.Zero && version == _navigation)
+        {
+            await Task.Delay(rest);
+        }
     }
+
+    private static readonly TimeSpan MinimumBusy = TimeSpan.FromMilliseconds(200);
 
     private static string PageName(string name) => name switch
     {
