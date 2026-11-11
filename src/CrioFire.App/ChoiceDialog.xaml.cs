@@ -39,6 +39,8 @@ public partial class ChoiceDialog : Window
             Buttons.Children.Add(button);
         }
 
+        FitButtonsInOneRow();
+
         MouseLeftButtonDown += (_, e) =>
         {
             if (e.ButtonState == MouseButtonState.Pressed)
@@ -53,6 +55,30 @@ public partial class ChoiceDialog : Window
                 Close();
             }
         };
+    }
+
+    /// <summary>
+    /// Widens the dialog so every answer fits on one row (500 px at least). Only if that would not
+    /// fit on the screen do the answers stack, one per row, full width.
+    /// </summary>
+    private void FitButtonsInOneRow()
+    {
+        Buttons.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        const double chrome = (28 * 2) + (26 * 2) + 2;   // window margin, card padding, card border
+        var needed = Math.Ceiling(Buttons.DesiredSize.Width + chrome);
+        var screen = SystemParameters.WorkArea.Width * 0.9;
+        if (needed <= screen)
+        {
+            Width = Math.Max(Width, needed);
+            return;
+        }
+
+        Buttons.Orientation = Orientation.Vertical;
+        Buttons.HorizontalAlignment = HorizontalAlignment.Stretch;
+        foreach (var child in Buttons.Children.OfType<Button>())
+        {
+            child.HorizontalAlignment = HorizontalAlignment.Stretch;
+        }
     }
 
     /// <summary>Returns the index of the chosen answer, or null if the dialog was closed with Escape.</summary>

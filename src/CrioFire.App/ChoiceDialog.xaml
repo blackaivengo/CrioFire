@@ -18,8 +18,9 @@
     <Border CornerRadius="16" Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="26,24">
       <StackPanel>
         <TextBlock x:Name="TitleText" Style="{StaticResource H2}" TextWrapping="Wrap" />
-        <TextBlock x:Name="MessageText" Style="{StaticResource Muted}" FontSize="14" LineHeight="21" Margin="0,10,0,22" />
-        <WrapPanel x:Name="Buttons" HorizontalAlignment="Right" />
+        <TextBlock x:Name="MessageText" Style="{StaticResource Muted}" FontSize="14" LineHeight="21" Margin="0,10,0,22" TextWrapping="Wrap" />
+        <!-- One row: the dialog widens to fit its answers (see the code-behind). -->
+        <StackPanel x:Name="Buttons" Orientation="Horizontal" HorizontalAlignment="Right" />
       </StackPanel>
     </Border>
     <Border Height="2" VerticalAlignment="Top" Margin="16,1,16,0" CornerRadius="1" Background="{StaticResource BrandBrush}" />
