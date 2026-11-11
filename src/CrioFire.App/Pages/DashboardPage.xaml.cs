@@ -14,6 +14,7 @@ public partial class DashboardPage : UserControl, IPage
 {
     private const double ChartHeight = 190;
     private readonly AppModel _model;
+    private DashboardData? _loaded;
 
     internal DashboardPage(AppModel model)
     {
@@ -41,8 +42,23 @@ public partial class DashboardPage : UserControl, IPage
 
     public TimeSpan? AutoRefresh => TimeSpan.FromSeconds(10);
 
+    /// <summary>The slow part of a refresh: the connection table and today's report.</summary>
+    private sealed record DashboardData(IReadOnlyList<LiveConnection> Live, ReportInfo? Report);
+
+    public async Task LoadAsync()
+    {
+        var withReport = _model.Status is not null;
+        _loaded = await Task.Run(() => Read(withReport));
+    }
+
+    private static DashboardData Read(bool withReport) => new(
+        ConnectionTable.Read(),
+        withReport ? Service.Call(new ApiRequest { Op = ApiOps.Report, Period = ReportBuilder.Day }, out _)?.Report : null);
+
     public void Refresh()
     {
+        var data = _loaded ?? Read(_model.Status is not null);
+        _loaded = null;
         UpdateProtection();
         UpdatePending();
 
@@ -54,7 +70,7 @@ public partial class DashboardPage : UserControl, IPage
         BlockChip.Text = blockApps == 1 ? "1 block rule" : $"{blockApps} block rules";
         AutoChip.Text = AutoChipText();
 
-        var live = ConnectionTable.Read().Where(c => c.Remote is not null).ToList();
+        var live = data.Live.Where(c => c.Remote is not null).ToList();
         KpiLive.Text = Fmt.Count(live.Count);
         KpiLiveNote.Text = $"from {live.Select(c => c.ProcessId).Distinct().Count()} programs";
         LiveList.ItemsSource = live
@@ -64,7 +80,7 @@ public partial class DashboardPage : UserControl, IPage
             .Select(c => LiveRow.From(c))
             .ToList();
 
-        var report = _model.Status is null ? null : Service.Call(new ApiRequest { Op = ApiOps.Report, Period = ReportBuilder.Day }, out _)?.Report;
+        var report = data.Report;
         UpdateAllowed(report);
         if (report is null)
         {

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using CrioFire.App.Pages;
@@ -23,6 +24,13 @@ internal interface IPage
     /// <summary>How often to refresh while the page is open; null = only when something changes.</summary>
     TimeSpan? AutoRefresh { get; }
 
+    /// <summary>
+    /// Reads what the page shows (service calls, the connection table, the service list) off the
+    /// UI thread, so the window can show a progress indicator meanwhile. <see cref="Refresh"/>
+    /// then uses what was read, or reads it itself when it is called on its own.
+    /// </summary>
+    Task LoadAsync() => Task.CompletedTask;
+
     void Refresh();
 }
 
@@ -41,6 +49,10 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _pageTimer = new();
     private readonly DispatcherTimer _messageTimer = new() { Interval = TimeSpan.FromSeconds(6) };
     private IPage? _current;
+    private int _navigation;          // bumped on every page switch, so a slow load cannot show a page you left
+    private bool _refreshing;
+    private bool _refreshAgain;
+    private readonly int[] _busy = new int[2];   // [0] covering the page, [1] the small Updating note
     private TrayIcon? _tray;
     private bool _exiting;
 
@@ -61,7 +73,7 @@ public partial class MainWindow : Window
         UpdateThemeButton();
 
         _poll.Tick += (_, _) => Poll();
-        _pageTimer.Tick += (_, _) => _current?.Refresh();
+        _pageTimer.Tick += (_, _) => _ = ReloadAsync(busy: false);
         _messageTimer.Tick += (_, _) =>
         {
             _messageTimer.Stop();
@@ -196,35 +208,123 @@ public partial class MainWindow : Window
         target.IsChecked = true;
     }
 
-    private void Show(string name)
+    private async void Show(string name)
     {
-        if (!_pages.TryGetValue(name, out var page))
+        var version = ++_navigation;
+        _pageTimer.Stop();
+        var isNew = !_pages.TryGetValue(name, out var page);
+
+        // A page opened for the first time builds its controls on this thread, so the indicator goes
+        // up at once and gets one frame drawn first. A page already built only waits for its data,
+        // and the indicator appears only if that takes a moment, to avoid a flash on fast PCs.
+        using var busy = Busy($"Opening {PageName(name)}…", immediately: isNew);
+        if (page is null)
         {
-            page = name switch
+            await Dispatcher.Yield(DispatcherPriority.Background);
+            if (version != _navigation)
             {
-                "Activity" => new ActivityPage(_model),
-                "Rules" => new RulesPage(_model),
-                "Connections" => new ConnectionsPage(_model),
-                "Reports" => new ReportsPage(_model),
-                "Settings" => new SettingsPage(_model),
-                _ => (IPage)new DashboardPage(_model),
-            };
-            _pages[name] = page;
+                return;
+            }
+
+            if (!_pages.TryGetValue(name, out page))
+            {
+                page = name switch
+                {
+                    "Activity" => new ActivityPage(_model),
+                    "Rules" => new RulesPage(_model),
+                    "Connections" => new ConnectionsPage(_model),
+                    "Reports" => new ReportsPage(_model),
+                    "Settings" => new SettingsPage(_model),
+                    _ => (IPage)new DashboardPage(_model),
+                };
+                _pages[name] = page;
+            }
+        }
+
+        await LoadSafely(page);
+        if (version != _navigation)
+        {
+            return;
         }
 
         _current = page;
         PageHost.Content = page;
         PageActions.Content = page.Actions;
-        _pageTimer.Stop();
-        RefreshPage();
-        if (page.AutoRefresh is { } every)
+        ShowCurrent();
+        if (page.AutoRefresh is { } every && IsVisible)   // not while the window waits in the tray
         {
             _pageTimer.Interval = every;
             _pageTimer.Start();
         }
     }
 
-    private void RefreshPage()
+    private static string PageName(string name) => name switch
+    {
+        "Activity" or "Rules" or "Connections" or "Reports" or "Settings" => name,
+        _ => "Dashboard",
+    };
+
+    /// <summary>Reloads the open page after a change (a rule, a filter, the theme).</summary>
+    private void RefreshPage() => _ = ReloadAsync(busy: true);
+
+    /// <summary>
+    /// Loads the open page's data off the UI thread, then shows it. Requests that come in while a
+    /// load is running are folded into one more load. With <paramref name="busy"/> a small
+    /// "Updating" note appears if the load takes a moment; the timer refreshes quietly.
+    /// </summary>
+    private async Task ReloadAsync(bool busy)
+    {
+        if (_refreshing)
+        {
+            _refreshAgain = true;
+            return;
+        }
+
+        _refreshing = true;
+        try
+        {
+            do
+            {
+                _refreshAgain = false;
+                if (_current is not { } page)
+                {
+                    return;
+                }
+
+                var version = _navigation;
+                using (busy ? Busy("Updating…", immediately: false, cover: false) : null)
+                {
+                    await LoadSafely(page);
+                }
+
+                if (version != _navigation || !ReferenceEquals(page, _current))
+                {
+                    continue;   // you moved on; reload the new page only if something asked for it
+                }
+
+                ShowCurrent();
+            }
+            while (_refreshAgain);
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
+    private static async Task LoadSafely(IPage page)
+    {
+        try
+        {
+            await page.LoadAsync();
+        }
+        catch (Exception)
+        {
+            // Refresh reads the data again itself and shows the error on the page.
+        }
+    }
+
+    private void ShowCurrent()
     {
         if (_current is null)
         {
@@ -235,6 +335,74 @@ public partial class MainWindow : Window
         PageTitle.Text = _current.Title;
         PageSubtitle.Text = _current.Subtitle;
         UpdateService();
+    }
+
+    /// <summary>
+    /// Shows a progress indicator until the result is disposed: at once, or after a short delay so
+    /// quick loads do not flash it. With <paramref name="cover"/> it covers the page (opening a
+    /// page); otherwise a small "Updating" note appears at the top and the page stays usable, so
+    /// typing in a search box is not interrupted. Several can overlap.
+    /// </summary>
+    private IDisposable Busy(string text, bool immediately, bool cover = true)
+    {
+        var slot = cover ? 0 : 1;
+        FrameworkElement panel = cover ? BusyOverlay : UpdatingNote;
+        FrameworkElement spinner = cover ? BusySpinner : UpdatingSpinner;
+        var label = cover ? BusyText : UpdatingText;
+        _busy[slot]++;
+        DispatcherTimer? delay = null;
+        void Reveal()
+        {
+            label.Text = text;
+            if (panel.Visibility != Visibility.Visible)
+            {
+                panel.Visibility = Visibility.Visible;
+                var spin = new RotateTransform();
+                spinner.RenderTransform = spin;
+                spin.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(0, 360, TimeSpan.FromSeconds(0.9)) { RepeatBehavior = RepeatBehavior.Forever });
+            }
+        }
+
+        if (immediately)
+        {
+            Reveal();
+        }
+        else
+        {
+            var timer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(cover ? 250 : 400) };
+            delay = timer;
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                if (_busy[slot] > 0)
+                {
+                    Reveal();
+                }
+            };
+            timer.Start();
+        }
+
+        return new BusyScope(() =>
+        {
+            delay?.Stop();
+            _busy[slot] = Math.Max(0, _busy[slot] - 1);
+            if (_busy[slot] == 0)
+            {
+                panel.Visibility = Visibility.Collapsed;
+                spinner.RenderTransform = null;
+            }
+        });
+    }
+
+    private sealed class BusyScope(Action done) : IDisposable
+    {
+        private Action? _done = done;
+
+        public void Dispose()
+        {
+            _done?.Invoke();
+            _done = null;
+        }
     }
 
     /// <summary>Every 2 seconds: service status, rules, and in Ask mode new programs to ask about.</summary>

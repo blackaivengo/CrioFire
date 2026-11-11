@@ -58,30 +58,39 @@ public partial class ActivityPage : UserControl, IPage
 
     private string? DirectionFilter => DirOut.IsChecked == true ? "out" : DirIn.IsChecked == true ? "in" : null;
 
-    public void Refresh()
+    private (ApiRequest Request, TrafficPage? Page, string? Error)? _loaded;
+
+    /// <summary>Asks the service for the page of traffic off the UI thread; Refresh shows it.</summary>
+    public async Task LoadAsync()
+    {
+        TakeQuery();
+        var request = BuildRequest();
+        _loaded = await Task.Run(() => Read(request));
+    }
+
+    private static (ApiRequest Request, TrafficPage? Page, string? Error) Read(ApiRequest request)
+    {
+        var page = Service.Call(request, out var error)?.Traffic;
+        return (request, page, error);
+    }
+
+    private void TakeQuery()
     {
         if (_model.TakeActivityQuery() is { } query)
         {
             Apply(query);
         }
+    }
 
+    public void Refresh()
+    {
+        TakeQuery();
         LocalSwitch.Visibility = Kind == "blocked" ? Visibility.Collapsed : Visibility.Visible;
-        var search = SearchBox.Text.Trim();
-        var page = Service.Call(new ApiRequest
-        {
-            Op = ApiOps.Traffic,
-            TrafficKind = Kind,
-            Minutes = Minutes,
-            Search = search.Length == 0 ? null : search,
-            Why = WhyGroup,
-            Direction = DirectionFilter,
-            App = _app,
-            Service = _service,
-            IncludeLoopback = LocalSwitch.IsChecked == true,
-            Sort = SortCount.IsChecked == true ? "count" : "recent",
-            Offset = _offset,
-            Limit = PageSize,
-        }, out var error)?.Traffic;
+        var request = BuildRequest();
+        var data = _loaded is { } loaded && loaded.Request == request ? loaded : Read(request);
+        _loaded = null;
+        var page = data.Page;
+        var error = data.Error;
 
         UpdateScope();
         if (page is null)
@@ -118,6 +127,26 @@ public partial class ActivityPage : UserControl, IPage
         var what = Kind switch { "allowed" => "Allowed", "all" => "Blocked and allowed", _ => "Blocked" };
         Subtitle = $"{what} in the last {WindowText}: {Fmt.Count(page.Connections)} connections in {Fmt.Count(page.Total)} rows.";
         UpdateSelection();
+    }
+
+    private ApiRequest BuildRequest()
+    {
+        var search = SearchBox.Text.Trim();
+        return new ApiRequest
+        {
+            Op = ApiOps.Traffic,
+            TrafficKind = Kind,
+            Minutes = Minutes,
+            Search = search.Length == 0 ? null : search,
+            Why = WhyGroup,
+            Direction = DirectionFilter,
+            App = _app,
+            Service = _service,
+            IncludeLoopback = LocalSwitch.IsChecked == true,
+            Sort = SortCount.IsChecked == true ? "count" : "recent",
+            Offset = _offset,
+            Limit = PageSize,
+        };
     }
 
     /// <summary>Sets the filters a dashboard panel asked for.</summary>

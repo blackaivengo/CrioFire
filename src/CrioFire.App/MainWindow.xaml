@@ -113,6 +113,38 @@
           <ContentControl x:Name="PageHost" Focusable="False" />
         </ScrollViewer>
 
+        <!-- Covers the page while the next one loads (slow PCs, a busy service). See MainWindow.Busy. -->
+        <Grid x:Name="BusyOverlay" Grid.Row="1" Visibility="Collapsed" Cursor="Wait" Background="Transparent">
+          <Rectangle Fill="{DynamicResource BgBrush}" Opacity="0.82" />
+          <Border HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="16" Padding="34,26"
+                  Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <StackPanel>
+              <Grid x:Name="BusySpinner" Width="44" Height="44" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                <Ellipse Stroke="{DynamicResource TrackBrush}" StrokeThickness="4" />
+                <Path Data="M 22,2 A 20,20 0 0 1 42,22" Stroke="{DynamicResource IceBrush}" StrokeThickness="4"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+              </Grid>
+              <TextBlock x:Name="BusyText" Margin="0,16,0,0" FontSize="14" HorizontalAlignment="Center"
+                         Foreground="{DynamicResource Text2Brush}" Text="Loading…" />
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- Shown while the open page reloads after a change; the page stays usable. -->
+        <Border x:Name="UpdatingNote" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,6,0,0"
+                CornerRadius="12" Padding="12,6" Visibility="Collapsed" IsHitTestVisible="False"
+                Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+          <StackPanel Orientation="Horizontal">
+            <Grid x:Name="UpdatingSpinner" Width="16" Height="16" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+              <Ellipse Stroke="{DynamicResource TrackBrush}" StrokeThickness="2" />
+              <Path Data="M 8,1 A 7,7 0 0 1 15,8" Stroke="{DynamicResource IceBrush}" StrokeThickness="2"
+                    StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            </Grid>
+            <TextBlock x:Name="UpdatingText" Margin="8,0,0,0" FontSize="12.5" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Text2Brush}" Text="Updating…" />
+          </StackPanel>
+        </Border>
+
         <!-- Messages ("Allowed Chat.exe.", service errors) slide in at the bottom. -->
         <Border x:Name="MessageBar" Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,22"
                 CornerRadius="12" Padding="18,11" Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"

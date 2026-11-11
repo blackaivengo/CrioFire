@@ -14,6 +14,7 @@ public partial class ReportsPage : UserControl, IPage
 {
     private const double ChartHeight = 200;
     private readonly AppModel _model;
+    private (string Period, ReportInfo? Report, string? Error)? _loaded;
     private string _period = ReportBuilder.Week;
     private ReportInfo? _report;
 
@@ -35,9 +36,24 @@ public partial class ReportsPage : UserControl, IPage
 
     public TimeSpan? AutoRefresh => null;
 
+    public async Task LoadAsync()
+    {
+        var period = _period;
+        _loaded = await Task.Run(() => Read(period));
+    }
+
+    private static (string Period, ReportInfo? Report, string? Error) Read(string period)
+    {
+        var report = Service.Call(new ApiRequest { Op = ApiOps.Report, Period = period }, out var error)?.Report;
+        return (period, report, error);
+    }
+
     public void Refresh()
     {
-        _report = Service.Call(new ApiRequest { Op = ApiOps.Report, Period = _period }, out var error)?.Report;
+        var data = _loaded is { } loaded && loaded.Period == _period ? loaded : Read(_period);
+        _loaded = null;
+        _report = data.Report;
+        var error = data.Error;
         if (_report is not { } r)
         {
             Subtitle = error ?? "No report available.";

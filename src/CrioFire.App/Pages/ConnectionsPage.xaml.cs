@@ -11,6 +11,7 @@ namespace CrioFire.App.Pages;
 public partial class ConnectionsPage : UserControl, IPage
 {
     private readonly AppModel _model;
+    private (IReadOnlyList<LiveConnection> Connections, IReadOnlyDictionary<int, string[]> Services)? _loaded;
 
     internal ConnectionsPage(AppModel model)
     {
@@ -27,12 +28,17 @@ public partial class ConnectionsPage : UserControl, IPage
 
     public TimeSpan? AutoRefresh => TimeSpan.FromSeconds(3);
 
+    public async Task LoadAsync() => _loaded = await Task.Run(Read);
+
+    private static (IReadOnlyList<LiveConnection> Connections, IReadOnlyDictionary<int, string[]> Services) Read() =>
+        (ConnectionTable.Read(), WindowsServiceList.ByProcess(WindowsServiceList.Read()));
+
     public void Refresh()
     {
         var all = ShowAll.IsChecked == true;
         var selected = Table.SelectedItem as LiveRow;
-        var connections = ConnectionTable.Read();
-        var services = WindowsServiceList.ByProcess(WindowsServiceList.Read());
+        var (connections, services) = _loaded ?? Read();
+        _loaded = null;
         var rows = connections
             .Where(c => all || c.Remote is not null)
             .OrderBy(c => c.ProcessPath is null)

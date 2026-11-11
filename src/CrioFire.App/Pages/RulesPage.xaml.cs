@@ -113,7 +113,8 @@ public partial class RulesPage : UserControl, IPage
             : "No port or address rule matches the filters.";
         NetTitle.Text = Count("Ports and addresses", netRows.Count, allNet.Count);
 
-        var displayNames = ServiceDisplayNames();
+        var displayNames = _displayNames ?? ServiceDisplayNames();
+        _displayNames = null;
         var allServices = _model.ServiceRules.ToList();
         var serviceRows = allServices.Where(r => Show(r) || (r.Service is not null && displayNames.TryGetValue(r.Service, out var d)
                 && search.Length > 0 && RuleViews.Matches(r with { Name = d }, search, ActionFilter, DirectionFilter)))
@@ -445,6 +446,11 @@ public partial class RulesPage : UserControl, IPage
                 learning ? "Allowed (Learning mode)" : "Blocked", false, learning),
         ];
     }
+
+    private Dictionary<string, string>? _displayNames;
+
+    /// <summary>The service list is the slow part of this page; it is read off the UI thread.</summary>
+    public async Task LoadAsync() => _displayNames = await Task.Run(ServiceDisplayNames);
 
     private static Dictionary<string, string> ServiceDisplayNames()
     {
