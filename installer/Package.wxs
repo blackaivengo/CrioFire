@@ -66,11 +66,12 @@
     <SetDirectory Id="INSTALLFOLDER" Value="[CRIOFIRE_SAVED_INSTALLDIR]" Sequence="first" Condition="CRIOFIRE_SAVED_INSTALLDIR" />
 
     <!--
-      Close the app (it lives in the notification area) before its files are replaced or removed.
-      It exits on the end-session message; if it does not within the timeout, it is ended.
+      Close the app (it lives in the notification area) before its files are replaced or removed:
+      it exits on the end-session message. No TerminateProcess: that needs a deferred action, which
+      WiX schedules before InstallInitialize, and the install fails with error 2762.
     -->
     <util:CloseApplication Id="CloseCrioFireUi" Target="criofire-ui.exe" CloseMessage="no" EndSessionMessage="yes"
-                           TerminateProcess="0" Timeout="5" RebootPrompt="no" />
+                           Timeout="5" RebootPrompt="no" />
 
     <!-- "Open CrioFire now" on the last page. -->
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open CrioFire Private Firewall now" />
