@@ -35,6 +35,13 @@ internal static class Service
 }
 
 /// <summary>A program the Ask mode stopped, waiting for the user's decision.</summary>
+/// <summary>What the Activity page should show when a panel opens it.</summary>
+/// <param name="Kind">blocked, allowed or all.</param>
+/// <param name="Minutes">The time window: 60, 1440, 10080 or 43200.</param>
+/// <param name="Why">A reason group (mine, norule, automatic, loopback, panic), or null for all.</param>
+/// <param name="Sort">recent or count.</param>
+internal sealed record ActivityQuery(string Kind = "blocked", int Minutes = 1440, string? Why = null, string? App = null, string? Service = null, string? Search = null, string? Sort = null);
+
 internal sealed record PendingAlert(EventInfo Event)
 {
     public string App => Event.App ?? "?";
@@ -51,7 +58,7 @@ internal sealed record PendingAlert(EventInfo Event)
 /// </summary>
 internal sealed class AppModel
 {
-    private bool _showAllowed;
+    private ActivityQuery? _activityQuery;
 
     public StatusInfo? Status { get; private set; }
 
@@ -447,19 +454,193 @@ internal sealed class AppModel
 
     public void GoTo(string page) => NavigateRequested?.Invoke(this, page);
 
-    /// <summary>Opens the Activity page on its list of allowed connections.</summary>
-    public void ShowAllowed()
+    /// <summary>Opens the Activity page with a filter, e.g. from a dashboard panel.</summary>
+    public void OpenActivity(ActivityQuery query)
     {
-        _showAllowed = true;
+        _activityQuery = query;
         GoTo("Activity");
     }
 
-    /// <summary>True once after <see cref="ShowAllowed"/>: the Activity page switches to its allowed list.</summary>
-    public bool TakeShowAllowed()
+    /// <summary>Opens the Activity page on its list of allowed connections.</summary>
+    public void ShowAllowed() => OpenActivity(new ActivityQuery("allowed"));
+
+    /// <summary>The filter a panel asked for, once: the Activity page applies it.</summary>
+    public ActivityQuery? TakeActivityQuery()
     {
-        var value = _showAllowed;
-        _showAllowed = false;
+        var value = _activityQuery;
+        _activityQuery = null;
         return value;
+    }
+
+    /// <summary>
+    /// Allows (optionally for a while) or blocks what made the selected connections, in one go: a
+    /// rule per program and direction, a service rule for a known service in svchost.exe, and for
+    /// blocked traffic stopped by a port/address rule, that rule is removed. Confirmed when it
+    /// affects more than one thing; svchost.exe connections whose service is unknown are skipped.
+    /// </summary>
+    public void ApplyToMany(Window owner, IReadOnlyList<TrafficItem> items, string action, int? minutes = null)
+    {
+        if (items.Count == 0)
+        {
+            Say("Select one or more rows first (Ctrl or Shift to select several).");
+            return;
+        }
+
+        if (items.Count == 1 && KnownApps.IsServiceHost(items[0].App)
+            && (items[0].Service ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).Length != 1
+            && !(action == "allow" && items[0] is { Allowed: false, Why: nameof(FilterKind.NetRule) or nameof(FilterKind.ServiceRule) }))
+        {
+            Decide(owner, items[0].App, items[0].Service, action);   // asks which service
+            return;
+        }
+
+        var apps = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var services = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var netRules = new HashSet<ulong>();
+        int panic = 0, unknownService = 0, unknown = 0;
+        foreach (var item in items)
+        {
+            var direction = item.Direction == "in" ? "in" : "out";
+            if (!item.Allowed && item.Why == nameof(FilterKind.Panic))
+            {
+                panic++;
+                continue;
+            }
+
+            if (action == "allow" && !item.Allowed && item.Why == nameof(FilterKind.NetRule) && item.FilterId != 0)
+            {
+                netRules.Add(item.FilterId);
+                continue;
+            }
+
+            if (action == "allow" && !item.Allowed && item.Why == nameof(FilterKind.ServiceRule))
+            {
+                if (Rules.FirstOrDefault(r => r.FilterId == item.FilterId)?.Service is { } blockedService)
+                {
+                    Add(services, blockedService, direction);
+                }
+                else
+                {
+                    unknown++;
+                }
+
+                continue;
+            }
+
+            if (string.IsNullOrEmpty(item.App))
+            {
+                unknown++;
+                continue;
+            }
+
+            if (KnownApps.IsServiceHost(item.App))
+            {
+                var names = (item.Service ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (names.Length == 1)
+                {
+                    Add(services, names[0], direction);
+                }
+                else
+                {
+                    unknownService++;
+                }
+
+                continue;
+            }
+
+            Add(apps, item.App, direction);
+        }
+
+        var verb = action == "allow" ? (minutes is int m ? $"Allow for {m} minutes" : "Allow") : "Block";
+        var notes = new List<string>();
+        if (panic > 0)
+        {
+            notes.Add($"{panic} rows were blocked by panic: resume your rules instead.");
+        }
+
+        if (unknownService > 0)
+        {
+            notes.Add($"{unknownService} rows came from svchost.exe without a known service; open one on its own to pick the service.");
+        }
+
+        if (unknown > 0)
+        {
+            notes.Add($"{unknown} rows have no program CrioFire can make a rule for.");
+        }
+
+        var count = apps.Count + services.Count + netRules.Count;
+        if (count == 0)
+        {
+            Say(notes.Count > 0 ? string.Join(" ", notes) : "Nothing to change.");
+            return;
+        }
+
+        if (count > 1 || netRules.Count > 0)
+        {
+            var names = apps.Keys.Select(KnownApps.DisplayName).Concat(services.Keys.Select(s => $"service {s}")).ToList();
+            var text = names.Count == 0 ? string.Empty
+                : string.Join(", ", names.Take(8)) + (names.Count > 8 ? $" and {names.Count - 8} more" : string.Empty) + ".";
+            if (netRules.Count > 0)
+            {
+                text += $"{(text.Length > 0 ? "\n\n" : string.Empty)}Also remove {netRules.Count} port/address rule{(netRules.Count == 1 ? string.Empty : "s")} that blocked them. They may cover other programs too.";
+            }
+
+            if (minutes is not null && services.Count > 0)
+            {
+                text += "\n\nService rules have no time limit: services are allowed until you change it.";
+            }
+
+            if (notes.Count > 0)
+            {
+                text += "\n\n" + string.Join("\n", notes);
+            }
+
+            var title = $"{verb}: {apps.Count + services.Count} program{(apps.Count + services.Count == 1 ? string.Empty : "s")} and services";
+            if (ChoiceDialog.Ask(owner, title, text, [verb, "Cancel"], defaultIndex: 0, danger: action == "block") != 0)
+            {
+                return;
+            }
+        }
+
+        var done = 0;
+        foreach (var (app, directions) in apps)
+        {
+            if (Call(new ApiRequest { Op = ApiOps.SetRule, App = app, Action = action, Direction = Both(directions), ExpiresMinutes = action == "allow" ? minutes : null }) is not null)
+            {
+                done++;
+                if (action == "allow")
+                {
+                    Resolve(app);
+                }
+            }
+        }
+
+        foreach (var (service, directions) in services)
+        {
+            done += Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = service, Action = action, Direction = Both(directions) }) is not null ? 1 : 0;
+        }
+
+        foreach (var id in netRules)
+        {
+            done += Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = id }) is not null ? 1 : 0;
+        }
+
+        Message?.Invoke(this, $"{(action == "allow" ? "Allowed" : "Blocked")}: {done} of {count} done." + (notes.Count > 0 ? " " + string.Join(" ", notes) : string.Empty));
+        RefreshCore();
+        NotifyChanged();
+
+        static void Add(Dictionary<string, HashSet<string>> map, string key, string direction)
+        {
+            if (!map.TryGetValue(key, out var set))
+            {
+                set = [];
+                map[key] = set;
+            }
+
+            set.Add(direction);
+        }
+
+        static string Both(HashSet<string> directions) => directions.Count > 1 ? "both" : directions.First();
     }
 
     public void NotifyChanged() => Changed?.Invoke(this, EventArgs.Empty);

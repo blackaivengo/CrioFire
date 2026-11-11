@@ -120,3 +120,14 @@ internal static class Who
 
     public static string Direction(string? d) => d switch { "in" => "Inbound", "both" => "Both", "out" => "Outbound", _ => "?" };
 }
+
+/// <summary>A row of the Activity page: blocked or allowed connections grouped by program, destination and reason.</summary>
+public sealed record TrafficRow(TrafficItem Item, string Time, string CountText, string Why, string Direction, string Remote, string PortName,
+    string Program, string Detail, System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
+{
+    /// <summary>Identifies the row across refreshes (time and count change, the rest does not).</summary>
+    public string Key => string.Join('|', Item.Allowed, Item.App, Item.Service, Item.Protocol, Item.Direction, Item.Remote, Item.Port, Item.Why, Item.FilterId);
+}
+
+/// <summary>One labelled line of the Activity page's details pane.</summary>
+public sealed record Fact(string Label, string Value);

@@ -23,12 +23,17 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             return ApiResponse.Failure("Not allowed: changing rules needs an administrator, or CrioFire's own app or command line.");
         }
 
-        if (request.Op is ApiOps.Report or ApiOps.Allowed)
+        if (request.Op is ApiOps.Report or ApiOps.Allowed or ApiOps.Traffic)
         {
             // Reads only the log files, not the engine: no need to hold up other clients.
             try
             {
-                return request.Op == ApiOps.Report ? Report(request) : Allowed(request);
+                return request.Op switch
+                {
+                    ApiOps.Report => Report(request),
+                    ApiOps.Allowed => Allowed(request),
+                    _ => Traffic(request),
+                };
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException or UnauthorizedAccessException)
             {
@@ -146,6 +151,43 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         var minutes = request.Minutes is > 0 and <= 43200 ? request.Minutes.Value : 60;
         var events = TrafficHistory.Read(allowedLog, DateTime.UtcNow.AddMinutes(-minutes));
         return new ApiResponse { Ok = true, Allowed = AllowedGroup.From(events, request.IncludeLoopback == true) };
+    }
+
+    private ApiResponse Traffic(ApiRequest request)
+    {
+        if (trafficLog is null && allowedLog is null)
+        {
+            throw new InvalidOperationException("Traffic history needs the criofire service, which records it.");
+        }
+
+        var kind = request.TrafficKind?.ToLowerInvariant() ?? "all";
+        if (kind is not ("blocked" or "allowed" or "all"))
+        {
+            throw new ArgumentException("trafficKind must be blocked, allowed or all.");
+        }
+
+        if (request.Why is { Length: > 0 } why && !TrafficQuery.WhyGroups.Contains(why))
+        {
+            throw new ArgumentException($"why must be one of: {string.Join(", ", TrafficQuery.WhyGroups)}.");
+        }
+
+        var minutes = request.Minutes is > 0 and <= 43200 ? request.Minutes.Value : 60;
+        var from = DateTime.UtcNow.AddMinutes(-minutes);
+        var logs = new List<TrafficLog?>();
+        if (kind != "allowed")
+        {
+            logs.Add(trafficLog);
+        }
+
+        if (kind != "blocked")
+        {
+            logs.Add(allowedLog);
+        }
+
+        var filter = new TrafficFilter(
+            kind, from, request.Search, request.Why, request.Direction, request.App, request.Service,
+            request.IncludeLoopback == true, request.Sort, request.Offset ?? 0, request.Limit ?? 100);
+        return new ApiResponse { Ok = true, Traffic = TrafficQuery.Run(TrafficHistory.Read(logs, from), filter) };
     }
 
     private ApiResponse SetServiceRule(ApiRequest request)

@@ -21,7 +21,9 @@ public sealed record LoggedEvent(
     int Count = 1,
     string? Reason = null,
     string? Service = null,
-    int Port = 0)
+    int Port = 0,
+    string? Local = null,
+    ulong FilterId = 0)
 {
     /// <summary>Stopped by the mode's catch-all block (the program had no rule) rather than by a rule.</summary>
     public bool ByMode => Kind == nameof(FilterKind.DefaultBlock);
@@ -57,7 +59,9 @@ public static class TrafficHistory
                     Allowed: true, Count: count, Reason: Text(r, "reason"), Service: Text(r, "service"), Port: port);
             }
 
-            return new LoggedEvent(timeUtc, Text(r, "app"), Text(r, "protocol"), Text(r, "remote"), Text(r, "direction"), Text(r, "kind"));
+            var filterId = r.TryGetProperty("filterId", out var f) && f.TryGetUInt64(out var id) ? id : 0;
+            return new LoggedEvent(timeUtc, Text(r, "app"), Text(r, "protocol"), Text(r, "remote"), Text(r, "direction"), Text(r, "kind"),
+                Local: Text(r, "local"), FilterId: filterId);
         }
         catch (JsonException)
         {

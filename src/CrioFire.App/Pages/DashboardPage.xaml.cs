@@ -1,5 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using CrioFire.Core;
 using CrioFire.Core.Api;
 
@@ -137,6 +141,88 @@ public partial class DashboardPage : UserControl, IPage
     }
 
     private void OnOpenAllowed(object sender, RoutedEventArgs e) => _model.ShowAllowed();
+
+    /// <summary>A click on a panel (not on a button or switch inside it) opens its full view.</summary>
+    private void OnPanel(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left || FromControl(e.OriginalSource as DependencyObject, sender as DependencyObject))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        switch ((sender as FrameworkElement)?.Tag as string)
+        {
+            case "blocked":
+                _model.OpenActivity(new ActivityQuery("blocked"));
+                break;
+            case "blocked-most":
+                _model.OpenActivity(new ActivityQuery("blocked", Sort: "count"));
+                break;
+            case "allowed":
+                _model.OpenActivity(new ActivityQuery("allowed"));
+                break;
+            case "allowed-most":
+                _model.OpenActivity(new ActivityQuery("allowed", Sort: "count"));
+                break;
+            case "waiting":
+                _model.OpenActivity(new ActivityQuery("blocked", Why: "norule"));
+                break;
+            case "live":
+                _model.GoTo("Connections");
+                break;
+            case "rules":
+                _model.GoTo("Rules");
+                break;
+        }
+    }
+
+    /// <summary>A program row in "Blocked most" or "Waiting for your decision": its blocked connections.</summary>
+    private void OnTopAppClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left || FromControl(e.OriginalSource as DependencyObject, sender as DependencyObject))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.Tag is string app && app.Length > 0)
+        {
+            _model.OpenActivity(new ActivityQuery("blocked", App: app));
+        }
+    }
+
+    /// <summary>A row in "Allowed most": that program's or service's allowed connections.</summary>
+    private void OnAllowedRowClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left || FromControl(e.OriginalSource as DependencyObject, sender as DependencyObject))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.Tag is AllowedRow row)
+        {
+            var services = (row.Service ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            _model.OpenActivity(services.Length == 1
+                ? new ActivityQuery("allowed", Service: services[0])
+                : new ActivityQuery("allowed", App: row.App));
+        }
+    }
+
+    /// <summary>True when the click landed on a button, switch or other control inside the panel.</summary>
+    private static bool FromControl(DependencyObject? source, DependencyObject? panel)
+    {
+        for (var d = source; d is not null && d != panel; d = d is Visual or Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+        {
+            if (d is ButtonBase or TextBox)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private void UpdateProtection()
     {

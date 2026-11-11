@@ -20,6 +20,7 @@ public static class ApiOps
     public const string Report = "report";
     public const string AddNetRule = "addNetRule";
     public const string Allowed = "allowed";
+    public const string Traffic = "traffic";
     public const string SetServiceRule = "setServiceRule";
     public const string RemoveServiceRules = "removeServiceRules";
     public const string SetAutoRule = "setAutoRule";
@@ -81,8 +82,25 @@ public sealed record ApiRequest
     /// <summary>setAutoRule: switch it on or off.</summary>
     public bool? Enabled { get; init; }
 
-    /// <summary>allowed: include traffic that stays on this PC (loopback). Default false.</summary>
+    /// <summary>allowed, traffic: include traffic that stays on this PC (loopback). Default false.</summary>
     public bool? IncludeLoopback { get; init; }
+
+    /// <summary>traffic: blocked, allowed or all.</summary>
+    public string? TrafficKind { get; init; }
+
+    /// <summary>traffic: words that must all appear (program, service, address, port, reason).</summary>
+    public string? Search { get; init; }
+
+    /// <summary>traffic: a reason group (mine, norule, automatic, loopback, panic).</summary>
+    public string? Why { get; init; }
+
+    /// <summary>traffic: recent (default) or count.</summary>
+    public string? Sort { get; init; }
+
+    /// <summary>traffic: paging.</summary>
+    public int? Offset { get; init; }
+
+    public int? Limit { get; init; }
 }
 
 public sealed record ApiResponse
@@ -107,6 +125,9 @@ public sealed record ApiResponse
 
     /// <summary>panic: the panic switch afterwards (off, allow, block).</summary>
     public string? Panic { get; init; }
+
+    /// <summary>traffic: one page of grouped blocked and/or allowed connections.</summary>
+    public TrafficPage? Traffic { get; init; }
 
     /// <summary>allowed: connections allowed in the window, grouped.</summary>
     public List<AllowedGroup>? Allowed { get; init; }

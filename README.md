@@ -110,9 +110,17 @@ default; switch with the sun/moon button or in **Settings** (remembered per user
 - **Dashboard**: the protection ring and mode (Learning / Ask / Allow-list), blocked connections
   over the last 24 hours, the programs blocked most, programs waiting for your decision, and live
   connections. Switching to Ask or Allow-list offers to allow everything running now, then asks you
-  to confirm within 60 seconds that your network still works.
-- **Activity**: the last hour, *Blocked* (allow a program, allow it for an hour, or keep it blocked)
-  or *Allowed* (everything that got through and why, automatic rules included; block or always allow it).
+  to confirm within 60 seconds that your network still works. Click any panel, or a program in one,
+  to open its full list in Activity.
+- **Activity**: every blocked and allowed connection the service recorded, grouped by program or
+  service, destination, port and reason. Filter by blocked / allowed, the last hour to 30 days,
+  direction, reason (your rules, no rule, automatic, local only, panic) and search text, 100 rows a
+  page. Select one or many rows (Ctrl, Shift, or *Select page*) to allow, allow for an hour, or
+  block them at once: blocked rows stopped by a port/address rule remove that rule, svchost.exe rows
+  get a service rule. The details pane shows the program (description, publisher, version), its
+  Windows services, the remote address with host name and whether it is local or on the internet,
+  the port and its usual service, the local endpoint, why it was blocked or allowed, the rules that
+  apply, and what the program has open right now; open its file location or copy the details.
 - **Rules**: program rules (with the time a temporary rule ends) and network rules; allow or block a
   program, add a network rule (port, address, protocol, direction, optionally one program, with a
   plain-language preview), or remove one.
