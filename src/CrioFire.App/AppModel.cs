@@ -291,6 +291,94 @@ internal sealed class AppModel
         return ok;
     }
 
+    /// <summary>
+    /// Switches rules between allow and block, and/or to another direction, keeping everything else
+    /// (program, ports, addresses, service). <paramref name="action"/> and <paramref name="direction"/>
+    /// left null keep each rule's own.
+    /// </summary>
+    public void ChangeRules(IReadOnlyList<RuleInfo> rules, string? action, string? direction)
+    {
+        int changed = 0, failed = 0;
+        foreach (var r in rules)
+        {
+            var newAction = action ?? r.Action ?? "block";
+            var newDirection = direction ?? r.Direction ?? "out";
+            if (newAction == r.Action && newDirection == r.Direction)
+            {
+                continue;
+            }
+
+            var ok = r.Kind switch
+            {
+                nameof(FilterKind.AppRule) when r.App is not null =>
+                    (newDirection == r.Direction || Call(new ApiRequest { Op = ApiOps.RemoveRules, App = r.App, Direction = r.Direction }) is not null)
+                    && Call(new ApiRequest { Op = ApiOps.SetRule, App = r.App, Action = newAction, Direction = newDirection }) is not null,
+                nameof(FilterKind.ServiceRule) when r.Service is not null =>
+                    (newDirection == r.Direction || Call(new ApiRequest { Op = ApiOps.RemoveServiceRules, Service = r.Service, Direction = r.Direction }) is not null)
+                    && Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = r.Service, Action = newAction, Direction = newDirection }) is not null,
+                nameof(FilterKind.NetRule) => ReplaceNetRule(r, newAction, newDirection),
+                _ => false,
+            };
+            if (ok)
+            {
+                changed++;
+            }
+            else
+            {
+                failed++;
+            }
+        }
+
+        var what = action is null ? $"to {(direction == "in" ? "inbound" : direction == "both" ? "both directions" : "outbound")}" : $"to {action}";
+        Message?.Invoke(this, changed == 0 && failed == 0
+            ? "Nothing to change."
+            : $"Switched {changed} rule{(changed == 1 ? string.Empty : "s")} {what}." + (failed > 0 ? $" {failed} could not be changed." : string.Empty));
+        RefreshCore();
+        NotifyChanged();
+    }
+
+    /// <summary>Adds the changed network rule first, then removes the old one, so there is no moment without a rule.</summary>
+    private bool ReplaceNetRule(RuleInfo r, string action, string direction)
+    {
+        if (RuleViews.Changed(r, action, direction) is not { } rule)
+        {
+            return false;
+        }
+
+        var added = Call(new ApiRequest
+        {
+            Op = ApiOps.AddNetRule,
+            Action = action,
+            Direction = direction,
+            Protocol = NetRule.ProtocolText(rule.Protocol),
+            Ports = rule.Ports.Length == 0 ? null : rule.Ports,
+            Addresses = rule.Addresses.Length == 0 ? null : rule.Addresses,
+            App = rule.AppPath,
+        }) is not null;
+        return added && Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = r.FilterId }) is not null;
+    }
+
+    /// <summary>Removes rules of every kind at once.</summary>
+    public void RemoveMany(IReadOnlyList<RuleInfo> rules)
+    {
+        var removed = 0;
+        foreach (var r in rules)
+        {
+            var ok = r.Kind switch
+            {
+                nameof(FilterKind.AppRule) when r.App is not null => Call(new ApiRequest { Op = ApiOps.RemoveRules, App = r.App, Direction = r.Direction }) is not null,
+                nameof(FilterKind.ServiceRule) when r.Service is not null => Call(new ApiRequest { Op = ApiOps.RemoveServiceRules, Service = r.Service, Direction = r.Direction }) is not null,
+                nameof(FilterKind.NetRule) => Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = r.FilterId }) is not null,
+                _ => false,
+            };
+            removed += ok ? 1 : 0;
+        }
+
+        Message?.Invoke(this, $"Removed {removed} rule{(removed == 1 ? string.Empty : "s")}.");
+        RefreshCore();
+        NotifyChanged();
+    }
+
     public bool RemoveRules(string app)
     {
         var ok = Call(new ApiRequest { Op = ApiOps.RemoveRules, App = app }) is not null;

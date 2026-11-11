@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CrioFire.Core\CrioFire.Core.csproj" />
     <ProjectReference Include="..\..\src\CrioFire.Cli\CrioFire.Cli.csproj" />
+    <ProjectReference Include="..\..\src\CrioFire.Reporting\CrioFire.Reporting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

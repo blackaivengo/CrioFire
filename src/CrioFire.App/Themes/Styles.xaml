@@ -442,6 +442,33 @@
     </Style.Triggers>
   </Style>
 
+  <!-- A chip you can click: the Allow/Block chips on the Rules page, blocked ports and addresses. -->
+  <Style x:Key="ChipButton" TargetType="Button">
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="bd" CornerRadius="12" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                  BorderBrush="{TemplateBinding Foreground}" BorderThickness="0">
+            <ContentPresenter VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="bd" Property="BorderThickness" Value="1" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="bd" Property="Opacity" Value="0.75" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- Right-click menus on rows: themed, rounded, flat (no submenus). -->
   <Style TargetType="ContextMenu">
     <Setter Property="OverridesDefaultStyle" Value="True" />

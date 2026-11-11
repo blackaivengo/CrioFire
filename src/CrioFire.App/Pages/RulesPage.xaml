@@ -2,28 +2,106 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <StackPanel>
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
-      <Button Content="Allow a program..." Style="{StaticResource IceButton}" Margin="0,0,10,0" Click="OnAllow" />
-      <Button Content="Allow for 1 hour..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllowHour" />
-      <Button Content="Block a program..." Style="{StaticResource FireButton}" Margin="0,0,10,0" Click="OnBlock" />
-      <Button Content="Add network rule..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAddNet" />
-      <Button Content="Service rule..." Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAddService" />
-      <Button Content="Remove selected" Style="{StaticResource GhostButton}" Click="OnRemove" />
-    </StackPanel>
-    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+    <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,16">
+      <Button Content="Allow a program..." Style="{StaticResource IceButton}" Margin="10,0,0,8" Click="OnAllow" />
+      <Button Content="Allow for 1 hour..." Style="{StaticResource OutlineIceButton}" Margin="10,0,0,8" Click="OnAllowHour" />
+      <Button Content="Block a program..." Style="{StaticResource FireButton}" Margin="10,0,0,8" Click="OnBlock" />
+      <Button Content="Add network rule..." Style="{StaticResource OutlineIceButton}" Margin="10,0,0,8" Click="OnAddNet" />
+      <Button Content="Service rule..." Style="{StaticResource OutlineIceButton}" Margin="10,0,0,8" Click="OnAddService" />
+    </WrapPanel>
+
+    <!-- What is blocked, at a glance: click a port or address to see the rules behind it. -->
+    <ContentControl Style="{StaticResource FireCard}" Margin="0,0,0,20">
       <StackPanel>
-        <TextBlock Text="Programs" Style="{StaticResource H2}" Margin="0,0,0,10" />
+        <TextBlock Text="What is blocked" Style="{StaticResource H2}" />
+        <TextBlock x:Name="GlanceText" Style="{StaticResource Muted}" Margin="0,4,0,12" TextWrapping="Wrap" />
+        <TextBlock Text="PORTS" Style="{StaticResource Caption}" FontWeight="SemiBold" Margin="0,0,0,6" />
+        <TextBlock x:Name="NoPorts" Style="{StaticResource Muted}" Text="No port is blocked by a rule." Margin="0,0,0,8" />
+        <ItemsControl x:Name="BlockedPorts">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Button Style="{StaticResource ChipButton}" Content="{Binding Label}" Tag="{Binding Value}" Margin="0,0,8,8"
+                      Background="{DynamicResource ChipFireBrush}" Foreground="{DynamicResource ChipFireTextBrush}"
+                      ToolTip="Show the rules for this port" Click="OnGlanceChip" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="ADDRESSES" Style="{StaticResource Caption}" FontWeight="SemiBold" Margin="0,8,0,6" />
+        <TextBlock x:Name="NoAddresses" Style="{StaticResource Muted}" Text="No address is blocked by a rule." />
+        <ItemsControl x:Name="BlockedAddresses">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Button Style="{StaticResource ChipButton}" Content="{Binding Label}" Tag="{Binding Value}" Margin="0,0,8,8"
+                      Background="{DynamicResource ChipFireBrush}" Foreground="{DynamicResource ChipFireTextBrush}"
+                      ToolTip="Show the rules for this address" Click="OnGlanceChip" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ContentControl>
+
+    <!-- Find rules -->
+    <WrapPanel Margin="0,0,0,8">
+      <TextBox x:Name="SearchBox" Style="{StaticResource Field}" Width="300" Margin="0,0,12,8" TextChanged="OnFilterChanged"
+               ToolTip="Program, service, port (e.g. 445) or address (e.g. 10.0.0.5). Every word must match." />
+      <Border Style="{StaticResource SegGroup}" Margin="0,0,12,8">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="ActionAll" Content="Allow and block" GroupName="Action" Style="{StaticResource SegItem}" IsChecked="True" Click="OnFilterChanged" />
+          <RadioButton x:Name="ActionAllow" Content="Allow" GroupName="Action" Style="{StaticResource SegIceItem}" Click="OnFilterChanged" />
+          <RadioButton x:Name="ActionBlock" Content="Block" GroupName="Action" Style="{StaticResource SegFireItem}" Click="OnFilterChanged" />
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource SegGroup}" Margin="0,0,12,8">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="DirAny" Content="In and out" GroupName="Dir" Style="{StaticResource SegItem}" IsChecked="True" Click="OnFilterChanged" />
+          <RadioButton x:Name="DirOut" Content="Outbound" GroupName="Dir" Style="{StaticResource SegItem}" Click="OnFilterChanged" />
+          <RadioButton x:Name="DirIn" Content="Inbound" GroupName="Dir" Style="{StaticResource SegItem}" Click="OnFilterChanged" />
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource SegGroup}" Margin="0,0,12,8">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="ShowAll" Content="All rules" GroupName="Show" Style="{StaticResource SegItem}" IsChecked="True" Click="OnFilterChanged" />
+          <RadioButton x:Name="ShowPrograms" Content="Programs" GroupName="Show" Style="{StaticResource SegItem}" Click="OnFilterChanged" />
+          <RadioButton x:Name="ShowNet" Content="Ports and addresses" GroupName="Show" Style="{StaticResource SegItem}" Click="OnFilterChanged" />
+          <RadioButton x:Name="ShowServices" Content="Services" GroupName="Show" Style="{StaticResource SegItem}" Click="OnFilterChanged" />
+        </StackPanel>
+      </Border>
+      <Button Content="Clear" Style="{StaticResource GhostButton}" Margin="0,0,0,8" Click="OnClearFilters" />
+    </WrapPanel>
+
+    <DockPanel Margin="0,0,0,16">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button Content="Switch to Allow" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnSwitchAllow" />
+        <Button Content="Switch to Block" Style="{StaticResource OutlineFireButton}" Margin="0,0,10,0" Click="OnSwitchBlock" />
+        <Button Content="Remove" Style="{StaticResource GhostButton}" Click="OnRemove" />
+      </StackPanel>
+      <TextBlock x:Name="SelectionText" Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,16,0"
+                 Text="Click Allow or Block in a row to switch it. Click a column heading to sort; Ctrl or Shift selects several rules." />
+    </DockPanel>
+
+    <ContentControl x:Name="ProgramsCard" Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock x:Name="ProgramsTitle" Text="Programs" Style="{StaticResource H2}" Margin="0,0,0,10" />
         <TextBlock x:Name="Empty" Style="{StaticResource Muted}" Visibility="Collapsed"
                    Text="No rules yet. Allow or block a program above, or answer an alert in Ask mode." />
-        <ListView x:Name="Table" SelectionMode="Single" SelectionChanged="OnProgramSelected">
+        <ListView x:Name="Table" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
           <ListView.View>
             <GridView>
               <GridViewColumn Header="ACTION" Width="100">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate>
-                    <Border Style="{StaticResource Chip}" Margin="0" Padding="10,3" Background="{Binding ChipBrush}">
-                      <TextBlock Text="{Binding Action}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding ChipTextBrush}" />
-                    </Border>
+                    <Button Style="{StaticResource ChipButton}" Content="{Binding Action}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
+                            Tag="{Binding Info}" ToolTip="{Binding FlipHint}" Click="OnFlip" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
@@ -45,22 +123,21 @@
       </StackPanel>
     </ContentControl>
 
-    <ContentControl Style="{StaticResource IceCard}" Margin="0,0,0,22">
+    <ContentControl x:Name="NetCard" Style="{StaticResource IceCard}" Margin="0,0,0,22">
       <StackPanel>
-        <TextBlock Text="Network rules" Style="{StaticResource H2}" />
-        <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,10"
+        <TextBlock x:Name="NetTitle" Text="Ports and addresses" Style="{StaticResource H2}" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,10" TextWrapping="Wrap"
                    Text="By port and remote address, for every program or one. They win over program rules, and the more specific rule wins." />
         <TextBlock x:Name="NetEmpty" Style="{StaticResource Muted}" Visibility="Collapsed"
                    Text="No network rules. Add one to block a port like 445 inbound, keep a program to port 443, or block an address range." />
-        <ListView x:Name="NetTable" SelectionMode="Single" SelectionChanged="OnNetSelected">
+        <ListView x:Name="NetTable" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
           <ListView.View>
             <GridView>
               <GridViewColumn Header="ACTION" Width="100">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate>
-                    <Border Style="{StaticResource Chip}" Margin="0" Padding="10,3" Background="{Binding ChipBrush}">
-                      <TextBlock Text="{Binding Action}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding ChipTextBrush}" />
-                    </Border>
+                    <Button Style="{StaticResource ChipButton}" Content="{Binding Action}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
+                            Tag="{Binding Info}" ToolTip="{Binding FlipHint}" Click="OnFlip" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
@@ -85,22 +162,21 @@
       </StackPanel>
     </ContentControl>
 
-    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+    <ContentControl x:Name="ServiceCard" Style="{StaticResource Card}" Margin="0,0,0,22">
       <StackPanel>
-        <TextBlock Text="Windows services" Style="{StaticResource H2}" />
+        <TextBlock x:Name="ServiceTitle" Text="Windows services" Style="{StaticResource H2}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,10" TextWrapping="Wrap"
                    Text="Rules for single services, even when several share one svchost.exe process. A service rule wins over a rule for svchost.exe and over the automatic rules below." />
         <TextBlock x:Name="ServiceEmpty" Style="{StaticResource Muted}" Visibility="Collapsed"
-                   Text="No service rules. Block or allow one with 'Service rule...', or from the Allowed list on the Activity page." />
-        <ListView x:Name="ServiceTable" SelectionMode="Single" SelectionChanged="OnServiceSelected">
+                   Text="No service rules. Block or allow one with 'Service rule...', or from Activity." />
+        <ListView x:Name="ServiceTable" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
           <ListView.View>
             <GridView>
               <GridViewColumn Header="ACTION" Width="100">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate>
-                    <Border Style="{StaticResource Chip}" Margin="0" Padding="10,3" Background="{Binding ChipBrush}">
-                      <TextBlock Text="{Binding Action}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding ChipTextBrush}" />
-                    </Border>
+                    <Button Style="{StaticResource ChipButton}" Content="{Binding Action}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
+                            Tag="{Binding Info}" ToolTip="{Binding FlipHint}" Click="OnFlip" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
@@ -121,7 +197,7 @@
       </StackPanel>
     </ContentControl>
 
-    <ContentControl Style="{StaticResource IceCard}">
+    <ContentControl x:Name="AutoCard" Style="{StaticResource IceCard}">
       <StackPanel>
         <TextBlock Text="Automatic rules" Style="{StaticResource H2}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,6" TextWrapping="Wrap"

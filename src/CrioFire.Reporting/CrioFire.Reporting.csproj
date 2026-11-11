@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Builds the PDF version of a report (MigraDoc/PDFsharp, MIT licence; see THIRD-PARTY-NOTICES.md). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- The WPF build of PDFsharp finds the installed Windows fonts (Segoe UI) by itself. -->
+    <UseWPF>true</UseWPF>
+    <RootNamespace>CrioFire.Reporting</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PDFsharp-MigraDoc-WPF" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CrioFire.Core\CrioFire.Core.csproj" />
+  </ItemGroup>
+
+</Project>

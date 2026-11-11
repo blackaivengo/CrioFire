@@ -69,11 +69,18 @@ public sealed record DestinationRow(string Address, string Port, string CountTex
 public sealed record ActivityRow(string Time, string Why, string Direction, string Protocol, string Remote, string Program, string? App,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
 
-public sealed record RuleRow(string Action, string Direction, string Program, string App, string Until,
-    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
+/// <summary>A program rule on the Rules page. <see cref="Info"/> is the rule itself, for switching and removing.</summary>
+public sealed record RuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Program, string App, string Until,
+    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
+{
+    public string FlipHint => Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+}
 
-public sealed record NetRuleRow(string Action, string Direction, string Rule, string Program, string? App, ulong FilterId,
-    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
+public sealed record NetRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Rule, string Program, string? App, ulong FilterId,
+    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
+{
+    public string FlipHint => Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+}
 
 /// <summary>A program or a single Windows service that was allowed to connect.</summary>
 /// <param name="Service">For svchost.exe: the service(s) behind it, when known.</param>
@@ -89,8 +96,11 @@ public sealed record AllowedRow(string Name, string Detail, string? App, string?
 public sealed record AllowedActivityRow(string Time, string Why, string Direction, string Protocol, string Remote, string CountText, string Program, string Detail,
     string? App, string? Service, System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
 
-public sealed record ServiceRuleRow(string Action, string Direction, string Service, string DisplayName,
-    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
+public sealed record ServiceRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Service, string DisplayName,
+    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
+{
+    public string FlipHint => Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+}
 
 /// <summary>One of CrioFire's automatic permits or always-on behaviours, shown on the Rules page.</summary>
 public sealed record AutoRuleRow(string Name, string Title, string Description, string State, bool CanSwitch, bool IsOn);

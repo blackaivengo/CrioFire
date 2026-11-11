@@ -36,4 +36,9 @@ foreach ($exe in 'criofire.exe', 'criofire-ui.exe', 'criofire-svc.exe') {
     if (-not (Test-Path (Join-Path $out $exe))) { throw "Missing $exe in $out" }
 }
 
+# Licences go with the programs: CrioFire's own, and the notices of the open-source parts it includes.
+foreach ($doc in 'LICENSE', 'THIRD-PARTY-NOTICES.md') {
+    Copy-Item (Join-Path $root $doc) (Join-Path $out $doc) -Force
+}
+
 Write-Host "Published CrioFire $ver for $Arch to $out"

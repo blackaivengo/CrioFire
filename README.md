@@ -121,15 +121,20 @@ default; switch with the sun/moon button or in **Settings** (remembered per user
   Windows services, the remote address with host name and whether it is local or on the internet,
   the port and its usual service, the local endpoint, why it was blocked or allowed, the rules that
   apply, and what the program has open right now; open its file location or copy the details.
-- **Rules**: program rules (with the time a temporary rule ends) and network rules; allow or block a
-  program, add a network rule (port, address, protocol, direction, optionally one program, with a
-  plain-language preview), or remove one.
+- **Rules**: *What is blocked* at the top lists every port and address a rule blocks (click one to
+  see the rules behind it) and how many programs and services are blocked. Below, program, port and
+  address, and service rules, filtered by text (a program, service, port such as 445, or address such
+  as 10.0.0.5, also inside ranges), allow/block, direction and kind, and sorted by any column. Click
+  a rule's Allow or Block chip to switch it; select several to switch or remove them at once; the
+  right-click menu also changes the direction. Add program, network and service rules from the top.
 - **Connections**: live TCP and UDP connections with the program, and for svchost.exe the services,
   that own each, every 3 seconds; allow or block the selected one.
 - **Reports**: the last 24 hours, 7 days or 30 days: totals compared with the period before,
   blocked connections per hour or day (your rules vs. no rule yet), the programs and destinations
-  blocked most, outbound vs. inbound. **Export CSV** for spreadsheets; **Save as PDF** prints the
-  report (choose "Microsoft Print to PDF").
+  blocked most, outbound vs. inbound, and what was allowed and why. **Export CSV** for spreadsheets;
+  **Save as PDF** writes a print-ready PDF (US Letter) with CrioFire Private Firewall and CrioSoft LLC
+  on every page, page numbers, and every table continued over as many pages as it needs, column
+  headings repeated; it ends with the rules in force when it was made.
 - **Alerts** in `ask` mode: a window in the corner for each program the mode stopped.
   *Allow* and *Block* add a permanent rule; *Allow 1 hour* adds one that CrioFire removes again
   (`criofire allow <app> --for 60` does the same). Press and hold *Allow 1 hour* for 15 minutes,

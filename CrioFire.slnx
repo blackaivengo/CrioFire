@@ -3,6 +3,7 @@
     <Project Path="src/CrioFire.App/CrioFire.App.csproj" />
     <Project Path="src/CrioFire.Cli/CrioFire.Cli.csproj" />
     <Project Path="src/CrioFire.Core/CrioFire.Core.csproj" />
+    <Project Path="src/CrioFire.Reporting/CrioFire.Reporting.csproj" />
     <Project Path="src/CrioFire.Service/CrioFire.Service.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -220,28 +220,82 @@ public partial class ReportsPage : UserControl, IPage
         }
     }
 
-    /// <summary>Prints the report; choose "Microsoft Print to PDF" to get a PDF file.</summary>
+    /// <summary>
+    /// Saves the report as a PDF made for reading and printing: CrioFire Private Firewall and
+    /// CrioSoft LLC on every page, page numbers, and tables over as many pages as they need.
+    /// </summary>
     private void OnSavePdf(object sender, RoutedEventArgs e)
     {
-        var dialog = new PrintDialog();
-        if (dialog.ShowDialog() != true)
+        if (_report is null)
+        {
+            _model.Say("There is no report to save yet.");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save report as PDF",
+            Filter = "PDF document (*.pdf)|*.pdf",
+            FileName = $"criofire-report-{_period}-{DateTime.Now:yyyy-MM-dd}.pdf",
+        };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true)
         {
             return;
         }
 
-        var scale = Math.Min(dialog.PrintableAreaWidth / ReportRoot.ActualWidth, dialog.PrintableAreaHeight / ReportRoot.ActualHeight);
-        var previous = ReportRoot.LayoutTransform;
         try
         {
-            ReportRoot.LayoutTransform = new ScaleTransform(Math.Min(scale, 1), Math.Min(scale, 1));
-            ReportRoot.UpdateLayout();
-            dialog.PrintVisual(ReportRoot, $"CrioFire report – {Subtitle}");
-            _model.Say("Report sent to the printer. Choose \"Microsoft Print to PDF\" to save it as a PDF.");
+            var input = new Reporting.ReportPdfInput(
+                _report, TimeZoneInfo.Local, Environment.MachineName, _model.Mode, AppVersion(),
+                _model.Rules, _model.AutoRules, LogoPng());
+            File.WriteAllBytes(dialog.FileName, Reporting.ReportPdf.Build(input));
+            _model.Say($"Saved {Path.GetFileName(dialog.FileName)}.");
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
         }
-        finally
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
-            ReportRoot.LayoutTransform = previous;
-            ReportRoot.UpdateLayout();
+            _model.Say($"Could not save the PDF: {ex.Message}");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException)
+        {
+            _model.Say($"Could not create the PDF: {ex.Message}");
+        }
+    }
+
+    private static string AppVersion()
+    {
+        var version = typeof(ReportsPage).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion ?? "dev";
+        var plus = version.IndexOf('+', StringComparison.Ordinal);
+        return plus > 0 ? version[..plus] : version;
+    }
+
+    /// <summary>The CrioFire icon as PNG for the PDF's title, or null if it cannot be read.</summary>
+    private static byte[]? LogoPng()
+    {
+        try
+        {
+            var info = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/criofire.ico"));
+            if (info is null)
+            {
+                return null;
+            }
+
+            using var stream = info.Stream;
+            var decoder = new System.Windows.Media.Imaging.IconBitmapDecoder(stream,
+                System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+            var frame = decoder.Frames.OrderByDescending(f => f.PixelWidth).First();
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(frame));
+            using var png = new MemoryStream();
+            encoder.Save(png);
+            return png.ToArray();
+        }
+        catch (Exception ex) when (ex is IOException or NotSupportedException or InvalidOperationException or FileFormatException)
+        {
+            return null;
         }
     }
 }
