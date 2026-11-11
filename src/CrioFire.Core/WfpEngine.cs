@@ -14,7 +14,8 @@ namespace CrioFire.Core;
 /// <list type="bullet">
 /// <item>Rules only ever match one application; there is no "block everything" filter,
 /// so a mistake cannot cut the whole PC off the network.</item>
-/// <item><see cref="RemoveAllFilters"/> (criofire panic) always removes every CrioFire filter.</item>
+/// <item><see cref="SetPanic"/> (criofire panic) allows or blocks everything above every rule, keeping the rules.</item>
+/// <item><see cref="RemoveAllFilters"/> (criofire panic remove) always removes every CrioFire filter.</item>
 /// </list>
 /// </remarks>
 public sealed unsafe class WfpEngine : IDisposable
@@ -36,6 +37,12 @@ public sealed unsafe class WfpEngine : IDisposable
     private const byte ServiceRuleWeight = 11;   // a service rule beats a rule for all of svchost.exe
     private const byte BuiltInWeight = 5;
     private const byte DefaultBlockWeight = 0;
+
+    /// <summary>
+    /// The panic filters' weight, a full 64-bit value above every other filter in the sublayer
+    /// (rules use 4-bit weights, which the engine places in the top bits of their 64-bit weight).
+    /// </summary>
+    private const ulong PanicWeight = ulong.MaxValue;
 
     private IntPtr _handle;
 
@@ -649,6 +656,65 @@ public sealed unsafe class WfpEngine : IDisposable
     }
 
     /// <summary>Recovery: removes every CrioFire filter (keeps provider and sublayer). Returns the count.</summary>
+    /// <summary>
+    /// The panic switch. <see cref="PanicState.AllowAll"/> lets every connection through and
+    /// <see cref="PanicState.BlockAll"/> blocks every network connection in and out (loopback still
+    /// works), both above every rule; rules, mode and automatic rules are left as they are, so
+    /// <see cref="PanicState.Off"/> brings everything back. Kept across restarts like any rule.
+    /// </summary>
+    /// <returns>How many panic filters were added (0 for Off).</returns>
+    public int SetPanic(PanicState state)
+    {
+        ThrowIfDisposed();
+        using var tx = BeginTransaction();
+        foreach (var filter in ListFilters().Where(f => f.Kind == FilterKind.Panic))
+        {
+            DeleteFilter(filter.FilterId, ignoreMissing: true);
+        }
+
+        var added = 0;
+        if (state != PanicState.Off)
+        {
+            var notLoopback = new FWPM_FILTER_CONDITION0
+            {
+                fieldKey = WfpIds.ConditionFlags,
+                matchType = FWP_MATCH_TYPE.FWP_MATCH_FLAGS_NONE_SET,
+                conditionValue = new FWP_VALUE0
+                {
+                    type = FWP_DATA_TYPE.FWP_UINT32,
+                    value = new FWP_VALUE_UNION { uint32 = FwpConditionFlags.FWP_CONDITION_FLAG_IS_LOOPBACK },
+                },
+            };
+            var weight = PanicWeight;
+            var weightValue = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT64, value = new FWP_VALUE_UNION { uint64 = &weight } };
+            foreach (var layer in FilterLayers.All)
+            {
+                if (state == PanicState.AllowAll)
+                {
+                    AddFilter(layer, "CrioFire panic: allow everything (rules paused)", FilterDescriptions.Panic(state),
+                        FwpActionType.FWP_ACTION_PERMIT, weightValue, null, 0);
+                }
+                else
+                {
+                    AddFilter(layer, "CrioFire panic: block all network traffic", FilterDescriptions.Panic(state),
+                        FwpActionType.FWP_ACTION_BLOCK, weightValue, &notLoopback, 1);
+                }
+
+                added++;
+            }
+        }
+
+        tx.Commit();
+        return added;
+    }
+
+    /// <summary>The panic switch's current state.</summary>
+    public PanicState GetPanic()
+    {
+        ThrowIfDisposed();
+        return ListFilters().FirstOrDefault(f => f.Kind == FilterKind.Panic)?.Panic ?? PanicState.Off;
+    }
+
     public int RemoveAllFilters()
     {
         ThrowIfDisposed();
@@ -696,7 +762,8 @@ public sealed unsafe class WfpEngine : IDisposable
                         var net = kind == FilterKind.NetRule && NetRule.TryParse(description, out var parsedNet) ? parsedNet : null;
                         var service = kind == FilterKind.ServiceRule && ServiceRule.TryParse(description, out var parsedService) ? parsedService : null;
                         var builtIn = kind == FilterKind.BuiltInAllow ? FilterDescriptions.BuiltInName(description) : null;
-                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net, builtIn, service));
+                        var panic = kind == FilterKind.Panic ? FilterDescriptions.PanicOf(description) : null;
+                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net, builtIn, service, panic));
                     }
                 }
                 finally
@@ -759,7 +826,10 @@ public sealed unsafe class WfpEngine : IDisposable
         return AddFilter(layer, name, description, action, weight, &condition, 1);
     }
 
-    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, byte weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount)
+    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, byte weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount) =>
+        AddFilter(layer, name, description, action, new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT8, value = new FWP_VALUE_UNION { uint8 = weight } }, conditions, conditionCount);
+
+    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, FWP_VALUE0 weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount)
     {
         var providerKey = WfpIds.ProviderKey;
         fixed (char* pName = name)
@@ -772,7 +842,7 @@ public sealed unsafe class WfpEngine : IDisposable
                 providerKey = &providerKey,
                 layerKey = layer.Key,
                 subLayerKey = WfpIds.SubLayerKey,
-                weight = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT8, value = new FWP_VALUE_UNION { uint8 = weight } },
+                weight = weight,
                 numFilterConditions = conditionCount,
                 filterCondition = conditions,
                 action = new FWPM_ACTION0 { type = action },

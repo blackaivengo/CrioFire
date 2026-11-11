@@ -7,8 +7,8 @@ with safety first.
 
 - Open an issue before large changes, so we can agree on the approach.
 - Keep pull requests focused; include tests for logic that can run without admin rights.
-- Never add a filter that can block all traffic without a recovery path (`criofire panic` must
-  always undo it).
+- Never add a filter that can block all traffic without a recovery path (`criofire panic remove`
+  must always undo it, and `criofire panic` must let everything through above it).
 - Changes to `src/CrioFire.Core/Interop` must keep `InteropLayoutTests` passing and cite the
   Windows SDK definition they follow.
 

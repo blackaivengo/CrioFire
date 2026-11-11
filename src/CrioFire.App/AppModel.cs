@@ -375,21 +375,62 @@ internal sealed class AppModel
         }
     }
 
-    public void Panic(Window owner)
+    /// <summary>The panic switch: off, allow (everything allowed, rules paused) or block (all network traffic blocked).</summary>
+    public string PanicMode => Status?.Panic ?? "off";
+
+    /// <summary>Offers the panic choices; removing every rule is confirmed a second time.</summary>
+    public void ShowPanic(Window owner)
     {
-        var choice = ChoiceDialog.Ask(
-            owner,
-            "Remove every CrioFire rule?",
-            "This removes all your allow and block rules and switches back to Learning mode. Use it if something can't connect and you don't know why.",
-            ["Remove everything", "Cancel"],
-            defaultIndex: 1,
-            danger: true);
-        if (choice == 0 && Call(new ApiRequest { Op = ApiOps.Panic }) is { } result)
+        var action = PanicDialog.Ask(owner, PanicMode);
+        if (action is null)
+        {
+            return;
+        }
+
+        if (action == "remove")
+        {
+            var count = Rules.Count(r => r.Kind is nameof(FilterKind.AppRule) or nameof(FilterKind.NetRule) or nameof(FilterKind.ServiceRule));
+            var confirm = ChoiceDialog.Ask(
+                owner,
+                "Delete every rule?",
+                $"This deletes all {count} filters of your program, network and service rules and switches to Learning mode. It cannot be undone.\n\n'Allow everything, pause my rules' gets you connected too, and keeps them.",
+                ["Delete every rule", "Pause them instead", "Cancel"],
+                defaultIndex: 2,
+                danger: true);
+            action = confirm switch { 0 => "remove", 1 => "allow", _ => null };
+            if (action is null)
+            {
+                return;
+            }
+        }
+
+        SetPanic(action);
+    }
+
+    /// <summary>Ends panic: rules and mode apply again.</summary>
+    public void Resume() => SetPanic("off");
+
+    private void SetPanic(string action)
+    {
+        if (Call(new ApiRequest { Op = ApiOps.Panic, Action = action }) is not { } result)
+        {
+            return;
+        }
+
+        if (action is "remove" or "block")
         {
             Pending.Clear();
-            Message?.Invoke(this, $"Removed {result.Count} filters. CrioFire is back in Learning mode.");
-            NotifyChanged();
         }
+
+        Message?.Invoke(this, action switch
+        {
+            "remove" => $"Removed {result.Count} filters. Every rule is gone and CrioFire is in Learning mode.",
+            "block" => "Panic: all network traffic is blocked. Your rules are kept; Resume brings them back.",
+            "allow" => "Panic: everything is allowed and your rules are paused. Resume brings them back.",
+            _ => "Panic is off. Your rules apply again.",
+        });
+        RefreshCore();
+        NotifyChanged();
     }
 
     public void AddPending(EventInfo blocked) => Pending.Add(new PendingAlert(blocked));

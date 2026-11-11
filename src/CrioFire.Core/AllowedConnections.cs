@@ -29,6 +29,9 @@ public enum AllowReason
 
     /// <summary>No CrioFire rule applied: Learning mode, or inbound traffic left to Windows Firewall.</summary>
     NoRule,
+
+    /// <summary>The panic switch is on "allow everything": rules are paused.</summary>
+    Paused,
 }
 
 public static class AllowReasons
@@ -51,6 +54,8 @@ public static class AllowReasons
                     return AllowReason.NetRule;
                 case FilterKind.ServiceRule:
                     return AllowReason.ServiceRule;
+                case FilterKind.Panic:
+                    return AllowReason.Paused;
                 case FilterKind.BuiltInAllow:
                     return string.Equals(filter.BuiltIn, AutoRulePolicy.WindowsKernel, StringComparison.OrdinalIgnoreCase)
                         ? AllowReason.WindowsKernel
@@ -103,6 +108,7 @@ public static class AllowReasons
         FilterKind.AppRule when f.Rule is { Action: RuleAction.Allow } r && (ignoreMatch || SameApp(r.AppPath, c.AppPath)) => 10,
         FilterKind.ServiceRule when f.Service is { Action: RuleAction.Allow } s && (ignoreMatch || HasService(c.Service, s.ServiceName)) => 11,
         FilterKind.NetRule when f.Net is { Action: RuleAction.Allow } n && (ignoreMatch || Matches(n, c)) => n.Weight,
+        FilterKind.Panic when f.Panic == PanicState.AllowAll => int.MaxValue,   // matches everything, above every rule
         FilterKind.BuiltInAllow when ignoreMatch
             || (string.Equals(f.BuiltIn, AutoRulePolicy.WindowsKernel, StringComparison.OrdinalIgnoreCase) ? KnownApps.IsKernel(c.AppPath) : KnownApps.IsServiceHost(c.AppPath)) => 5,
         _ => -1,
@@ -163,6 +169,7 @@ public static class AllowReasons
         nameof(AllowReason.Loopback) => "Automatic: local only",
         nameof(AllowReason.NoRule) when direction == "in" => "No rule: Windows Firewall decides",
         nameof(AllowReason.NoRule) => "No rule: Learning mode",
+        nameof(AllowReason.Paused) => "Panic: rules paused",
         _ => reason ?? "Unknown",
     };
 }

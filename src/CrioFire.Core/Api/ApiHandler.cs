@@ -49,7 +49,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.RemoveRules => RemoveRules(request),
                     ApiOps.RemoveFilter => RemoveFilter(request),
                     ApiOps.SetMode => SetMode(request),
-                    ApiOps.Panic => Panic(),
+                    ApiOps.Panic => Panic(request),
                     ApiOps.AddNetRule => AddNetRule(request),
                     ApiOps.SetServiceRule => SetServiceRule(request),
                     ApiOps.RemoveServiceRules => RemoveServiceRules(request),
@@ -74,7 +74,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 installed,
                 FilterDescriptions.ModeText(installed ? engine.GetMode() : FirewallMode.Learning),
                 installed ? engine.ListFilters().Count : 0,
-                Version),
+                Version,
+                FilterDescriptions.PanicText(installed ? engine.GetPanic() : PanicState.Off)),
         };
     }
 
@@ -183,11 +184,35 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
     private List<AutoRuleInfo> AutoRules() =>
         engine.GetAutoRules().Select(r => new AutoRuleInfo(r.Name, r.Enabled, r.Active)).ToList();
 
-    private ApiResponse Panic()
+    /// <summary>
+    /// panic with action allow (everything allowed, rules paused), block (all network traffic
+    /// blocked), off (rules back in force) or remove (delete every CrioFire rule; cannot be undone).
+    /// </summary>
+    private ApiResponse Panic(ApiRequest request)
     {
-        var count = engine.RemoveAllFilters();
-        temporaryRules?.Clear();
-        return new ApiResponse { Ok = true, Count = count };
+        var action = request.Action?.Trim().ToLowerInvariant();
+        if (action == "remove")
+        {
+            var count = engine.RemoveAllFilters();
+            temporaryRules?.Clear();
+            return new ApiResponse { Ok = true, Count = count, Panic = FilterDescriptions.PanicText(PanicState.Off) };
+        }
+
+        if (!FilterDescriptions.TryParsePanic(action, out var state))
+        {
+            throw new ArgumentException("action must be allow (pause rules), block (block all network traffic), off (resume rules) or remove (delete every rule).");
+        }
+
+        if (state != PanicState.Off)
+        {
+            EnsureInstalled();
+        }
+        else if (!engine.IsInstalled())
+        {
+            return new ApiResponse { Ok = true, Count = 0, Panic = FilterDescriptions.PanicText(PanicState.Off) };
+        }
+
+        return new ApiResponse { Ok = true, Count = engine.SetPanic(state), Panic = FilterDescriptions.PanicText(state) };
     }
 
     private ApiResponse List()

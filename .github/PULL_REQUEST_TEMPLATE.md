@@ -4,7 +4,7 @@
 
 - [ ] `dotnet test` passes
 - [ ] Tried on Windows 10 / Windows 11 (say which, and x64 or ARM64)
-- [ ] `criofire panic` still removes everything this change can add
+- [ ] `criofire panic` still lets everything through, and `criofire panic remove` still removes everything this change can add
 
 ## Checklist
 

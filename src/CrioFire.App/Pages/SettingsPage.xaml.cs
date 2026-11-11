@@ -71,7 +71,7 @@ public partial class SettingsPage : UserControl, IPage
     {
         if (Window.GetWindow(this) is { } owner)
         {
-            _model.Panic(owner);
+            _model.ShowPanic(owner);
         }
     }
 }

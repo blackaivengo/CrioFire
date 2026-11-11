@@ -97,7 +97,20 @@ public sealed class ApiTests : IAsyncDisposable
         Assert.Equal("ask", mode.Mode);
         Assert.Equal("ask", client.Send(new ApiRequest { Op = ApiOps.Status }).Status!.Mode);
 
-        var panic = client.Send(new ApiRequest { Op = ApiOps.Panic });
+        var pause = client.Send(new ApiRequest { Op = ApiOps.Panic, Action = "allow" });
+        Assert.True(pause.Ok, pause.Error);
+        Assert.Equal("allow", pause.Panic);
+        var paused = client.Send(new ApiRequest { Op = ApiOps.Status }).Status!;
+        Assert.Equal("allow", paused.Panic);
+        Assert.Equal("ask", paused.Mode);   // rules and mode are kept
+
+        var resume = client.Send(new ApiRequest { Op = ApiOps.Panic, Action = "off" });
+        Assert.True(resume.Ok, resume.Error);
+        Assert.Equal("off", client.Send(new ApiRequest { Op = ApiOps.Status }).Status!.Panic);
+
+        Assert.False(client.Send(new ApiRequest { Op = ApiOps.Panic }).Ok);   // the action is required
+
+        var panic = client.Send(new ApiRequest { Op = ApiOps.Panic, Action = "remove" });
         Assert.True(panic.Ok);
         Assert.True(panic.Count > 0);
         Assert.Equal("learning", client.Send(new ApiRequest { Op = ApiOps.Status }).Status!.Mode);

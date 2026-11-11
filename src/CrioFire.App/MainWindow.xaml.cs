@@ -102,6 +102,7 @@ public partial class MainWindow : Window
             RefreshPage();
         };
         _tray.ExitRequested += (_, _) => ExitApp();
+        _tray.ResumeRequested += (_, _) => _model.Resume();
 
         _model.RefreshCore();
         UpdateService();
@@ -241,9 +242,10 @@ public partial class MainWindow : Window
     {
         var wasOnline = _model.Status is not null;
         var previousMode = _model.Mode;
+        var previousPanic = _model.PanicMode;
         _model.RefreshCore();
         UpdateService();
-        if (wasOnline != (_model.Status is not null) || previousMode != _model.Mode)
+        if (wasOnline != (_model.Status is not null) || previousMode != _model.Mode || previousPanic != _model.PanicMode)
         {
             RefreshPage();
         }
@@ -322,6 +324,13 @@ public partial class MainWindow : Window
     {
         var status = _model.Status;
         _tray?.Update(status, _model.Mode, _model.Pending.Count);
+
+        var panic = _model.PanicMode;
+        PanicBanner.Visibility = panic == "off" ? Visibility.Collapsed : Visibility.Visible;
+        PanicBannerText.Text = panic == "block"
+            ? "Panic: all network traffic is blocked. Your rules are kept."
+            : "Panic: everything is allowed. Your rules are paused, not deleted.";
+        PanicButton.Content = panic == "off" ? "Panic..." : "Panic options...";
         if (status is null)
         {
             ServiceText.Text = "Not running";
@@ -355,7 +364,9 @@ public partial class MainWindow : Window
         _messageTimer.Start();
     }
 
-    private void OnPanic(object sender, RoutedEventArgs e) => _model.Panic(this);
+    private void OnPanic(object sender, RoutedEventArgs e) => _model.ShowPanic(this);
+
+    private void OnResume(object sender, RoutedEventArgs e) => _model.Resume();
 
     private void OnToggleTheme(object sender, RoutedEventArgs e) => ThemeManager.Toggle();
 

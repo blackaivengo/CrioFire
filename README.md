@@ -61,7 +61,10 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe auto                                      # the automatic rules; "auto svchost off" turns one off
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
 .\criofire.exe mode learning                             # back to allowing programs without a rule
-.\criofire.exe panic                                     # recovery: remove every CrioFire rule
+.\criofire.exe panic                                     # allow everything; your rules are paused, not deleted
+.\criofire.exe panic block                               # block all network traffic (loopback still works)
+.\criofire.exe resume                                    # end panic: your rules apply again
+.\criofire.exe panic remove                              # last resort: delete every CrioFire rule
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
 
@@ -167,8 +170,23 @@ Inbound traffic stays under Windows Firewall plus any per-app inbound rules you 
 `--allow-running` first gives every program running now an allow rule, a quick way to start.
 
 Safety by design: switching to `ask` or `allowlist` asks you to confirm within 60 seconds that
-your network still works, and switches back if you don't. `criofire panic` always removes every
-CrioFire filter, the mode included. Filters are persistent and survive reboots until you remove them.
+your network still works, and switches back if you don't. Filters are persistent and survive reboots
+until you remove them.
+
+### Panic
+
+When something can't connect, or something is connecting that shouldn't, panic (the **Panic...**
+button in the app, or `criofire panic`) offers three ways out:
+
+| Choice | What happens | Your rules |
+| --- | --- | --- |
+| Allow everything (`panic`, `panic allow`) | Every connection in and out is allowed | Kept, paused |
+| Block all network traffic (`panic block`) | No new connection in or out; traffic that stays on this PC still works; connections already open are not cut | Kept, overridden |
+| Remove all rules (`panic remove`) | Every CrioFire filter is deleted, mode back to Learning | Deleted, cannot be undone |
+
+The first two add one filter per layer above every rule and change nothing else, so **Resume**
+(`criofire resume`) brings back exactly the rules, mode and automatic rules there were before. Panic
+stays on across restarts until you resume; the app shows a banner and the tray icon a red dot meanwhile.
 You can inspect them with `netsh wfp show filters`.
 
 ## How it works

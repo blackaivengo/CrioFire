@@ -47,6 +47,25 @@ public enum FilterKind
 
     /// <summary>A user rule for one Windows service (matched by its service SID).</summary>
     ServiceRule,
+
+    /// <summary>The panic switch: allow everything (rules paused) or block all network traffic, above every rule.</summary>
+    Panic,
+}
+
+/// <summary>
+/// The panic switch. Both states sit above every rule without touching them, so switching panic off
+/// brings back exactly the rules and mode there were before.
+/// </summary>
+public enum PanicState
+{
+    /// <summary>Rules and mode apply as usual.</summary>
+    Off,
+
+    /// <summary>Every connection is allowed; CrioFire's rules and mode are kept but paused.</summary>
+    AllowAll,
+
+    /// <summary>Every network connection, in and out, is blocked. Traffic that stays on this PC still works.</summary>
+    BlockAll,
 }
 
 /// <summary>Descriptions for CrioFire's non-rule filters, e.g. <c>criofire:v1|default|ask</c>.</summary>
@@ -55,6 +74,42 @@ public static class FilterDescriptions
     public static string DefaultBlock(FirewallMode mode) => $"{RuleDescription.Prefix}|default|{ModeText(mode)}";
 
     public static string BuiltInAllow(string name) => $"{RuleDescription.Prefix}|builtin|{name}";
+
+    public static string Panic(PanicState state) => $"{RuleDescription.Prefix}|panic|{PanicText(state)}";
+
+    public static string PanicText(PanicState state) => state switch
+    {
+        PanicState.AllowAll => "allow",
+        PanicState.BlockAll => "block",
+        _ => "off",
+    };
+
+    public static bool TryParsePanic(string? text, out PanicState state)
+    {
+        switch (text?.Trim().ToLowerInvariant())
+        {
+            case "allow" or "allowall" or "allow-all":
+                state = PanicState.AllowAll;
+                return true;
+            case "block" or "blockall" or "block-all":
+                state = PanicState.BlockAll;
+                return true;
+            case "off" or "resume":
+                state = PanicState.Off;
+                return true;
+            default:
+                state = PanicState.Off;
+                return false;
+        }
+    }
+
+    /// <summary>The state in a panic filter's description, or null.</summary>
+    public static PanicState? PanicOf(string? description)
+    {
+        var parts = description?.Split('|') ?? [];
+        return parts.Length == 3 && parts[0] == RuleDescription.Prefix && parts[1] == "panic"
+            && TryParsePanic(parts[2], out var state) && state != PanicState.Off ? state : null;
+    }
 
     public static (FilterKind Kind, FirewallMode? Mode) Classify(string? description)
     {
@@ -84,6 +139,11 @@ public static class FilterDescriptions
             if (parts[1] == "builtin" && parts[2].Length > 0)
             {
                 return (FilterKind.BuiltInAllow, null);
+            }
+
+            if (PanicOf(description) is not null)
+            {
+                return (FilterKind.Panic, null);
             }
         }
 
@@ -229,4 +289,5 @@ public sealed record CrioFireFilter(
     FirewallMode? Mode = null,
     NetRule? Net = null,
     string? BuiltIn = null,
-    ServiceRule? Service = null);
+    ServiceRule? Service = null,
+    PanicState? Panic = null);

@@ -176,6 +176,74 @@ public sealed class ModeTests : IDisposable
     }
 
     [Fact]
+    public async Task PanicAllowPausesRulesAndOffBringsThemBack()
+    {
+        var engine = Engine;
+        var target = await InternetTargetAsync();
+        engine.SetAppRule(Peer.ExePath, RuleAction.Block, TrafficDirection.Outbound);
+        engine.SetMode(FirewallMode.Ask, RunningProgramsExceptPeer());
+        var rules = engine.ListFilters().Count;
+        try
+        {
+            var blocked = await Peer.ConnectAsync(target, 443);
+            Assert.True(blocked.ExitCode != 0, $"The block rule should apply before panic: {blocked.Output}");
+
+            Assert.Equal(4, engine.SetPanic(PanicState.AllowAll));
+            Assert.Equal(PanicState.AllowAll, engine.GetPanic());
+            var paused = await Peer.ConnectAsync(target, 443);
+            Assert.True(paused.ExitCode == 0, $"Panic 'allow everything' should let a blocked program connect: {paused.Output}");
+
+            // Nothing was deleted: the same rules and mode are still there.
+            Assert.Equal(rules, engine.ListFilters().Count(f => f.Kind != FilterKind.Panic));
+            Assert.Equal(FirewallMode.Ask, engine.GetMode());
+
+            Assert.Equal(0, engine.SetPanic(PanicState.Off));
+            Assert.Equal(PanicState.Off, engine.GetPanic());
+            var again = await Peer.ConnectAsync(target, 443);
+            Assert.True(again.ExitCode != 0, $"The block rule should apply again after panic: {again.Output}");
+        }
+        finally
+        {
+            engine.SetPanic(PanicState.Off);
+            engine.SetMode(FirewallMode.Learning);
+            engine.RemoveAppRules(Peer.ExePath);
+        }
+    }
+
+    [Fact]
+    public async Task PanicBlockStopsEvenAllowedProgramsButNotLoopback()
+    {
+        var engine = Engine;
+        var target = await InternetTargetAsync();
+        using var listener = new LocalListener(IPAddress.Loopback);
+        engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Outbound);
+        try
+        {
+            // Established connections (like the CI runner's own) are not cut: only new ones are refused.
+            Assert.Equal(4, engine.SetPanic(PanicState.BlockAll));
+            var blocked = await Peer.ConnectAsync(target, 443);
+            var local = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
+            engine.SetPanic(PanicState.Off);
+
+            Assert.True(blocked.ExitCode != 0, $"Panic 'block everything' should beat an allow rule: {blocked.Output}");
+            Assert.True(local.ExitCode == 0, $"Loopback should keep working during panic: {local.Output}");
+
+            var after = await Peer.ConnectAsync(target, 443);
+            Assert.True(after.ExitCode == 0, $"The program should connect again after panic: {after.Output}");
+
+            // Removing every rule also ends panic.
+            engine.SetPanic(PanicState.BlockAll);
+            engine.RemoveAllFilters();
+            Assert.Equal(PanicState.Off, engine.GetPanic());
+        }
+        finally
+        {
+            engine.SetPanic(PanicState.Off);
+            engine.RemoveAppRules(Peer.ExePath);
+        }
+    }
+
+    [Fact]
     public void SwitchingModesReplacesTheCatchAllFilters()
     {
         var engine = Engine;

@@ -159,6 +159,21 @@ public partial class DashboardPage : UserControl, IPage
             return;
         }
 
+        if (_model.PanicMode != "off")
+        {
+            var block = _model.PanicMode == "block";
+            ShieldIcon.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "FireTextBrush");
+            Ring.Data = Arcs.Arc(block ? 1 : 0.02, 84, 72);
+            ProtectedText.Text = "Panic";
+            ModeText.Text = block ? "Everything blocked" : "Rules paused";
+            Headline.Text = block ? "All network traffic is blocked" : "Everything is allowed for now";
+            Body.Text = (block
+                    ? "No new connection gets in or out, whatever your rules say. Programs on this PC can still talk to each other."
+                    : "Every program may connect. Your rules and the mode are paused, not deleted.")
+                + $" {AppModel.ModeName(mode)} mode and all your rules come back with 'Resume my rules' at the top.";
+            return;
+        }
+
         ShieldIcon.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "IceTextBrush");
         ProtectedText.Text = "Protected";
         ModeText.Text = $"{AppModel.ModeName(mode)} mode";

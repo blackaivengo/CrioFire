@@ -48,7 +48,8 @@
                 </Ellipse>
                 <TextBlock x:Name="ServiceText" Margin="8,0,0,0" FontSize="13" FontWeight="SemiBold" Text="Connecting..." />
               </StackPanel>
-              <Button Content="Panic: remove all rules" Style="{StaticResource OutlineFireButton}" Click="OnPanic" />
+              <Button x:Name="PanicButton" Content="Panic..." Style="{StaticResource OutlineFireButton}" Click="OnPanic"
+                      ToolTip="Allow everything, block everything, or remove all rules" />
             </StackPanel>
           </Border>
 
@@ -70,6 +71,16 @@
         </Grid.RowDefinitions>
 
         <DockPanel Margin="36,26,36,8">
+          <!-- While panic is on, a banner across the top with a one-click way back. -->
+          <Border x:Name="PanicBanner" DockPanel.Dock="Top" CornerRadius="12" Padding="16,10" Margin="0,0,0,16" Visibility="Collapsed"
+                  Background="{DynamicResource ChipFireBrush}" BorderBrush="{DynamicResource FireBrush}" BorderThickness="1">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Resume my rules" Style="{StaticResource FireButton}" MinHeight="34" Click="OnResume" />
+              <Button DockPanel.Dock="Right" Content="Options" Style="{StaticResource GhostButton}" MinHeight="34" Margin="0,0,8,0" Click="OnPanic" />
+              <TextBlock x:Name="PanicBannerText" VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Foreground="{DynamicResource ChipFireTextBrush}" Margin="0,0,12,0" />
+            </DockPanel>
+          </Border>
           <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0" VerticalAlignment="Top" Click="OnToggleTheme"
                   x:Name="ThemeButton" AutomationProperties.Name="Switch between light and dark mode">
             <Border Style="{StaticResource SegGroup}">

@@ -80,7 +80,7 @@ public partial class ActivityPage : UserControl, IPage
                 var byMode = e.Kind == nameof(FilterKind.DefaultBlock);
                 return new ActivityRow(
                     e.TimeUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture),
-                    byMode ? "No rule yet" : "Your rule",
+                    byMode ? "No rule yet" : e.Kind == nameof(FilterKind.Panic) ? "Panic: block all" : "Your rule",
                     e.Direction ?? "?",
                     e.Protocol,
                     e.Remote ?? "?",

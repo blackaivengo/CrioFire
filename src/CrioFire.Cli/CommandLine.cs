@@ -50,7 +50,8 @@ public sealed record Command(
     bool RemoveData = false,
     string? Service = null,
     string? AutoRule = null,
-    bool Enabled = true);
+    bool Enabled = true,
+    string? PanicAction = null);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -104,7 +105,14 @@ internal static class CommandLine
           criofire events [--minutes N] [--all]
                                                Show connections CrioFire blocked (default: last 10 minutes;
                                                --all also shows drops by other firewalls)
-          criofire panic                       Recovery: remove every CrioFire rule at once
+          criofire panic [allow|block|off|remove]
+                                               allow (default): let every connection through; your
+                                                 rules and mode are kept, just paused
+                                               block: block all network traffic in and out (traffic
+                                                 that stays on this PC still works)
+                                               off: end panic, your rules apply again
+                                               remove: delete every CrioFire rule (cannot be undone)
+          criofire resume                      Same as: criofire panic off
           criofire uninstall [--remove-data]   Remove all rules and unregister CrioFire
                                                (--remove-data also deletes %ProgramData%\criofire)
           criofire setup [--mode <mode>] [--allow-running]
@@ -138,11 +146,13 @@ internal static class CommandLine
                 return new Command(CommandKind.Uninstall, RemoveData: true);
             case "setup":
                 return ParseSetup(rest, out error);
+            case "panic":
+            case "resume":
+                return ParsePanic(verb, rest, out error);
             case "status":
             case "install":
             case "uninstall":
             case "list":
-            case "panic":
                 if (rest.Length != 0)
                 {
                     error = $"'{verb}' takes no arguments.";
@@ -154,8 +164,7 @@ internal static class CommandLine
                     "status" => CommandKind.Status,
                     "install" => CommandKind.Install,
                     "uninstall" => CommandKind.Uninstall,
-                    "list" => CommandKind.List,
-                    _ => CommandKind.Panic,
+                    _ => CommandKind.List,
                 });
             case "block":
             case "unblock":
@@ -277,6 +286,32 @@ internal static class CommandLine
         }
 
         return new Command(CommandKind.Events, Minutes: minutes, All: all);
+    }
+
+    private static Command ParsePanic(string verb, string[] rest, out string? error)
+    {
+        error = null;
+        if (verb == "resume")
+        {
+            if (rest.Length == 0)
+            {
+                return new Command(CommandKind.Panic, PanicAction: "off");
+            }
+        }
+        else if (rest.Length == 0)
+        {
+            return new Command(CommandKind.Panic, PanicAction: "allow");
+        }
+        else if (rest.Length == 1 && rest[0].ToLowerInvariant() is var action
+                 && (action == "remove" || FilterDescriptions.TryParsePanic(action, out _)))
+        {
+            return new Command(CommandKind.Panic, PanicAction: action == "remove" ? "remove" : FilterDescriptions.PanicText(Parse(action)));
+        }
+
+        error = "Usage: criofire panic [allow|block|off|remove]   or   criofire resume";
+        return new Command(CommandKind.Help);
+
+        static PanicState Parse(string text) => FilterDescriptions.TryParsePanic(text, out var s) ? s : PanicState.Off;
     }
 
     private static Command ParseAllowed(string[] rest, out string? error)

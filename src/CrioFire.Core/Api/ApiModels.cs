@@ -36,7 +36,7 @@ public sealed record ApiRequest
     /// <summary>setRule, removeRules: program path.</summary>
     public string? App { get; init; }
 
-    /// <summary>setRule: block or allow.</summary>
+    /// <summary>setRule, setServiceRule: block or allow. panic: allow, block, off or remove.</summary>
     public string? Action { get; init; }
 
     /// <summary>setRule, removeRules: out, in or both.</summary>
@@ -105,6 +105,9 @@ public sealed record ApiResponse
 
     public ReportInfo? Report { get; init; }
 
+    /// <summary>panic: the panic switch afterwards (off, allow, block).</summary>
+    public string? Panic { get; init; }
+
     /// <summary>allowed: connections allowed in the window, grouped.</summary>
     public List<AllowedGroup>? Allowed { get; init; }
 
@@ -114,7 +117,8 @@ public sealed record ApiResponse
     public static ApiResponse Failure(string error) => new() { Ok = false, Error = error };
 }
 
-public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version);
+/// <param name="Panic">The panic switch: off, allow (everything allowed, rules paused) or block (all network traffic blocked).</param>
+public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off");
 
 /// <param name="Name">svchost or system.</param>
 /// <param name="Enabled">Switched on (the saved choice).</param>

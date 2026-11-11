@@ -38,9 +38,9 @@
     <ContentControl Style="{StaticResource FireCard}" Margin="0,0,0,22">
       <StackPanel>
         <TextBlock Text="Recovery" Style="{StaticResource H2}" />
-        <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,16" FontSize="14" LineHeight="21"
-                   Text="If something can't connect and you don't know why, remove every CrioFire rule at once. CrioFire goes back to Learning mode, where nothing is blocked. From an administrator prompt, 'criofire panic' does the same even when the service is stopped." />
-        <Button Content="Panic: remove all rules" Style="{StaticResource OutlineFireButton}" HorizontalAlignment="Left" Click="OnPanic" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,16" FontSize="14" LineHeight="21" TextWrapping="Wrap"
+                   Text="Something can't connect, or something is connecting that shouldn't? Panic can allow everything with your rules paused, or block all network traffic. Both keep every rule, and Resume brings them back. Removing all rules is there too, as a last resort. From an administrator prompt: 'criofire panic', 'criofire panic block', 'criofire resume' (they work even when the service is stopped)." />
+        <Button Content="Panic..." Style="{StaticResource OutlineFireButton}" HorizontalAlignment="Left" Click="OnPanic" />
       </StackPanel>
     </ContentControl>
 

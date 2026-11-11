@@ -20,6 +20,7 @@ public class CommandLineTests
     [InlineData("list", CommandKind.List)]
     [InlineData("panic", CommandKind.Panic)]
     [InlineData("PANIC", CommandKind.Panic)]
+    [InlineData("resume", CommandKind.Panic)]
     [InlineData("--version", CommandKind.Version)]
     public void SimpleVerbs(string verb, CommandKind expected)
     {

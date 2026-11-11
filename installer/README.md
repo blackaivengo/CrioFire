@@ -19,7 +19,7 @@ pay the monthly maintenance fee. See https://docs.firegiant.com/wix/osmf/.
 | Sign-in start | Optional `HKLM\...\Run` entry, `criofire-ui.exe --tray --machine`: the app starts in the notification area for everyone. Each user can turn it off in Settings |
 | Uninstall | Runs `criofire uninstall --remove-data`: removes every CrioFire filter, the WFP provider and sublayer, and the data folder, then the service and files |
 | Upgrades | A newer MSI upgrades in place and keeps rules, mode, the install folder and the sign-in choice, and skips the Setup options page; downgrades are refused |
-| Running app | Asks the app to exit before replacing files, and ends it if it does not within 5 seconds |
+| Running app | Asks the app to exit before replacing files (it exits on the end-session message) |
 
 ## Setup wizard
 

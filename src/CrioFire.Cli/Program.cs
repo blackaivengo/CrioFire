@@ -93,6 +93,13 @@ static int Run(Backend api, Command command)
             }
 
             Console.WriteLine($"CrioFire is installed ({api.Description}). Mode: {status.Mode}. Active filters: {status.FilterCount}");
+            if (status.Panic != "off")
+            {
+                Console.WriteLine(status.Panic == "block"
+                    ? "PANIC: all network traffic is blocked. Your rules are kept. End it with: criofire resume"
+                    : "PANIC: everything is allowed, your rules are paused. End it with: criofire resume");
+            }
+
             return 0;
         }
 
@@ -242,8 +249,14 @@ static int Run(Backend api, Command command)
 
         case CommandKind.Panic:
         {
-            var result = api.Call(new ApiRequest { Op = ApiOps.Panic });
-            Console.WriteLine($"Recovery done: removed {result.Count} CrioFire filters. Network access is back to Windows' own rules.");
+            var result = api.Call(new ApiRequest { Op = ApiOps.Panic, Action = command.PanicAction });
+            Console.WriteLine(command.PanicAction switch
+            {
+                "remove" => $"Removed {result.Count} CrioFire filters: every rule is gone and the mode is Learning. Network access is back to Windows' own rules.",
+                "block" => "PANIC: all network traffic is blocked, in and out (traffic that stays on this PC still works).\nYour rules and mode are kept. End it with: criofire resume",
+                "off" => "Panic is off: your rules and mode apply again.",
+                _ => "PANIC: every connection is allowed. Your rules and mode are kept, just paused.\nEnd it with: criofire resume   (to delete every rule instead: criofire panic remove)",
+            });
             return 0;
         }
 

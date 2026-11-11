@@ -115,6 +115,7 @@ internal sealed partial class TrayIcon : IDisposable
     private readonly Forms.ToolStripMenuItem _learning = new("Learning mode");
     private readonly Forms.ToolStripMenuItem _ask = new("Ask mode");
     private readonly Forms.ToolStripMenuItem _allowList = new("Allow-list mode");
+    private readonly Forms.ToolStripMenuItem _resume = new("Panic is on: resume my rules") { Visible = false };
     private readonly Forms.ToolStripMenuItem _autostart = new("Start with Windows");
     private readonly Forms.ToolStripMenuItem _exit = new("Exit (protection stays on)");
     private readonly Drawing.Icon _base;
@@ -134,11 +135,12 @@ internal sealed partial class TrayIcon : IDisposable
         _ask.Click += (_, _) => ModeRequested?.Invoke(this, "ask");
         _allowList.Click += (_, _) => ModeRequested?.Invoke(this, "allowlist");
         _autostart.Click += (_, _) => AutostartToggled?.Invoke(this, EventArgs.Empty);
+        _resume.Click += (_, _) => ResumeRequested?.Invoke(this, EventArgs.Empty);
         _exit.Click += (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty);
         _exit.ToolTipText = "Closes the app. The CrioFire service keeps filtering connections.";
         _menu.Items.AddRange(new Forms.ToolStripItem[]
         {
-            _open, new Forms.ToolStripSeparator(),
+            _open, _resume, new Forms.ToolStripSeparator(),
             _learning, _ask, _allowList, new Forms.ToolStripSeparator(),
             _autostart, new Forms.ToolStripSeparator(),
             _exit,
@@ -168,12 +170,18 @@ internal sealed partial class TrayIcon : IDisposable
 
     public event EventHandler? ExitRequested;
 
+    public event EventHandler? ResumeRequested;
+
     public void Update(StatusInfo? status, string mode, int pending)
     {
         var online = status is { Installed: true };
+        var panic = online ? status!.Panic : "off";
         var text = status is null ? "CrioFire: service not running"
             : !status.Installed ? "CrioFire: not set up yet"
+            : panic == "block" ? "CrioFire: PANIC · all network traffic blocked"
+            : panic == "allow" ? "CrioFire: PANIC · everything allowed, rules paused"
             : $"CrioFire: protected · {AppModel.ModeName(mode)} mode" + (pending > 0 ? $" · {pending} waiting" : string.Empty);
+        _resume.Visible = panic != "off";
         _icon.Text = text.Length > 120 ? text[..120] : text;
 
         foreach (var item in new[] { _learning, _ask, _allowList })
@@ -185,7 +193,7 @@ internal sealed partial class TrayIcon : IDisposable
         _ask.Checked = online && mode == "ask";
         _allowList.Checked = online && mode == "allowlist";
 
-        var state = !online ? State.Offline : pending > 0 ? State.Pending : State.Normal;
+        var state = !online ? State.Offline : pending > 0 || panic != "off" ? State.Pending : State.Normal;
         if (state != _state)
         {
             _state = state;
