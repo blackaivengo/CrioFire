@@ -7,7 +7,10 @@
          parallelization attributes; stay on 3.x until that move is done on purpose. -->
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
-    <PackageVersion Include="PDFsharp-MigraDoc-WPF" Version="6.5.0" />
+    <!-- Stay on 6.2.x: it is the MIT-licensed line. From 6.5.0 PDFsharp is AGPL or a paid
+         commercial license, and code must select a license at startup. AGPL does not fit a
+         closed-source product. -->
+    <PackageVersion Include="PDFsharp-MigraDoc-WPF" Version="6.2.4" />
     <!-- Pinned (transitive pinning is on): PDFsharp asks for >= 8.0.1, which has known
          vulnerabilities (CVE-2026-70162, CVE-2026-84008). 10.0.13 and later are patched. -->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />

@@ -5,7 +5,7 @@ licences, which allow use in commercial products.
 
 ## PDFsharp and MigraDoc
 
-Used to save reports as PDF files (`CrioFire.Reporting`). NuGet package `PDFsharp-MigraDoc-WPF`.
+Used to save reports as PDF files (`CrioFire.Reporting`). NuGet package `PDFsharp-MigraDoc-WPF`, version 6.2.x (MIT). Versions 6.5 and later are AGPL or commercial and are not used.
 
 ```
 The MIT License (MIT)
