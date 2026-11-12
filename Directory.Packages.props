@@ -6,7 +6,7 @@
     <!-- xunit 4 changes how tests run (Microsoft Testing Platform v2 by default) and the
          parallelization attributes; stay on 3.x until that move is done on purpose. -->
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="PDFsharp-MigraDoc-WPF" Version="6.5.0" />
     <!-- Pinned (transitive pinning is on): PDFsharp asks for >= 8.0.1, which has known
          vulnerabilities (CVE-2026-70162, CVE-2026-84008). 10.0.13 and later are patched. -->
