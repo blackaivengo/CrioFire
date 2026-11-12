@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -52,6 +53,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _pageTimer = new();
     private readonly DispatcherTimer _messageTimer = new() { Interval = TimeSpan.FromSeconds(6) };
     private IPage? _current;
+    private bool _toldVersion;
     private int _navigation;          // bumped on every page switch, so a slow load cannot show a page you left
     private bool _refreshing;
     private bool _refreshAgain;
@@ -518,11 +520,23 @@ public partial class MainWindow : Window
         }
         else
         {
-            ServiceText.Text = status.Installed ? $"Running · {ShortVersion(status.Version)}" : "Running · not set up";
+            var mismatch = status.Version != "unknown" && AppVersion.Length > 0 && ShortVersion(status.Version) != ShortVersion(AppVersion);
+            ServiceText.Text = !status.Installed ? "Running · not set up"
+                : mismatch ? $"Service {ShortVersion(status.Version)} · app {ShortVersion(AppVersion)}"
+                : $"Running · {ShortVersion(status.Version)}";
+            if (mismatch && !_toldVersion)
+            {
+                _toldVersion = true;
+                ShowMessage($"The CrioFire service ({ShortVersion(status.Version)}) and this app ({ShortVersion(AppVersion)}) are different builds. "
+                    + "Some views may stay empty until you install the latest CrioFire, which updates both.");
+            }
             ServiceDot.SetResourceReference(Shape.FillProperty, "IceBrush");
             ServiceDotGlow.Color = Color.FromRgb(0x7D, 0xD8, 0xFF);
         }
     }
+
+    private static readonly string AppVersion =
+        typeof(MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
 
     private static string ShortVersion(string version)
     {

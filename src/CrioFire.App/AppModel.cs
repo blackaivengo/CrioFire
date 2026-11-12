@@ -23,7 +23,7 @@ internal static class Service
             }
 
             var response = client.Send(request);
-            error = response.Ok ? null : response.Error;
+            error = response.Ok ? null : Explain(request.Op, response.Error);
             return response.Ok ? response : null;
         }
         catch (IOException ex)
@@ -32,6 +32,12 @@ internal static class Service
             return null;
         }
     }
+
+    /// <summary>An older service does not know the newer operations; say so plainly.</summary>
+    private static string? Explain(string? op, string? error) =>
+        error is not null && error.StartsWith("Unknown operation", StringComparison.Ordinal)
+            ? $"The CrioFire service on this PC is older than this app and can't answer '{op}' yet. Install the latest CrioFire (it updates the service too), then open this view again."
+            : error;
 }
 
 /// <summary>A program the Ask mode stopped, waiting for the user's decision.</summary>
