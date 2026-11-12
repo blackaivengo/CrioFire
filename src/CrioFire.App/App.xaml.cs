@@ -8,6 +8,8 @@ namespace CrioFire.App;
 /// that copy forward. With --tray (how Windows starts it at sign-in) it starts in the
 /// notification area without opening the window.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable",
+    Justification = "The application object is not disposed; the single-instance lock is released on exit.")]
 public partial class App : Application
 {
     private SingleInstance? _instance;

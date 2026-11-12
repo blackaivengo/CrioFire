@@ -1,11 +1,14 @@
 <Project>
   <!-- Central package versions. Dependabot keeps these current. -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.15" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageVersion Include="PDFsharp-MigraDoc-WPF" Version="6.2.4" />
+    <!-- Pinned (transitive pinning is on): PDFsharp asks for >= 8.0.1, which has known
+         vulnerabilities (CVE-2026-70162, CVE-2026-84008). 10.0.13 and later are patched. -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
     <PackageVersion Include="WixToolset.UI.wixext" Version="7.0.0" />
     <PackageVersion Include="WixToolset.Util.wixext" Version="7.0.0" />
   </ItemGroup>

@@ -10,6 +10,8 @@ namespace CrioFire.Tests;
 /// <summary>Allowed traffic, automatic rules, service rules and kernel rules: everything an administrator can see and control.</summary>
 public class VisibilityTests
 {
+    private static readonly string[] Pid200Services = ["BITS", "wuauserv"];
+
     private static readonly DateTime T0 = new(2026, 11, 10, 16, 5, 12, DateTimeKind.Utc);
 
     private static AllowedConnection Allowed(
@@ -319,7 +321,7 @@ public class VisibilityTests
             new WindowsService("BITS", "Background Intelligent Transfer Service", 200, true),
             new WindowsService("Spooler", "Print Spooler", 0, false),
         ]);
-        Assert.Equal(new[] { "BITS", "wuauserv" }, byPid[200]);
+        Assert.Equal(Pid200Services, byPid[200]);
         Assert.False(byPid.ContainsKey(0));
     }
 

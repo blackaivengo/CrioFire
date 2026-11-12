@@ -257,7 +257,7 @@ public static class ReportPdf
         }
     }
 
-    private static void Destinations(Section section, string title, IReadOnlyList<ReportDestination> destinations, string countHeader)
+    private static void Destinations(Section section, string title, List<ReportDestination> destinations, string countHeader)
     {
         Heading(section, title);
         if (destinations.Count == 0)

@@ -40,6 +40,8 @@ internal interface IPage
 /// goes through the criofire service, so the app runs as a normal user. In Ask mode it also
 /// raises an alert for each program the catch-all block stops.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable",
+    Justification = "A WPF window is not disposed; the tray icon is disposed when the window closes.")]
 public partial class MainWindow : Window
 {
     private readonly AppModel _model = new();
@@ -352,7 +354,7 @@ public partial class MainWindow : Window
     /// page); otherwise a small "Updating" note appears at the top and the page stays usable, so
     /// typing in a search box is not interrupted. Several can overlap.
     /// </summary>
-    private IDisposable Busy(string text, bool immediately, bool cover = true)
+    private BusyScope Busy(string text, bool immediately, bool cover = true)
     {
         var slot = cover ? 0 : 1;
         FrameworkElement panel = cover ? BusyOverlay : UpdatingNote;

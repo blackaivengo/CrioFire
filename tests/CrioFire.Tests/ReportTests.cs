@@ -7,6 +7,9 @@ namespace CrioFire.Tests;
 
 public sealed class ReportTests : IDisposable
 {
+    private static readonly int[] WeekTotals = [1, 0, 0, 0, 0, 1, 1];
+    private static readonly string[] OldThenNew = [@"C:\old.exe", @"C:\new.exe"];
+
     // Tuesday 2026-11-10 16:30 UTC; tests use UTC as "local" time so results don't depend on the machine.
     private static readonly DateTime Now = new(2026, 11, 10, 16, 30, 0, DateTimeKind.Utc);
     private static readonly TimeZoneInfo Utc = TimeZoneInfo.Utc;
@@ -78,7 +81,7 @@ public sealed class ReportTests : IDisposable
         var r = ReportBuilder.Build([Ev(Now), Ev(Now.AddDays(-1)), Ev(Now.AddDays(-6).Date.AddMinutes(1))], ReportBuilder.Week, Now, Utc);
         Assert.Equal(7, r.Buckets.Count);
         Assert.Equal(new DateTime(2026, 11, 4, 0, 0, 0, DateTimeKind.Utc), r.Buckets[0].StartUtc);
-        Assert.Equal(new[] { 1, 0, 0, 0, 0, 1, 1 }, r.Buckets.Select(b => b.Total).ToArray());
+        Assert.Equal(WeekTotals, r.Buckets.Select(b => b.Total).ToArray());
     }
 
     [Fact]
@@ -153,7 +156,7 @@ public sealed class ReportTests : IDisposable
         File.WriteAllText(log.RotatedPath, older.ToJsonLine() + "\n" + "garbage\n");
         File.WriteAllText(log.Path, newer.ToJsonLine() + "\n{\"time\":\"2026");   // last line still being written
 
-        Assert.Equal(new[] { @"C:\old.exe", @"C:\new.exe" }, TrafficHistory.Read(log, Now.AddDays(-3)).Select(e => e.App).ToArray());
+        Assert.Equal(OldThenNew, TrafficHistory.Read(log, Now.AddDays(-3)).Select(e => e.App).ToArray());
         Assert.Equal(@"C:\new.exe", Assert.Single(TrafficHistory.Read(log, Now.AddHours(-1))).App);
     }
 

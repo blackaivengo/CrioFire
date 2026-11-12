@@ -59,7 +59,7 @@ public class NetRuleTests
     [Fact]
     public void RangesKnowWhatTheyContain()
     {
-        AddressRange.TryParse("10.0.0.0/8", out var net);
+        Assert.True(AddressRange.TryParse("10.0.0.0/8", out var net));
         Assert.True(net!.Contains(IPAddress.Parse("10.200.1.1")));
         Assert.True(net.Contains(IPAddress.Parse("::ffff:10.1.2.3")));
         Assert.False(net.Contains(IPAddress.Parse("11.0.0.0")));

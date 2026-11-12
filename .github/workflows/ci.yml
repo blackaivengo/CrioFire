@@ -25,9 +25,9 @@ jobs:
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -42,7 +42,7 @@ jobs:
         shell: pwsh
         run: ./build/publish.ps1 -Arch ${{ matrix.arch }} -Version "0.0.0-ci.${{ github.run_number }}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: criofire-ci-${{ matrix.arch }}
           path: out/${{ matrix.arch }}
@@ -75,13 +75,13 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: windows-2025
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: criofire-ci-*
           path: out
@@ -99,7 +99,7 @@ jobs:
         shell: pwsh
         run: ./build/test-msi.ps1 -Msi (Get-Item out/msi/criofire-*-x64.msi).FullName
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: criofire-ci-msi

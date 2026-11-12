@@ -59,6 +59,8 @@ public class AlertTrackerTests
 
 public sealed class TemporaryRuleStoreTests : IDisposable
 {
+    private static readonly string[] ExpiredApps = [@"C:\exact.exe", @"C:\old.exe"];
+
     private static readonly DateTime Now = new(2026, 11, 9, 10, 0, 0, DateTimeKind.Utc);
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"criofire-tests-{Guid.NewGuid():N}");
 
@@ -104,7 +106,7 @@ public sealed class TemporaryRuleStoreTests : IDisposable
         store.Add(new TemporaryRule(@"C:\later.exe", "out", Now.AddMinutes(1)));
 
         var expired = store.TakeExpired(Now);
-        Assert.Equal(new[] { @"C:\exact.exe", @"C:\old.exe" }, expired.Select(r => r.App).Order().ToArray());
+        Assert.Equal(ExpiredApps, expired.Select(r => r.App).Order().ToArray());
         Assert.Equal(@"C:\later.exe", Assert.Single(store.All()).App);
         Assert.Empty(store.TakeExpired(Now));
     }
