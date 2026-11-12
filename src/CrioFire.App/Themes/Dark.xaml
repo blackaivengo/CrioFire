@@ -46,6 +46,8 @@
   <SolidColorBrush x:Key="SelectedRowBrush" Color="#1F7DD8FF" />
   <SolidColorBrush x:Key="SegOnBrush" Color="#297DD8FF" />
   <SolidColorBrush x:Key="SegOnTextBrush" Color="#E6EDF7" />
+  <SolidColorBrush x:Key="FieldBorderBrush" Color="#247DAAE6" />
+  <SolidColorBrush x:Key="SegOnBorderBrush" Color="#4D7DD8FF" />
   <SolidColorBrush x:Key="OutlineFireBrush" Color="#73FF4A32" />
   <SolidColorBrush x:Key="PanicBgBrush" Color="#1AFF4A32" />
   <SolidColorBrush x:Key="OutlineIceBrush" Color="#597DD8FF" />

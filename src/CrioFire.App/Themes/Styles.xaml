@@ -190,7 +190,7 @@
               </Border.Effect>
             </Border>
             <Border x:Name="bd" CornerRadius="9" Background="Transparent" Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}"
-                    TextElement.Foreground="{DynamicResource NavTextBrush}">
+                    BorderBrush="Transparent" BorderThickness="1" TextElement.Foreground="{DynamicResource NavTextBrush}">
               <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" />
             </Border>
           </Grid>
@@ -201,6 +201,7 @@
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="bd" Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}" />
               <Setter TargetName="bd" Property="TextElement.Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+              <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource SegOnBorderBrush}" />
               <Setter TargetName="glow" Property="Opacity" Value="0.55" />
             </Trigger>
           </ControlTemplate.Triggers>
@@ -336,7 +337,7 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TextBox">
-          <Border x:Name="bd" CornerRadius="9" Background="{DynamicResource InsetBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="{TemplateBinding Padding}">
+          <Border x:Name="bd" CornerRadius="9" Background="{DynamicResource InsetBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" BorderThickness="1" Padding="{TemplateBinding Padding}">
             <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
           </Border>
           <ControlTemplate.Triggers>
@@ -503,7 +504,7 @@
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsHighlighted" Value="True">
-              <Setter TargetName="bd" Property="Background" Value="{DynamicResource SegOnBrush}" />
+              <Setter TargetName="bd" Property="Background" Value="{DynamicResource SelectedRowBrush}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter TargetName="bd" Property="Opacity" Value="0.4" />

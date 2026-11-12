@@ -555,6 +555,8 @@ public partial class MainWindow : Window
         ThemeButton.ToolTip = dark ? "Switch to light mode" : "Switch to dark mode";
         SunSpot.SetResourceReference(Border.BackgroundProperty, dark ? "TransparentBrush" : "SegOnBrush");
         MoonSpot.SetResourceReference(Border.BackgroundProperty, dark ? "SegOnBrush" : "TransparentBrush");
+        SunSpot.SetResourceReference(Border.BorderBrushProperty, dark ? "TransparentBrush" : "SegOnBorderBrush");
+        MoonSpot.SetResourceReference(Border.BorderBrushProperty, dark ? "SegOnBorderBrush" : "TransparentBrush");
         SunIcon.Stroke = dark ? (Brush)FindResource("NavTextBrush") : new SolidColorBrush(Color.FromRgb(0xE0, 0x8A, 0x00));
         MoonIcon.Stroke = dark ? (Brush)FindResource("IceTextBrush") : (Brush)FindResource("NavTextBrush");
     }

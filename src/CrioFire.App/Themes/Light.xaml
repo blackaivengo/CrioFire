@@ -17,7 +17,8 @@
   <SolidColorBrush x:Key="CardBorderBrush" Color="#D9FFFFFF" />
   <SolidColorBrush x:Key="CardSolidBrush" Color="#F7FFFFFF" />
   <SolidColorBrush x:Key="InsetBrush" Color="#A6FFFFFF" />
-  <SolidColorBrush x:Key="SegBrush" Color="#99FFFFFF" />
+  <!-- A tinted track, so the white "on" segment stands out on white cards and dialogs. -->
+  <SolidColorBrush x:Key="SegBrush" Color="#1C1E3C64" />
 
   <SolidColorBrush x:Key="TextBrush" Color="#0E1A2B" />
   <SolidColorBrush x:Key="Text2Brush" Color="#4D5F78" />
@@ -46,6 +47,9 @@
   <SolidColorBrush x:Key="SelectedRowBrush" Color="#293CB4F0" />
   <SolidColorBrush x:Key="SegOnBrush" Color="#FFFFFF" />
   <SolidColorBrush x:Key="SegOnTextBrush" Color="#0E1A2B" />
+  <!-- Text fields get a visible edge; a white border would vanish on white dialogs. -->
+  <SolidColorBrush x:Key="FieldBorderBrush" Color="#381E3C64" />
+  <SolidColorBrush x:Key="SegOnBorderBrush" Color="#4D1E3C64" />
   <SolidColorBrush x:Key="OutlineFireBrush" Color="#73E5341F" />
   <SolidColorBrush x:Key="PanicBgBrush" Color="#14E5341F" />
   <SolidColorBrush x:Key="OutlineIceBrush" Color="#4D0874B3" />
