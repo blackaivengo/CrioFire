@@ -531,6 +531,15 @@ internal sealed class AppModel
     /// <summary>Ends panic: rules and mode apply again.</summary>
     public void Resume() => SetPanic("off");
 
+    /// <summary>Allow everything (rules paused) or block all traffic; never removes rules.</summary>
+    public void Panic(string action)
+    {
+        if (action is "allow" or "block")
+        {
+            SetPanic(action);
+        }
+    }
+
     private void SetPanic(string action)
     {
         if (Call(new ApiRequest { Op = ApiOps.Panic, Action = action }) is not { } result)

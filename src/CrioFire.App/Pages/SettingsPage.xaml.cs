@@ -40,6 +40,20 @@ public partial class SettingsPage : UserControl, IPage
             $"Other business use needs a CrioSoft commercial license (see LICENSING.md).\n" +
             $"App {app} · Service {service}\n" +
             $"Blocked-connection log: {TrafficLog.DefaultPath}";
+
+        // The same panic choices as the sidebar, without "remove all rules": nothing here deletes a rule.
+        var panic = _model.PanicMode;
+        var online = _model.Status is not null;
+        PanicState.Text = !online ? "The CrioFire service is not running, so panic is not available here. Use the command line from an administrator prompt."
+            : panic switch
+            {
+                "allow" => "Panic is on: everything is allowed and your rules are paused.",
+                "block" => "Panic is on: all network traffic is blocked. Your rules are kept.",
+                _ => "Panic is off. Your rules apply.",
+            };
+        ResumeButton.Visibility = online && panic != "off" ? Visibility.Visible : Visibility.Collapsed;
+        AllowAllButton.Visibility = online && panic != "allow" ? Visibility.Visible : Visibility.Collapsed;
+        BlockAllButton.Visibility = online && panic != "block" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnTheme(object sender, RoutedEventArgs e)
@@ -67,11 +81,33 @@ public partial class SettingsPage : UserControl, IPage
         Prefs.Save();
     }
 
-    private void OnPanic(object sender, RoutedEventArgs e)
+    private void OnResume(object sender, RoutedEventArgs e) => _model.Resume();
+
+    private void OnAllowAll(object sender, RoutedEventArgs e) => AskThenPanic(
+        "allow",
+        "Allow everything?",
+        "Every program may connect, in and out, until you resume. Your rules, mode and automatic rules are paused, not deleted.",
+        "Allow everything",
+        danger: false);
+
+    private void OnBlockAll(object sender, RoutedEventArgs e) => AskThenPanic(
+        "block",
+        "Block all network traffic?",
+        "Like pulling the network cable: no new connection in or out until you resume. Programs on this PC can still talk to each other. Your rules are kept.",
+        "Block everything",
+        danger: true);
+
+    /// <summary>One click on a settings page is easy to make by accident, so panic is confirmed here.</summary>
+    private void AskThenPanic(string action, string title, string message, string yes, bool danger)
     {
-        if (Window.GetWindow(this) is { } owner)
+        if (Window.GetWindow(this) is not { } owner)
         {
-            _model.ShowPanic(owner);
+            return;
+        }
+
+        if (ChoiceDialog.Ask(owner, title, message, [yes, "Cancel"], defaultIndex: 1, danger: danger) == 0)
+        {
+            _model.Panic(action);
         }
     }
 }

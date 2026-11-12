@@ -39,8 +39,13 @@
       <StackPanel>
         <TextBlock Text="Recovery" Style="{StaticResource H2}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,16" FontSize="14" LineHeight="21" TextWrapping="Wrap"
-                   Text="Something can't connect, or something is connecting that shouldn't? Panic can allow everything with your rules paused, or block all network traffic. Both keep every rule, and Resume brings them back. Removing all rules is there too, as a last resort. From an administrator prompt: 'criofire panic', 'criofire panic block', 'criofire resume' (they work even when the service is stopped)." />
-        <Button Content="Panic..." Style="{StaticResource OutlineFireButton}" HorizontalAlignment="Left" Click="OnPanic" />
+                   Text="Something can't connect, or something is connecting that shouldn't? Allow everything with your rules paused, or block all network traffic. Neither deletes a rule, and Resume brings them back. From an administrator prompt: 'criofire panic', 'criofire panic block', 'criofire resume' (they work even when the service is stopped)." />
+        <TextBlock x:Name="PanicState" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" TextWrapping="Wrap" />
+        <WrapPanel>
+          <Button x:Name="ResumeButton" Content="Resume my rules" Style="{StaticResource IceButton}" Margin="0,0,10,8" Click="OnResume" />
+          <Button x:Name="AllowAllButton" Content="Allow everything, pause my rules" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,8" Click="OnAllowAll" />
+          <Button x:Name="BlockAllButton" Content="Block all network traffic" Style="{StaticResource OutlineFireButton}" Margin="0,0,10,8" Click="OnBlockAll" />
+        </WrapPanel>
       </StackPanel>
     </ContentControl>
 
