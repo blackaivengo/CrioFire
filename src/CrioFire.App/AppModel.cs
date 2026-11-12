@@ -255,19 +255,39 @@ internal sealed class AppModel
         return ok;
     }
 
-    public bool RefreshCore()
+    public bool RefreshCore() => ApplyCore(ReadCore());
+
+    /// <summary>
+    /// The same as <see cref="RefreshCore"/>, but the service calls run off the UI thread, so the
+    /// window keeps responding (and can show progress) while the service answers.
+    /// </summary>
+    public async Task<bool> RefreshCoreAsync() => ApplyCore(await Task.Run(ReadCore));
+
+    private sealed record CoreState(StatusInfo? Status, ApiResponse? List, string? Error);
+
+    private static CoreState ReadCore()
     {
         var status = Service.Call(new ApiRequest { Op = ApiOps.Status }, out var error);
-        Status = status?.Status;
+        ApiResponse? list = null;
         if (status is not null)
         {
-            var list = Service.Call(new ApiRequest { Op = ApiOps.List }, out error);
-            Rules = list?.Rules ?? [];
-            AutoRules = list?.AutoRules ?? [];
+            list = Service.Call(new ApiRequest { Op = ApiOps.List }, out error);
         }
 
-        Error = error;
-        return status is not null;
+        return new CoreState(status?.Status, list, error);
+    }
+
+    private bool ApplyCore(CoreState state)
+    {
+        Status = state.Status;
+        if (state.Status is not null)
+        {
+            Rules = state.List?.Rules ?? [];
+            AutoRules = state.List?.AutoRules ?? [];
+        }
+
+        Error = state.Error;
+        return state.Status is not null;
     }
 
     public ApiResponse? Call(ApiRequest request)

@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _messageTimer = new() { Interval = TimeSpan.FromSeconds(6) };
     private IPage? _current;
     private bool _toldVersion;
+    private bool _polling;
     private int _navigation;          // bumped on every page switch, so a slow load cannot show a page you left
     private bool _refreshing;
     private bool _refreshAgain;
@@ -76,7 +77,7 @@ public partial class MainWindow : Window
         };
         UpdateThemeButton();
 
-        _poll.Tick += (_, _) => Poll();
+        _poll.Tick += async (_, _) => await PollAsync();
         _pageTimer.Tick += (_, _) => _ = ReloadAsync(busy: false);
         _messageTimer.Tick += (_, _) =>
         {
@@ -222,7 +223,7 @@ public partial class MainWindow : Window
         // starts. Most of the wait is on this thread (filling the lists and laying them out), and a
         // delayed indicator could never appear while that runs.
         using var busy = Busy($"Opening {PageName(name)}…", immediately: true);
-        await Dispatcher.Yield(DispatcherPriority.Background);
+        await FrameShownAsync();
         if (version != _navigation)
         {
             return;
@@ -269,6 +270,39 @@ public partial class MainWindow : Window
     }
 
     private static readonly TimeSpan MinimumBusy = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// Waits until WPF has drawn a frame with the indicator in it, so it is on screen before this
+    /// thread gets busy. Yielding to the dispatcher alone did not always get it drawn in time.
+    /// </summary>
+    private async Task FrameShownAsync()
+    {
+        if (!IsVisible)
+        {
+            await Dispatcher.Yield(DispatcherPriority.Background);
+            return;
+        }
+
+        var frames = 0;
+        var drawn = new TaskCompletionSource();
+        void OnRendering(object? sender, EventArgs e)
+        {
+            if (++frames >= 2)
+            {
+                drawn.TrySetResult();
+            }
+        }
+
+        CompositionTarget.Rendering += OnRendering;
+        try
+        {
+            await Task.WhenAny(drawn.Task, Task.Delay(150));   // never wait long for a frame
+        }
+        finally
+        {
+            CompositionTarget.Rendering -= OnRendering;
+        }
+    }
 
     private static string PageName(string name) => name switch
     {
@@ -418,12 +452,35 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Every 2 seconds: service status, rules, and in Ask mode new programs to ask about.</summary>
-    private void Poll()
+    /// <summary>
+    /// Every 2 seconds: the service's state and, in Ask mode, new blocked programs. The calls run
+    /// off the UI thread; a slow service used to freeze the window here, so a click on another
+    /// page waited with nothing on screen.
+    /// </summary>
+    private async Task PollAsync()
+    {
+        if (_polling)
+        {
+            return;
+        }
+
+        _polling = true;
+        try
+        {
+            await PollOnceAsync();
+        }
+        finally
+        {
+            _polling = false;
+        }
+    }
+
+    private async Task PollOnceAsync()
     {
         var wasOnline = _model.Status is not null;
         var previousMode = _model.Mode;
         var previousPanic = _model.PanicMode;
-        _model.RefreshCore();
+        await _model.RefreshCoreAsync();
         UpdateService();
         if (wasOnline != (_model.Status is not null) || previousMode != _model.Mode || previousPanic != _model.PanicMode)
         {
@@ -435,7 +492,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var events = Service.Call(new ApiRequest { Op = ApiOps.Events, Minutes = 1 }, out _)?.Events;
+        var events = (await Task.Run(() => Service.Call(new ApiRequest { Op = ApiOps.Events, Minutes = 1 }, out _)))?.Events;
         if (events is null)
         {
             return;
