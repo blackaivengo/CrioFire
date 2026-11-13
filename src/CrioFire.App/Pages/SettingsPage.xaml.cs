@@ -31,7 +31,7 @@ public partial class SettingsPage : UserControl, IPage
 
     public async Task LoadAsync()
     {
-        (_backups, _license, _management, _networks) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management(), ConnectedNetworks.Current()));
+        (_backups, _license, _management, _networks) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management(), NetworkList.Current()));
     }
 
     public void Refresh()
@@ -53,7 +53,7 @@ public partial class SettingsPage : UserControl, IPage
             ManagedText(_management ?? AppModel.Management());
         _management = null;
 
-        var networks = _networks ?? ConnectedNetworks.Current();
+        var networks = _networks ?? NetworkList.Current();
         _networks = null;
         NetworksText.Text = networks.Count == 0
             ? "Windows does not report a network right now."

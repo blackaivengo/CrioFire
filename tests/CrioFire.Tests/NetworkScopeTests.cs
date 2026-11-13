@@ -42,9 +42,14 @@ public class NetworkScopeTests
     [Fact]
     public void ProfileIdsAreWhatTheFilteringPlatformUses()
     {
-        // FWPM_CONDITION_CURRENT_PROFILE_ID: public 1, private 2, domain 3.
-        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Public).SequenceEqual([1u]));
-        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Domain | NetworkProfiles.Private).SequenceEqual([3u, 2u]));
+        // FWPM_CONDITION_CURRENT_PROFILE_ID uses Windows' network categories: public 0, private 1, domain 2
+        // (Windows Firewall's own "PrivateNetwork" filters match 1); the same numbers the Network List Manager reports.
+        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Public).SequenceEqual([0u]));
+        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Domain | NetworkProfiles.Private).SequenceEqual([2u, 1u]));
+        foreach (var category in new[] { 0, 1, 2 })
+        {
+            Assert.True(NetworkScope.ProfileIds(ConnectedNetworks.FromCategory(category)).SequenceEqual([(uint)category]));
+        }
         Assert.Empty(NetworkScope.ProfileIds(NetworkProfiles.Any));
         Assert.Empty(NetworkScope.ProfileIds(NetworkScope.All));
     }
