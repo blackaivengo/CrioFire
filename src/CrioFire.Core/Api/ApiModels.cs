@@ -33,6 +33,7 @@ public static class ApiOps
     public const string SetProtection = "setProtection";
     public const string License = "license";
     public const string SetLicense = "setLicense";
+    public const string Management = "management";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
@@ -170,6 +171,9 @@ public sealed record ApiResponse
 
     /// <summary>importRules, restoreBackup: what was (or, with dryRun, would be) done.</summary>
     public ImportPlan? Plan { get; init; }
+
+    /// <summary>management: the CrioFire Server this PC reports to, or null when it is not managed.</summary>
+    public global::CrioFire.Core.Management.ManagementInfo? Management { get; init; }
 
     /// <summary>license, setLicense: the license on this PC.</summary>
     public LicenseStatus? License { get; init; }

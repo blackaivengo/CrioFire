@@ -31,6 +31,9 @@ public enum CommandKind
     Request,
     Protection,
     License,
+    Enroll,
+    Unenroll,
+    Server,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -68,7 +71,10 @@ public sealed record Command(
     string? FilePath = null,
     bool Replace = false,
     bool DryRun = false,
-    bool WithMode = false);
+    bool WithMode = false,
+    string? Server = null,
+    string? Token = null,
+    string? Fingerprint = null);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -134,6 +140,11 @@ internal static class CommandLine
                                                change, and before every import or "remove all")
           criofire restore <backup> [--dry-run]
                                                Put the rules back exactly as in a backup
+          criofire enroll <server> <code> [--fingerprint <sha256>]
+                                               Let the company's CrioFire Server manage this PC (the
+                                               command to copy is shown when the admin creates a code)
+          criofire unenroll                    Stop reporting to the CrioFire Server (rules stay)
+          criofire server                      Show the CrioFire Server this PC reports to
           criofire license [<key>|--remove]    Show the license, enter a business license key, or go back
                                                to free use (personal use, non-profits, schools,
                                                government, businesses with up to 3 computers)
@@ -281,6 +292,23 @@ internal static class CommandLine
             case "import":
             case "restore":
                 return ParseImport(verb, rest, out error);
+            case "enroll":
+                if (rest.Length == 2 || (rest.Length == 4 && rest[2].Equals("--fingerprint", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new Command(CommandKind.Enroll, Server: rest[0], Token: rest[1], Fingerprint: rest.Length == 4 ? rest[3] : null);
+                }
+
+                error = "Usage: criofire enroll <server> <code> [--fingerprint <sha256>]";
+                return new Command(CommandKind.Help);
+            case "unenroll":
+            case "server":
+                if (rest.Length != 0)
+                {
+                    error = $"'{verb}' takes no arguments.";
+                    return new Command(CommandKind.Help);
+                }
+
+                return new Command(verb == "server" ? CommandKind.Server : CommandKind.Unenroll);
             case "license":
                 if (rest.Length == 0)
                 {

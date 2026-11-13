@@ -602,6 +602,10 @@ internal sealed class AppModel
         SetPanic(action);
     }
 
+    /// <summary>The company CrioFire Server this PC reports to, or null.</summary>
+    public static CrioFire.Core.Management.ManagementInfo? Management() =>
+        Service.Call(new ApiRequest { Op = ApiOps.Management }, out _)?.Management;
+
     /// <summary>The license on this PC, or null when the service cannot answer.</summary>
     public static LicenseStatus? License() => Service.Call(new ApiRequest { Op = ApiOps.License }, out _)?.License;
 

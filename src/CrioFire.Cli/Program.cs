@@ -57,6 +57,18 @@ try
         return SetMode(setupApi, command with { Kind = CommandKind.ModeSet, Yes = true });
     }
 
+    // Joining or leaving a CrioFire Server writes this PC's secret for it: administrators only.
+    if (command.Kind is CommandKind.Enroll or CommandKind.Unenroll)
+    {
+        if (!Backend.IsElevated())
+        {
+            Console.Error.WriteLine($"'{(command.Kind == CommandKind.Enroll ? "enroll" : "unenroll")}' needs an administrator prompt.");
+            return 5;
+        }
+
+        return command.Kind == CommandKind.Enroll ? Enroll(command) : Unenroll();
+    }
+
     // Everything else goes through the API: in-process when elevated (works even if the service
     // is stopped, e.g. for recovery), otherwise through the criofire service.
     using var api = Backend.Connect();
@@ -159,6 +171,25 @@ static int Run(Backend api, Command command)
                 var remote = g.Port > 0 ? $"{g.Remote}:{g.Port}" : g.Remote ?? "?";
                 var who = g.Service is null ? g.App ?? "?" : $"{g.App} (service: {g.Service})";
                 Console.WriteLine($"{g.LastUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} {g.Count,6} {g.Direction ?? "?",-4} {g.Protocol ?? "?",-6} {remote,-40} {AllowReasons.Label(g.Reason, g.Direction),-34} {who}");
+            }
+
+            return 0;
+        }
+
+        case CommandKind.Server:
+        {
+            var info = api.Call(new ApiRequest { Op = ApiOps.Management }).Management;
+            if (info is null)
+            {
+                Console.WriteLine("This PC is not managed by a CrioFire Server. Join one with: criofire enroll <server> <code>");
+                return 0;
+            }
+
+            Console.WriteLine($"Managed by {info.Url} as {info.DeviceId} since {info.EnrolledUtc.ToLocalTime():g}.");
+            Console.WriteLine(info.LastCheckinUtc is { } last ? $"Last check-in: {last.ToLocalTime():g}" : "Not checked in yet.");
+            if (info.LastError is { } error)
+            {
+                Console.WriteLine($"Last problem: {error}");
             }
 
             return 0;
@@ -409,6 +440,61 @@ static int Run(Backend api, Command command)
     }
 }
 
+static int Enroll(Command command)
+{
+    var url = CrioFire.Core.Management.ManagementClient.NormalizeUrl(command.Server!);
+    using var client = new CrioFire.Core.Management.ManagementClient(url, command.Fingerprint);
+    CrioFire.Core.Management.EnrollResponse enrolled;
+    try
+    {
+        enrolled = client.EnrollAsync(new CrioFire.Core.Management.EnrollRequest(
+            command.Token!, Environment.MachineName, Environment.OSVersion.VersionString,
+            Assembly.GetExecutingAssembly().GetName().Version?.ToString())).GetAwaiter().GetResult();
+    }
+    catch (HttpRequestException ex) when (ex.InnerException is System.Security.Authentication.AuthenticationException)
+    {
+        Console.Error.WriteLine(command.Fingerprint is null
+            ? $"The server's certificate is not trusted by this PC. Add --fingerprint (shown by 'criofire-server token' on the server)."
+            : "The server's certificate does not match the fingerprint. Check the address and the fingerprint.");
+        return 1;
+    }
+    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+    {
+        Console.Error.WriteLine($"Could not enroll with {url}: {ex.Message}");
+        return 1;
+    }
+
+    new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath).Save(
+        new CrioFire.Core.Management.ServerLink(url, enrolled.DeviceId, enrolled.Secret, command.Fingerprint, DateTime.UtcNow));
+
+    // In Ask and Allow-list mode, write the built-in permit that lets CrioFire's service reach the server.
+    using (var engine = WfpEngine.Open())
+    {
+        if (engine.IsInstalled() && engine.GetMode() is var mode && mode != FirewallMode.Learning)
+        {
+            engine.SetMode(mode);
+        }
+    }
+
+    Console.WriteLine($"This PC is now managed by the CrioFire Server {enrolled.ServerName} ({url}) as {enrolled.DeviceId}.");
+    Console.WriteLine("It sends a small state report every few minutes; connections only when an administrator asks. Leave with: criofire unenroll");
+    return 0;
+}
+
+static int Unenroll()
+{
+    var store = new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath);
+    if (store.Load() is null)
+    {
+        Console.WriteLine("This PC is not managed by a CrioFire Server.");
+        return 0;
+    }
+
+    store.Delete();
+    Console.WriteLine("This PC no longer reports to the CrioFire Server. Its rules stay as they are.");
+    return 0;
+}
+
 static void RemoveDataFolder()
 {
     var folder = Path.GetDirectoryName(TrafficLog.DefaultPath)!;
@@ -485,7 +571,8 @@ internal sealed class Backend : IDisposable
             new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()),
             new RuleBackupStore(RuleBackupStore.DefaultFolder),
             new TamperProtection(TamperProtection.DefaultPath),
-            new LicenseStore(LicenseStore.DefaultPath));
+            new LicenseStore(LicenseStore.DefaultPath),
+            new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath));
         Description = "direct, administrator";
     }
 
@@ -525,7 +612,7 @@ internal sealed class Backend : IDisposable
         _client?.Dispose();
     }
 
-    private static bool IsElevated()
+    internal static bool IsElevated()
     {
         if (!OperatingSystem.IsWindows())
         {

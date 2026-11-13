@@ -12,6 +12,12 @@ public static class KnownApps
     /// <summary>The app ID WFP gives kernel-mode traffic (SMB, NetBIOS, ICMP replies...). Also PID 4.</summary>
     public const string Kernel = "System";
 
+    /// <summary>CrioFire's own service, which may always connect (to a company's CrioFire Server).</summary>
+    public const string CrioFireService = "criofire-svc.exe";
+
+    /// <summary>The name of the built-in permit for <see cref="CrioFireService"/>.</summary>
+    public const string CrioFireServiceRule = "criofire";
+
     public static bool IsKernel(string? app) => string.Equals(app?.Trim(), Kernel, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>

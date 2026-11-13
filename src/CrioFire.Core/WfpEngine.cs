@@ -944,6 +944,17 @@ public sealed unsafe class WfpEngine : IDisposable
             }
         }
 
+        // CrioFire's own service may reach the company's CrioFire Server, whatever the mode.
+        var service = Path.Combine(AppContext.BaseDirectory, KnownApps.CrioFireService);
+        if (File.Exists(service))
+        {
+            using var serviceId = AppId.FromFile(service);
+            foreach (var layer in layers)
+            {
+                AddAppIdFilter(layer, serviceId, "CrioFire: allow CrioFire's own service", FilterDescriptions.BuiltInAllow(KnownApps.CrioFireServiceRule), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
+            }
+        }
+
         if (policy.IsEnabled(AutoRulePolicy.WindowsKernel))
         {
             using var systemId = AppId.ForKernel();

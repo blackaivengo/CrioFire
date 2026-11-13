@@ -26,10 +26,11 @@ public partial class SettingsPage : UserControl, IPage
 
     private IReadOnlyList<BackupInfo>? _backups;
     private LicenseStatus? _license;
+    private CrioFire.Core.Management.ManagementInfo? _management;
 
     public async Task LoadAsync()
     {
-        (_backups, _license) = await Task.Run(() => (AppModel.Backups(), AppModel.License()));
+        (_backups, _license, _management) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management()));
     }
 
     public void Refresh()
@@ -47,7 +48,9 @@ public partial class SettingsPage : UserControl, IPage
             $"Free for personal use, non-profits, schools, government, and businesses on up to 3 computers. " +
             $"Other business use needs a CrioSoft commercial license (see LICENSING.md).\n" +
             $"App {app} · Service {service}\n" +
-            $"Blocked-connection log: {TrafficLog.DefaultPath}";
+            $"Blocked-connection log: {TrafficLog.DefaultPath}" +
+            ManagedText(_management ?? AppModel.Management());
+        _management = null;
 
         ShowLicense(_license ?? AppModel.License());
         _license = null;
@@ -147,6 +150,12 @@ public partial class SettingsPage : UserControl, IPage
             _model.RestoreBackup(backup.Name);
         }
     }
+
+    private static string ManagedText(CrioFire.Core.Management.ManagementInfo? info) => info is null
+        ? string.Empty
+        : $"\nManaged by the CrioFire Server {info.Url}"
+            + (info.LastCheckinUtc is { } last ? $", last check-in {last.ToLocalTime():g}" : ", not checked in yet")
+            + (info.LastError is { } error ? $". Last problem: {error}" : ".");
 
     private void ShowLicense(LicenseStatus? status)
     {

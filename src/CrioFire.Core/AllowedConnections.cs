@@ -109,12 +109,18 @@ public static class AllowReasons
         FilterKind.ServiceRule when f.Service is { Action: RuleAction.Allow } s && (ignoreMatch || HasService(c.Service, s.ServiceName)) => 11,
         FilterKind.NetRule when f.Net is { Action: RuleAction.Allow } n && (ignoreMatch || Matches(n, c)) => n.Weight,
         FilterKind.Panic when f.Panic == PanicState.AllowAll => int.MaxValue,   // matches everything, above every rule
-        FilterKind.BuiltInAllow when ignoreMatch
-            || (string.Equals(f.BuiltIn, AutoRulePolicy.WindowsKernel, StringComparison.OrdinalIgnoreCase) ? KnownApps.IsKernel(c.AppPath) : KnownApps.IsServiceHost(c.AppPath)) => 5,
+        FilterKind.BuiltInAllow when ignoreMatch || BuiltInCovers(f.BuiltIn, c.AppPath) => 5,
         _ => -1,
     };
 
     private static bool SameApp(string? a, string? b) => KnownApps.SameApp(a, b);
+
+    private static bool BuiltInCovers(string? builtIn, string? app) => builtIn?.ToLowerInvariant() switch
+    {
+        AutoRulePolicy.WindowsKernel => KnownApps.IsKernel(app),
+        KnownApps.CrioFireServiceRule => app?.EndsWith(@"" + KnownApps.CrioFireService, StringComparison.OrdinalIgnoreCase) == true,
+        _ => KnownApps.IsServiceHost(app),
+    };
 
     private static bool HasService(string? services, string name) =>
         services is not null && services.Split(',', StringSplitOptions.TrimEntries).Contains(name, StringComparer.OrdinalIgnoreCase);

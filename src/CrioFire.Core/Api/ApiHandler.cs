@@ -12,7 +12,8 @@ namespace CrioFire.Core.Api;
 /// <param name="backups">Where rule backups are kept (automatic, and before imports and "remove all"); null in tests.</param>
 /// <param name="protection">Tamper protection; null means off (tests).</param>
 /// <param name="license">The license key entered on this PC; null in tests.</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null)
+/// <param name="serverLink">The link to a company's CrioFire Server, when this PC is managed; null in tests.</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -87,6 +88,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.SetProtection => SetProtection(request),
                     ApiOps.License => new ApiResponse { Ok = true, License = LicenseKeys.Check(license?.Key, DateTime.UtcNow, _licenseKey.Value) },
                     ApiOps.SetLicense => SetLicense(request),
+                    ApiOps.Management => new ApiResponse { Ok = true, Management = serverLink?.Load() is { } link ? global::CrioFire.Core.Management.ManagementInfo.From(link) : null },
                     ApiOps.Backups => new ApiResponse { Ok = true, Backups = backups?.List().ToList() ?? [] },
                     ApiOps.RestoreBackup => Import(
                         (backups ?? throw new InvalidOperationException("Backups need the criofire service.")).Load(Required(request.Name, "name")),

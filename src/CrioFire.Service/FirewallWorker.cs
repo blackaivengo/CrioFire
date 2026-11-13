@@ -1,4 +1,5 @@
 using CrioFire.Core;
+using CrioFire.Core.Management;
 
 namespace CrioFire.Service;
 
@@ -59,6 +60,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var recentAllowed = new RecentEvents(Overlap);
             var allowedWorks = true;
             var temporaryRules = new TemporaryRuleStore(TemporaryRuleStore.DefaultPath);
+            using var licenseKey = LicenseKeys.ProductPublicKey();
             var identities = new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures());
             var nextIdentityCheck = DateTime.UtcNow;
             var nextPackageCheck = DateTime.UtcNow;
@@ -66,6 +68,10 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var backups = new RuleBackupStore(RuleBackupStore.DefaultFolder);
             var nextBackup = DateTime.UtcNow + TimeSpan.FromMinutes(1);
             string? lastBackup = null;
+            var links = new ServerLinkStore(ServerLinkStore.DefaultPath);
+            var nextCheckin = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            var checkinEvery = ServerDefaults.CheckinInterval(ServerDefaults.CheckinSeconds);
+            Task<TimeSpan?>? checkin = null;
 
             using var timer = new PeriodicTimer(PollInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -81,6 +87,29 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     {
                         log.Append(blocked);
                         LogBlocked(logger, blocked.Count);
+                    }
+
+                    // Managed PCs send the company's CrioFire Server a small state report every few
+                    // minutes (the server sets how often). Connections go only when an administrator
+                    // asks for them. The check-in runs beside this loop, so a slow or unreachable
+                    // server never delays the firewall's work.
+                    if (checkin is { IsCompletedSuccessfully: true } done && done.Result is { } every)
+                    {
+                        checkinEvery = every;
+                    }
+
+                    if (now >= nextCheckin && checkin is null or { IsCompleted: true })
+                    {
+                        nextCheckin = now + checkinEvery;
+                        checkin = null;
+                        if (links.Load() is { } link)
+                        {
+                            var report = CheckinReports.Build(engine, identities.Store.Changed().Count,
+                                new TamperProtection(TamperProtection.DefaultPath).RequireAdmin,
+                                LicenseKeys.Check(new LicenseStore(LicenseStore.DefaultPath).Key, now, licenseKey).State,
+                                link.PolicyVersion);
+                            checkin = CheckinAsync(links, link, report, log, allowedLog, stoppingToken);
+                        }
                     }
 
                     if (allowedWorks)
@@ -158,6 +187,48 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
         }
     }
 
+    /// <summary>
+    /// One check-in with the CrioFire Server, and the connections when an administrator asked for
+    /// them. The result is kept in server.json for the app and the command line. Returns the
+    /// interval the server wants until the next check-in, or null after a failure.
+    /// </summary>
+    private async Task<TimeSpan?> CheckinAsync(ServerLinkStore links, ServerLink link, CheckinReport report, TrafficLog blockedLog, TrafficLog allowedLog, CancellationToken stoppingToken)
+    {
+        try
+        {
+            using var client = new ManagementClient(link.Url, link.Fingerprint);
+            var answer = await client.CheckinAsync(link, report, stoppingToken).ConfigureAwait(false);
+            if (answer.Activity is { } asked)
+            {
+                var upload = CheckinReports.Activity(asked, blockedLog, allowedLog, DateTime.UtcNow);
+                await client.UploadActivityAsync(link, upload, stoppingToken).ConfigureAwait(false);
+                LogActivitySent(logger, upload.Page.Items.Count, link.Url);
+            }
+
+            SaveIfStillEnrolled(links, link with { LastCheckinUtc = DateTime.UtcNow, LastError = null });
+            return ServerDefaults.CheckinInterval(answer.NextCheckinSeconds);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            if (!stoppingToken.IsCancellationRequested)
+            {
+                SaveIfStillEnrolled(links, link with { LastError = ex.Message });
+                LogCheckinFailed(logger, link.Url, ex.Message);
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>Records a check-in result, unless the PC was unenrolled or enrolled elsewhere meanwhile.</summary>
+    private static void SaveIfStillEnrolled(ServerLinkStore links, ServerLink link)
+    {
+        if (links.Load()?.DeviceId == link.DeviceId)
+        {
+            links.Save(link);
+        }
+    }
+
     /// <summary>For svchost.exe connections: finds which service owns the socket, when it is still open.</summary>
     private static IReadOnlyList<AllowedConnection> NameServices(IReadOnlyList<AllowedConnection> allowed, IReadOnlyList<CrioFireFilter> filters)
     {
@@ -204,6 +275,12 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} expired temporary rules.")]
     private static partial void LogExpired(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Sent {Rows} rows of connections to the CrioFire Server {Url}, as an administrator asked.")]
+    private static partial void LogActivitySent(ILogger logger, int rows, string url);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not check in with the CrioFire Server {Url}: {Error}")]
+    private static partial void LogCheckinFailed(ILogger logger, string url, string error);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Saved a backup of the rules: {Name}.")]
     private static partial void LogBackedUp(ILogger logger, string name);

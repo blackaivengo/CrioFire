@@ -16,6 +16,7 @@ a yearly license per computer (see [LICENSING.md](LICENSING.md)).
 | `src/CrioFire.Core` | `CrioFire.Core.dll` | WFP bindings and the rule model: provider, sublayer, per-app filters |
 | `src/CrioFire.Cli` | `criofire.exe` | Command line for scripting and recovery |
 | `src/CrioFire.Service` | `criofire-svc.exe` | Windows service (service name `criofire`), runs as LocalSystem |
+| `src/CrioFire.Server` | `criofire-server.exe` | The company's own CrioFire Server: PCs enroll and report to it (see [docs/SERVER.md](docs/SERVER.md)) |
 | `src/CrioFire.App` | `criofire-ui.exe` | WPF desktop app: alerts, rules, blocked and live connections, mode |
 | `tests/CrioFire.Tests` | | Unit tests, including struct-layout checks for the WFP and IP Helper bindings |
 | `tests/CrioFire.IntegrationTests` | | Tests against the real filtering engine (admin, `CRIOFIRE_INTEGRATION=1`) |
@@ -62,6 +63,7 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe export my-rules.json                       # save every rule to a file
 .\criofire.exe import my-rules.json --dry-run             # what an import would change (--replace removes others)
 .\criofire.exe backups                                   # automatic backups; "restore <name>" puts one back
+.\criofire.exe enroll fw01:7443 <code> --fingerprint <fp>   # let the company's CrioFire Server manage this PC
 .\criofire.exe license <key>                              # enter a business license key (free use needs none)
 .\criofire.exe protection on                             # tamper protection: rule changes need administrator approval
 .\criofire.exe changed                                   # allowed programs whose file changed since you allowed them

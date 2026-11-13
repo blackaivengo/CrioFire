@@ -22,7 +22,8 @@ internal sealed partial class ApiService(ILogger<ApiService> logger) : Backgroun
                 new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()),
                 new RuleBackupStore(RuleBackupStore.DefaultFolder),
                 new TamperProtection(TamperProtection.DefaultPath),
-                new LicenseStore(LicenseStore.DefaultPath)));
+                new LicenseStore(LicenseStore.DefaultPath),
+                new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath)));
             LogListening(logger, ApiServer.DefaultPipeName);
             await server.RunAsync(stoppingToken).ConfigureAwait(false);
         }
