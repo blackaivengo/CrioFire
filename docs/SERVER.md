@@ -61,7 +61,8 @@ created in the browser on the server itself (from any other PC the console only 
   it, or remove the PCs from the server. Click a PC for its details, to change its policy, or to ask
   it for what it blocked and allowed.
 - **Policies**: create and edit policies (mode, whether users may add rules, tamper protection, the
-  automatic Windows rules, and program, port/address and service rules), add rules from a file made
+  automatic Windows rules, and program, port/address, service and domain rules, each optionally for
+  some kinds of network only), add rules from a file made
   with `criofire export`, apply a policy to all, some or one PC, and choose the one new PCs get.
 - **Add computers**: make an enrollment code and copy the command to run on each PC.
 - **License**: enter the organization's license key and see how many seats are used.

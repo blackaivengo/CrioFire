@@ -33,8 +33,11 @@ public sealed record RuleSet
 
     public List<ServiceRuleEntry> Services { get; init; } = [];
 
+    /// <summary>Domain rules; null (left out of the file) when there are none, so older files and versions stay the same.</summary>
+    public List<DomainRuleEntry>? Domains { get; init; }
+
     [JsonIgnore]
-    public int Count => Programs.Count + Network.Count + Services.Count;
+    public int Count => Programs.Count + Network.Count + Services.Count + (Domains?.Count ?? 0);
 }
 
 /// <summary>A program rule. App is a full path, "System" for the kernel, or "pkg:family" for a Store app.</summary>
@@ -46,6 +49,11 @@ public sealed record NetRuleEntry(string Action, string Direction, string Protoc
 
 /// <param name="Networks">The kinds of network the rule applies on; null for every network.</param>
 public sealed record ServiceRuleEntry(string Service, string Action, string Direction, string? Networks = null);
+
+/// <summary>A domain rule: the domain and every name under it, outgoing connections.</summary>
+/// <param name="App">Only for this program; null for every program.</param>
+/// <param name="Networks">The kinds of network the rule applies on; null for every network.</param>
+public sealed record DomainRuleEntry(string Domain, string Action, string? App = null, string? Networks = null);
 
 public sealed record AutoRuleSetting(string Name, bool Enabled);
 
@@ -75,7 +83,8 @@ public static class RuleBackup
         IEnumerable<AutoRuleSetting> autoRules,
         IEnumerable<string>? temporaryApps,
         string? computer,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        IEnumerable<DomainRule>? domainRules = null)
     {
         ArgumentNullException.ThrowIfNull(filters);
         ArgumentNullException.ThrowIfNull(autoRules);
@@ -100,6 +109,11 @@ public static class RuleBackup
             .Distinct()
             .OrderBy(e => e.Service, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        var domains = (domainRules ?? [])
+            .Where(d => !d.Managed)
+            .Select(ToEntry)
+            .OrderBy(e => e.Domain, StringComparer.Ordinal).ThenBy(e => e.App ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         return new RuleSet
         {
@@ -110,11 +124,12 @@ public static class RuleBackup
             Programs = programs,
             Network = network,
             Services = services,
+            Domains = domains.Count == 0 ? null : domains,
         };
     }
 
-    /// <summary>The rules in force on this PC now.</summary>
-    public static RuleSet Export(WfpEngine engine, TemporaryRuleStore? temporaryRules, DateTime nowUtc)
+    /// <summary>The rules in force on this PC now (with the domain rules, when <paramref name="domainRules"/> is given).</summary>
+    public static RuleSet Export(WfpEngine engine, TemporaryRuleStore? temporaryRules, DateTime nowUtc, DomainRuleStore? domainRules = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
         return FromFilters(
@@ -122,7 +137,33 @@ public static class RuleBackup
             engine.GetAutoRules().Select(r => new AutoRuleSetting(r.Name, r.Enabled)),
             temporaryRules?.All().Select(t => t.App),
             Environment.MachineName,
-            nowUtc);
+            nowUtc,
+            domainRules?.List());
+    }
+
+    public static DomainRuleEntry ToEntry(DomainRule d)
+    {
+        ArgumentNullException.ThrowIfNull(d);
+        return new DomainRuleEntry(d.Domain, RuleDescription.ActionText(d.Action), d.AppPath, NetworkScope.TextOrNull(d.Networks));
+    }
+
+    /// <summary>A file's domain rule as a rule (normalized); null and an error when it is not valid.</summary>
+    public static DomainRule? ToDomainRule(DomainRuleEntry e, bool managed, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        var domain = DomainNames.Normalize(e.Domain, out error);
+        if (domain is null)
+        {
+            return null;
+        }
+
+        if (!IsAction(e.Action) || !NetworkScope.TryParse(e.Networks, out var networks))
+        {
+            error = $"The rule for {e.Domain} is not valid.";
+            return null;
+        }
+
+        return new DomainRule(string.Empty, domain, ParseAction(e.Action), string.IsNullOrWhiteSpace(e.App) ? null : e.App, networks, managed);
     }
 
     public static NetRuleEntry ToEntry(NetRule n)
@@ -168,6 +209,14 @@ public static class RuleBackup
             if (ToNetRule(n, out var error) is null)
             {
                 return $"A network rule in the file is not valid: {error}";
+            }
+        }
+
+        foreach (var d in set.Domains ?? [])
+        {
+            if (ToDomainRule(d, managed: false, out var error) is null)
+            {
+                return $"A domain rule in the file is not valid: {error}";
             }
         }
 
@@ -243,13 +292,32 @@ public static class RuleBackup
             }
         }
 
+        var currentDomains = (current.Domains ?? []).ToDictionary(DomainKey, Effect, StringComparer.OrdinalIgnoreCase);
+        foreach (var d in incoming.Domains ?? [])
+        {
+            if (!currentDomains.TryGetValue(DomainKey(d), out var effect))
+            {
+                add++;
+            }
+            else if (!string.Equals(effect, Effect(d), StringComparison.OrdinalIgnoreCase))
+            {
+                change++;
+            }
+            else
+            {
+                same++;
+            }
+        }
+
         if (mode == ImportMode.Replace)
         {
             var incomingNet = incoming.Network.Select(Normal).ToHashSet();
             var incomingServices = incoming.Services.Select(ServiceKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var incomingDomains = (incoming.Domains ?? []).Select(DomainKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
             remove += current.Programs.Count(p => !incomingApps.Contains(AppKey(p)));
             remove += current.Network.Count(n => !incomingNet.Contains(Normal(n)));
             remove += current.Services.Count(s => !incomingServices.Contains(ServiceKey(s)));
+            remove += (current.Domains ?? []).Count(d => !incomingDomains.Contains(DomainKey(d)));
         }
 
         var modeChange = applyMode && incoming.Mode is not null && !string.Equals(incoming.Mode, current.Mode, StringComparison.OrdinalIgnoreCase)
@@ -263,7 +331,8 @@ public static class RuleBackup
     /// file. Rules for programs that are not on this PC are skipped. The automatic rules are set as
     /// in the file; the mode only when <paramref name="applyMode"/> is true. Returns what was done.
     /// </summary>
-    public static ImportPlan Apply(WfpEngine engine, RuleSet incoming, ImportMode mode, TemporaryRuleStore? temporaryRules, bool applyMode, DateTime nowUtc)
+    public static ImportPlan Apply(WfpEngine engine, RuleSet incoming, ImportMode mode, TemporaryRuleStore? temporaryRules, bool applyMode, DateTime nowUtc,
+        DomainRuleStore? domainRules = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(incoming);
@@ -272,7 +341,7 @@ public static class RuleBackup
             throw new ArgumentException(error);
         }
 
-        var current = Export(engine, temporaryRules, nowUtc);
+        var current = Export(engine, temporaryRules, nowUtc, domainRules);
         var plan = Plan(current, incoming, mode, File.Exists, applyMode);
         var currentApps = current.Programs.ToDictionary(AppKey, Effect, StringComparer.OrdinalIgnoreCase);
         var currentServices = current.Services.ToDictionary(ServiceKey, Effect, StringComparer.OrdinalIgnoreCase);
@@ -325,6 +394,25 @@ public static class RuleBackup
         foreach (var n in incoming.Network.Where(n => !currentNet.Contains(Normal(n))))
         {
             engine.AddNetRule(ToNetRule(n, out _)!);
+        }
+
+        // Domain rules live in their own file; the service turns them into address filters.
+        if (domainRules is not null)
+        {
+            var wanted = (incoming.Domains ?? []).Select(d => ToDomainRule(d, managed: false, out _)!).ToList();
+            if (mode == ImportMode.Replace)
+            {
+                var keep = wanted.Select(d => d.Domain + "|" + d.AppPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var old in domainRules.List().Where(d => !d.Managed && !keep.Contains(d.Domain + "|" + d.AppPath)))
+                {
+                    domainRules.RemoveById(old.Id);
+                }
+            }
+
+            foreach (var d in wanted)
+            {
+                domainRules.Set(d.Domain, d.Action, d.AppPath, d.Networks);
+            }
         }
 
         foreach (var s in incoming.Services)
@@ -411,6 +499,10 @@ public static class RuleBackup
     private static string Effect(AppRuleEntry e) => e.Action.ToLowerInvariant() + "@" + Networks(e.Networks);
 
     private static string Effect(ServiceRuleEntry e) => e.Action.ToLowerInvariant() + "@" + Networks(e.Networks);
+
+    private static string Effect(DomainRuleEntry e) => e.Action.ToLowerInvariant() + "@" + Networks(e.Networks);
+
+    private static string DomainKey(DomainRuleEntry e) => (DomainNames.Normalize(e.Domain, out _) ?? e.Domain) + "|" + e.App;
 
     /// <summary>A network rule with its networks written one way, so "Private,Domain" and "domain,private" compare equal.</summary>
     private static NetRuleEntry Normal(NetRuleEntry e) => e with { Networks = NetworkScope.TryParse(e.Networks, out var n) ? NetworkScope.TextOrNull(n) : e.Networks };

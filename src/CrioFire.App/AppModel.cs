@@ -147,6 +147,9 @@ internal sealed class AppModel
     /// <summary>CrioFire's automatic permits (Windows services, Windows kernel) and whether they are on.</summary>
     public IReadOnlyList<AutoRuleInfo> AutoRules { get; private set; } = [];
 
+    /// <summary>The domain rules, with how many addresses each covers now.</summary>
+    public IReadOnlyList<DomainRuleInfo> DomainRules { get; private set; } = [];
+
     public ObservableCollection<PendingAlert> Pending { get; } = [];
 
     public string? Error { get; private set; }
@@ -296,6 +299,31 @@ internal sealed class AppModel
         return SetRule(app, action);
     }
 
+    public bool SetDomainRule(string domain, string action, string? app, NetworkProfiles networks)
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.SetDomainRule, Domain = domain, Action = action, App = app, Networks = NetworkScope.TextOrNull(networks) }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, $"{(action == "allow" ? "Allowing" : "Blocking")} {domain} and every name under it. The addresses follow name lookups and apply within a few seconds.");
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
+    public bool RemoveDomainRule(DomainRuleInfo rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        var ok = Call(new ApiRequest { Op = ApiOps.RemoveDomainRule, DomainRuleId = rule.Id }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, $"Removed the rule for {rule.Domain}.");
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
     public bool AddNetRule(NetRule rule)
     {
         var ok = Call(new ApiRequest
@@ -339,18 +367,20 @@ internal sealed class AppModel
     /// </summary>
     public async Task<bool> RefreshCoreAsync() => ApplyCore(await Task.Run(ReadCore));
 
-    private sealed record CoreState(StatusInfo? Status, ApiResponse? List, string? Error);
+    private sealed record CoreState(StatusInfo? Status, ApiResponse? List, string? Error, List<DomainRuleInfo>? Domains = null);
 
     private static CoreState ReadCore()
     {
         var status = Service.Call(new ApiRequest { Op = ApiOps.Status }, out var error);
         ApiResponse? list = null;
+        List<DomainRuleInfo>? domains = null;
         if (status is not null)
         {
             list = Service.Call(new ApiRequest { Op = ApiOps.List }, out error);
+            domains = Service.Call(new ApiRequest { Op = ApiOps.Domains }, out _)?.Domains;   // an older service has none
         }
 
-        return new CoreState(status?.Status, list, error);
+        return new CoreState(status?.Status, list, error, domains);
     }
 
     private bool ApplyCore(CoreState state)
@@ -360,6 +390,7 @@ internal sealed class AppModel
         {
             Rules = state.List?.Rules ?? [];
             AutoRules = state.List?.AutoRules ?? [];
+            DomainRules = state.Domains ?? [];
         }
 
         Error = state.Error;

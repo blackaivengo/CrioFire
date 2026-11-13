@@ -14,7 +14,8 @@ namespace CrioFire.Core.Api;
 /// <param name="license">The license key entered on this PC; null in tests.</param>
 /// <param name="serverLink">The link to a company's CrioFire Server, when this PC is managed; null in tests.</param>
 /// <param name="policy">The organization's policy in force, which can stop users from changing rules, the mode or tamper protection.</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null)
+/// <param name="domainRules">The domain rules (the service turns them into address filters); null where not used (tests).</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -89,7 +90,10 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.SetAutoRule => SetAutoRule(request),
                     ApiOps.Changed => new ApiResponse { Ok = true, Changed = identities?.Store.Changed().ToList() ?? [] },
                     ApiOps.Trust => Trust(request),
-                    ApiOps.ExportRules => new ApiResponse { Ok = true, RuleSet = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow) },
+                    ApiOps.ExportRules => new ApiResponse { Ok = true, RuleSet = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow, domainRules) },
+                    ApiOps.Domains => Domains(),
+                    ApiOps.SetDomainRule => SetDomainRule(request),
+                    ApiOps.RemoveDomainRule => RemoveDomainRule(request),
                     ApiOps.ImportRules => Import(request.RuleSet ?? throw new ArgumentException("ruleSet is required."), request),
                     ApiOps.SetProtection => SetProtection(request),
                     ApiOps.License => new ApiResponse { Ok = true, License = LicenseKeys.Check(license?.Key, DateTime.UtcNow, _licenseKey.Value) },
@@ -316,20 +320,73 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         var withMode = request.WithMode == true;
         if (request.DryRun == true)
         {
-            return new ApiResponse { Ok = true, Plan = RuleBackup.Plan(RuleBackup.Export(engine, temporaryRules, now), set, mode, File.Exists, withMode) };
+            return new ApiResponse { Ok = true, Plan = RuleBackup.Plan(RuleBackup.Export(engine, temporaryRules, now, domainRules), set, mode, File.Exists, withMode) };
         }
 
         EnsureInstalled();
         Backup("before-import");
-        var plan = RuleBackup.Apply(engine, set, mode, temporaryRules, withMode, now);
+        var plan = RuleBackup.Apply(engine, set, mode, temporaryRules, withMode, now, domainRules);
         return new ApiResponse { Ok = true, Plan = plan };
     }
 
     /// <summary>What the organization's policy does not let users change, whoever asks; null when the request may go ahead.</summary>
+    private DomainRuleStore DomainStore => domainRules ?? throw new InvalidOperationException("Domain rules need the criofire service.");
+
+    private ApiResponse Domains()
+    {
+        var counts = engine.IsInstalled()
+            ? engine.ListDomainAddresses().GroupBy(d => d.Address.RuleId).ToDictionary(g => g.Key, g => g.Select(d => d.Address.Address).Distinct().Count())
+            : [];
+        return new ApiResponse
+        {
+            Ok = true,
+            Domains = (domainRules?.List() ?? []).Select(r => DomainRuleInfo.From(r, counts.GetValueOrDefault(r.Id))).ToList(),
+        };
+    }
+
+    /// <summary>Adds or replaces a domain rule. The service adds its address filters within a few seconds.</summary>
+    private ApiResponse SetDomainRule(ApiRequest request)
+    {
+        var action = request.Action?.ToLowerInvariant() switch
+        {
+            "block" => RuleAction.Block,
+            "allow" => RuleAction.Allow,
+            _ => throw new ArgumentException("action must be block or allow."),
+        };
+        var app = string.IsNullOrWhiteSpace(request.App) ? null : Path.GetFullPath(request.App.Trim().Trim('"'));
+        if (app is not null && !File.Exists(app))
+        {
+            throw new ArgumentException($"No program at {app}.");
+        }
+
+        EnsureInstalled();
+        var rule = DomainStore.Set(Required(request.Domain, "domain"), action, app, ParseNetworks(request.Networks));
+        return new ApiResponse { Ok = true, Domains = [DomainRuleInfo.From(rule, 0)] };
+    }
+
+    private ApiResponse RemoveDomainRule(ApiRequest request)
+    {
+        if (request.DomainRuleId is { Length: > 0 } id)
+        {
+            var rule = DomainStore.List().FirstOrDefault(r => r.Id == id) ?? throw new ArgumentException("No such domain rule.");
+            if (rule.Managed)
+            {
+                throw new ArgumentException("This rule is set by your organization.");
+            }
+
+            DomainStore.RemoveById(id);
+            return new ApiResponse { Ok = true, Count = 1 };
+        }
+
+        var removed = DomainStore.Remove(Required(request.Domain, "domain"));
+        return removed == 0 ? ApiResponse.Failure($"No domain rule for {request.Domain}.") : new ApiResponse { Ok = true, Count = removed };
+    }
+
     private static string? ManagedRefusal(ApiRequest request, ManagedPolicy managed)
     {
         if (!managed.AllowUserRules && request.Op is ApiOps.SetRule or ApiOps.RemoveRules or ApiOps.RemoveFilter or ApiOps.AddNetRule
-            or ApiOps.SetServiceRule or ApiOps.RemoveServiceRules or ApiOps.ImportRules or ApiOps.RestoreBackup or ApiOps.SetAutoRule or ApiOps.Trust)
+            or ApiOps.SetServiceRule or ApiOps.RemoveServiceRules or ApiOps.ImportRules or ApiOps.RestoreBackup or ApiOps.SetAutoRule or ApiOps.Trust
+            or ApiOps.SetDomainRule or ApiOps.RemoveDomainRule)
         {
             return ManagedPolicies.LockedMessage;
         }
@@ -377,7 +434,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
     {
         if (backups is not null && engine.IsInstalled())
         {
-            var current = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow);
+            var current = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow, domainRules);
             if (current.Count > 0)
             {
                 backups.Save(current, reason);

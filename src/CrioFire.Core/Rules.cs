@@ -50,6 +50,9 @@ public enum FilterKind
 
     /// <summary>The panic switch: allow everything (rules paused) or block all network traffic, above every rule.</summary>
     Panic,
+
+    /// <summary>One address a domain rule's names resolved to (added and removed as lookups happen).</summary>
+    DomainAddress,
 }
 
 /// <summary>
@@ -126,6 +129,11 @@ public static class FilterDescriptions
         if (ServiceRule.TryParse(description, out _))
         {
             return (FilterKind.ServiceRule, null);
+        }
+
+        if (DomainAddress.TryParse(description, out _))
+        {
+            return (FilterKind.DomainAddress, null);
         }
 
         var parts = description?.Split('|') ?? [];
@@ -413,4 +421,5 @@ public sealed record CrioFireFilter(
     string? BuiltIn = null,
     ServiceRule? Service = null,
     PanicState? Panic = null,
-    bool Managed = false);
+    bool Managed = false,
+    DomainAddress? Domain = null);

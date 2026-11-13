@@ -150,6 +150,26 @@ public partial class RulesPage : UserControl, IPage
         AutoCard.Visibility = ShowAll.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         AutoList.ItemsSource = AutoRows();
 
+        var domainRows = _model.DomainRules
+            .Where(d => (ActionFilter is null || d.Action == ActionFilter) && (DirectionFilter is null or "out")
+                && (search.Length == 0 || d.Domain.Contains(search, StringComparison.OrdinalIgnoreCase) || (d.App?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)))
+            .OrderBy(d => d.Domain, StringComparer.Ordinal)
+            .Select(d => new DomainRuleRow(
+                d,
+                d.Action == "allow" ? "Allow" : "Block",
+                d.Domain,
+                DomainDetails(d),
+                d.Action == "allow" ? chipIce : chipFire,
+                d.Action == "allow" ? chipIceText : chipFireText,
+                !d.Managed,
+                d.Managed ? "Set by your organization" : "Remove this rule"))
+            .ToList();
+        DomainList.ItemsSource = domainRows;
+        DomainEmpty.Visibility = domainRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        DomainEmpty.Text = _model.DomainRules.Count == 0 ? "No domain rules. Add one with 'Domain rule...'." : "No domain rule matches the filters.";
+        DomainTitle.Text = Count("Domains", domainRows.Count, _model.DomainRules.Count);
+        DomainCard.Visibility = ShowAll.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+
         foreach (var list in Lists)
         {
             ApplySort(list);
@@ -581,6 +601,40 @@ public partial class RulesPage : UserControl, IPage
         if (dialog.ShowDialog(Window.GetWindow(this)) == true)
         {
             _model.SetRule(dialog.FileName, action, minutes);
+        }
+    }
+
+    /// <summary>"every program · on public networks · 3 addresses now · set by your organization".</summary>
+    private static string DomainDetails(DomainRuleInfo d)
+    {
+        var parts = new List<string> { d.App is null ? "every program" : System.IO.Path.GetFileName(d.App) };
+        if (d.Networks is { } text && NetworkScope.TryParse(text, out var n) && n != NetworkProfiles.Any)
+        {
+            parts.Add("on " + NetworkScope.Label(n));
+        }
+
+        parts.Add(d.Addresses == 1 ? "1 address now" : $"{d.Addresses} addresses now");
+        if (d.Managed)
+        {
+            parts.Add("set by your organization");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private void OnAddDomain(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is { } owner && DomainRuleDialog.Ask(owner) is { } choice)
+        {
+            _model.SetDomainRule(choice.Domain, choice.Action, choice.App, choice.Networks);
+        }
+    }
+
+    private void OnRemoveDomain(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: DomainRuleInfo rule })
+        {
+            _model.RemoveDomainRule(rule);
         }
     }
 

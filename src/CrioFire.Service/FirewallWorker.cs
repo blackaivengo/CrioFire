@@ -165,7 +165,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     {
                         nextBackup = now + BackupInterval;
                         lastBackup ??= backups.LatestFingerprint() ?? string.Empty;
-                        var rules = RuleBackup.Export(engine, temporaryRules, now);
+                        var rules = RuleBackup.Export(engine, temporaryRules, now, new DomainRuleStore(DomainRuleStore.DefaultPath));
                         var fingerprint = RuleBackup.Fingerprint(rules);
                         if (rules.Count > 0 && fingerprint != lastBackup)
                         {
@@ -260,14 +260,15 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
         {
             if (outcome.Policy is { } policy)
             {
-                var rules = ManagedPolicies.Apply(engine, policy, backups, temporaryRules, new TamperProtection(TamperProtection.DefaultPath), now);
+                var rules = ManagedPolicies.Apply(engine, policy, backups, temporaryRules, new TamperProtection(TamperProtection.DefaultPath), now,
+                    new DomainRuleStore(DomainRuleStore.DefaultPath));
                 policies.Save(policy);
                 links.Save(link with { PolicyId = policy.Id, PolicyVersion = policy.Version });
                 LogPolicyApplied(logger, policy.Name, policy.Version, rules);
             }
             else if (outcome.PolicyId is null && link.PolicyId is not null)
             {
-                ManagedPolicies.Clear(engine, policies);
+                ManagedPolicies.Clear(engine, policies, new DomainRuleStore(DomainRuleStore.DefaultPath));
                 links.Save(link with { PolicyId = null, PolicyVersion = 0 });
                 LogPolicyRemoved(logger);
             }

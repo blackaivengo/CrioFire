@@ -8,6 +8,7 @@
       <Button Content="Block a program..." Style="{StaticResource FireButton}" Margin="10,0,0,8" Click="OnBlock" />
       <Button Content="Add network rule..." Style="{StaticResource OutlineIceButton}" Margin="10,0,0,8" Click="OnAddNet" />
       <Button Content="Service rule..." Style="{StaticResource OutlineIceButton}" Margin="10,0,0,8" Click="OnAddService" />
+      <Button Content="Domain rule..." Style="{StaticResource OutlineIceButton}" Margin="10,0,0,8" Click="OnAddDomain" />
     </WrapPanel>
 
     <!-- What is blocked, at a glance: click a port or address to see the rules behind it. -->
@@ -194,6 +195,35 @@
             </GridView>
           </ListView.View>
         </ListView>
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl x:Name="DomainCard" Style="{StaticResource IceCard}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock x:Name="DomainTitle" Text="Domains" Style="{StaticResource H2}" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,10" TextWrapping="Wrap"
+                   Text="Rules for sites by name, with every name under them (outgoing connections). CrioFire follows Windows' name lookups and applies each rule to the addresses they return; an address drops out an hour after the last lookup. When rules overlap, the more specific domain wins." />
+        <TextBlock x:Name="DomainEmpty" Style="{StaticResource Muted}" Visibility="Collapsed"
+                   Text="No domain rules. Add one with 'Domain rule...'." />
+        <ItemsControl x:Name="DomainList">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                          Tag="{Binding Info}" IsEnabled="{Binding CanRemove}" ToolTip="{Binding RemoveHint}" Click="OnRemoveDomain" />
+                  <Border DockPanel.Dock="Left" CornerRadius="8" Padding="10,3" Margin="0,0,14,0" VerticalAlignment="Center" Background="{Binding ChipBrush}">
+                    <TextBlock Text="{Binding Action}" Foreground="{Binding ChipTextBrush}" FontWeight="SemiBold" FontSize="12" />
+                  </Border>
+                  <StackPanel>
+                    <TextBlock Text="{Binding Domain}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Details}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
     </ContentControl>
 

@@ -141,6 +141,43 @@ static int Run(Backend api, Command command)
             return 0;
         }
 
+        case CommandKind.Block or CommandKind.Allow when command.Domain is { } domain:
+        {
+            var action = command.Kind == CommandKind.Block ? "block" : "allow";
+            api.Call(new ApiRequest { Op = ApiOps.SetDomainRule, Domain = domain, Action = action, App = command.AppPath, Networks = NetworkScope.TextOrNull(command.Networks) });
+            var who = command.AppPath is null ? string.Empty : $" for {command.AppPath}";
+            Console.WriteLine($"{(action == "block" ? "Blocking" : "Allowing")} {domain} and every name under it{who}{OnNetworks(command.Networks)}.");
+            Console.WriteLine("The addresses follow Windows' name lookups and apply within a few seconds. Undo with: criofire unblock --domain " + domain);
+            return 0;
+        }
+
+        case CommandKind.Unblock when command.Domain is { } domain:
+        {
+            var result = api.Call(new ApiRequest { Op = ApiOps.RemoveDomainRule, Domain = domain });
+            Console.WriteLine($"Removed {result.Count} rule(s) for {domain}.");
+            return 0;
+        }
+
+        case CommandKind.Domains:
+        {
+            var list = api.Call(new ApiRequest { Op = ApiOps.Domains }).Domains ?? [];
+            if (list.Count == 0)
+            {
+                Console.WriteLine("No domain rules. Add one with: criofire block --domain example.com");
+                return 0;
+            }
+
+            foreach (var d in list)
+            {
+                var app = d.App is null ? "every program" : d.App;
+                var where = d.Networks is not null && NetworkScope.TryParse(d.Networks, out var scope) ? $", on {NetworkScope.Label(scope)}" : string.Empty;
+                var owner = d.Managed ? " (set by your organization)" : string.Empty;
+                Console.WriteLine($"{d.Action,-6} {d.Domain,-40} {app}{where}  {d.Addresses} address(es) now{owner}");
+            }
+
+            return 0;
+        }
+
         case CommandKind.Block or CommandKind.Allow when command.Service is { } service:
         {
             var action = command.Kind == CommandKind.Block ? "block" : "allow";
@@ -507,7 +544,7 @@ static int Unenroll()
     store.Delete();
     using (var engine = WfpEngine.Open())
     {
-        var removed = ManagedPolicies.Clear(engine, new ManagedPolicyStore(ManagedPolicyStore.DefaultPath));
+        var removed = ManagedPolicies.Clear(engine, new ManagedPolicyStore(ManagedPolicyStore.DefaultPath), new DomainRuleStore(DomainRuleStore.DefaultPath));
         if (removed > 0)
         {
             Console.WriteLine($"Removed the organization's rules ({removed} filters).");
@@ -596,7 +633,8 @@ internal sealed class Backend : IDisposable
             new TamperProtection(TamperProtection.DefaultPath),
             new LicenseStore(LicenseStore.DefaultPath),
             new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath),
-            new ManagedPolicyStore(ManagedPolicyStore.DefaultPath));
+            new ManagedPolicyStore(ManagedPolicyStore.DefaultPath),
+            new DomainRuleStore(DomainRuleStore.DefaultPath));
         Description = "direct, administrator";
     }
 

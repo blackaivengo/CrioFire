@@ -18,7 +18,7 @@ namespace CrioFire.Core;
 /// <item><see cref="RemoveAllFilters"/> (criofire panic remove) always removes every CrioFire filter.</item>
 /// </list>
 /// </remarks>
-public sealed unsafe class WfpEngine : IDisposable
+public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
 {
     private const string ProviderName = "CrioFire Private Firewall";
     private const string ProviderDescription = "criofire-provider: CrioFire Private Firewall by CrioSoft LLC";
@@ -739,6 +739,64 @@ public sealed unsafe class WfpEngine : IDisposable
         return added;
     }
 
+    public IReadOnlyList<(ulong FilterId, DomainAddress Address)> ListDomainAddresses() =>
+        ListFilters().Where(f => f.Domain is not null).Select(f => (f.FilterId, f.Domain!)).ToList();
+
+    /// <summary>
+    /// Adds the filter for one address a domain rule's names resolved to: outgoing connections to
+    /// that address (for the rule's program and networks only, when it has them). An organization's
+    /// rule goes in the organization's sublayer.
+    /// </summary>
+    public void AddDomainAddress(DomainRule rule, IPAddress address)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(rule);
+        ArgumentNullException.ThrowIfNull(address);
+        var net = rule.ForAddress(address, out var error) ?? throw new ArgumentException(error);
+        if (net.AppPath is not null && !File.Exists(net.AppPath))
+        {
+            throw new FileNotFoundException("No program at that path.", net.AppPath);
+        }
+
+        if (rule.Managed && !_managed)
+        {
+            Managed(() =>
+            {
+                AddDomainAddress(rule, address);
+                return 0;
+            });
+            return;
+        }
+
+        using var appId = net.AppPath is null ? null : AppId.FromFile(net.AppPath);
+        using var tx = BeginTransaction();
+        var layer = address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? FilterLayers.ConnectV6 : FilterLayers.ConnectV4;
+        var description = new DomainAddress(rule.Id, rule.Action, rule.Networks, address, rule.AppPath).Format();
+        var action = rule.Action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT;
+        AddNetFilter(layer, net, net.AddressList.ToList(), appId, $"CrioFire: {rule.Summary()} ({address})", description, action);
+        tx.Commit();
+    }
+
+    /// <summary>Removes filters by id (ones already gone are skipped).</summary>
+    public void RemoveFilters(IEnumerable<ulong> filterIds)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(filterIds);
+        var ids = filterIds.ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        using var tx = BeginTransaction();
+        foreach (var id in ids)
+        {
+            DeleteFilter(id, ignoreMissing: true);
+        }
+
+        tx.Commit();
+    }
+
     /// <summary>Recovery: removes every CrioFire filter (keeps provider and sublayer). Returns the count.</summary>
     /// <summary>
     /// The panic switch. <see cref="PanicState.AllowAll"/> lets every connection through and
@@ -861,8 +919,9 @@ public sealed unsafe class WfpEngine : IDisposable
                         var service = kind == FilterKind.ServiceRule && ServiceRule.TryParse(description, out var parsedService) ? parsedService : null;
                         var builtIn = kind == FilterKind.BuiltInAllow ? FilterDescriptions.BuiltInName(description) : null;
                         var panic = kind == FilterKind.Panic ? FilterDescriptions.PanicOf(description) : null;
+                        var domain = kind == FilterKind.DomainAddress && DomainAddress.TryParse(description, out var parsedDomain) ? parsedDomain : null;
                         result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net, builtIn, service, panic,
-                            Managed: f->subLayerKey == WfpIds.ManagedSubLayerKey));
+                            Managed: f->subLayerKey == WfpIds.ManagedSubLayerKey, Domain: domain));
                     }
                 }
                 finally

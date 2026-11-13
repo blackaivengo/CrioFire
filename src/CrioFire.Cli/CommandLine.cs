@@ -34,6 +34,7 @@ public enum CommandKind
     Enroll,
     Unenroll,
     Server,
+    Domains,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -52,6 +53,7 @@ public enum CommandKind
 /// <param name="DryRun">import/restore --dry-run: only show what would change.</param>
 /// <param name="WithMode">import --with-mode: also switch to the mode in the file.</param>
 /// <param name="Networks">block/allow --networks: the kinds of network the rule applies on (every network by default).</param>
+/// <param name="Domain">block/allow/unblock --domain: a rule for a domain and every name under it.</param>
 public sealed record Command(
     CommandKind Kind,
     string? AppPath = null,
@@ -76,7 +78,8 @@ public sealed record Command(
     string? Server = null,
     string? Token = null,
     string? Fingerprint = null,
-    NetworkProfiles Networks = NetworkProfiles.Any);
+    NetworkProfiles Networks = NetworkProfiles.Any,
+    string? Domain = null);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -110,6 +113,14 @@ internal static class CommandLine
                                                A rule for one Windows service, even inside a shared
                                                svchost.exe (matched by its service SID), e.g.
                                                  criofire block --service DiagTrack
+          criofire block|allow --domain <name> [<app.exe>] [--networks ...]
+                                               A rule for a domain and every name under it (outgoing),
+                                               e.g. criofire block --domain doubleclick.net. CrioFire follows
+                                               Windows' name lookups and blocks or allows the addresses they
+                                               return (sites sharing an address are affected too; a browser's
+                                               own encrypted DNS is not seen).
+          criofire unblock --domain <name>     Remove your rules for that domain
+          criofire domains                     List the domain rules and how many addresses each covers now
           ... block|allow ... --networks <public|private|domain,...>
                                                Any program, network or service rule can apply only on some
                                                kinds of network (as Windows classifies them: domain = work,
@@ -347,6 +358,14 @@ internal static class CommandLine
             case "request" when rest.Length == 2:
                 // Used by the app: one API request, approved by the user (UAC). Not in the usage text.
                 return new Command(CommandKind.Request, AppPath: rest[0], FilePath: rest[1]);
+            case "domains":
+                if (rest.Length != 0)
+                {
+                    error = "'domains' takes no arguments.";
+                    return new Command(CommandKind.Help);
+                }
+
+                return new Command(CommandKind.Domains);
             case "backups":
                 if (rest.Length != 0)
                 {
@@ -526,6 +545,7 @@ internal static class CommandLine
         error = null;
         string? path = null;
         string? service = null;
+        string? domain = null;
         TrafficDirection? direction = null;
 
         int? expires = null;
@@ -567,6 +587,24 @@ internal static class CommandLine
                 }
 
                 protocol = p;
+                continue;
+            }
+
+            if (arg.Equals("--domain", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 >= rest.Length)
+                {
+                    error = "--domain needs a domain name, e.g. --domain example.com.";
+                    return new Command(CommandKind.Help);
+                }
+
+                domain = DomainNames.Normalize(rest[i + 1], out error);
+                if (domain is null)
+                {
+                    return new Command(CommandKind.Help);
+                }
+
+                i++;
                 continue;
             }
 
@@ -641,6 +679,17 @@ internal static class CommandLine
                 error = "Give exactly one program path. Put paths with spaces in quotes.";
                 return new Command(CommandKind.Help);
             }
+        }
+
+        if (domain is not null)
+        {
+            if (service is not null || ports is not null || addresses is not null || protocol is not null || expires is not null || direction is TrafficDirection.Inbound or TrafficDirection.Both)
+            {
+                error = "--domain cannot be combined with --service, --port, --addr, --tcp, --udp, --for, --in or --both (domain rules are for outgoing connections).";
+                return new Command(CommandKind.Help);
+            }
+
+            return new Command(kind, path, TrafficDirection.Outbound, Networks: networks ?? NetworkProfiles.Any, Domain: domain);
         }
 
         if (service is not null)

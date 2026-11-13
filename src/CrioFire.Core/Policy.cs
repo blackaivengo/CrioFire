@@ -87,7 +87,8 @@ public static class ManagedPolicies
         RuleBackupStore? backups,
         TemporaryRuleStore? temporaryRules,
         TamperProtection? protection,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        DomainRuleStore? domainRules = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(policy);
@@ -132,14 +133,22 @@ public static class ManagedPolicies
             return count;
         });
 
+        // The organization's domain rules replace its earlier ones; the service follows lookups for them.
+        if (domainRules is not null)
+        {
+            var domains = (policy.Rules.Domains ?? []).Select(d => RuleBackup.ToDomainRule(d, managed: true, out _)!).ToList();
+            domainRules.ReplaceAll(managed: true, domains);
+            written += domains.Count;
+        }
+
         if (!policy.AllowUserRules)
         {
             // The organization decides alone: the user's own rules go, after a backup.
-            var own = RuleBackup.Export(engine, temporaryRules, nowUtc);
+            var own = RuleBackup.Export(engine, temporaryRules, nowUtc, domainRules);
             if (own.Count > 0)
             {
                 backups?.Save(own, "before-policy");
-                RuleBackup.Apply(engine, new RuleSet { AutoRules = own.AutoRules, Mode = own.Mode }, ImportMode.Replace, temporaryRules, applyMode: false, nowUtc);
+                RuleBackup.Apply(engine, new RuleSet { AutoRules = own.AutoRules, Mode = own.Mode }, ImportMode.Replace, temporaryRules, applyMode: false, nowUtc, domainRules);
             }
 
             temporaryRules?.Clear();
@@ -168,11 +177,12 @@ public static class ManagedPolicies
     }
 
     /// <summary>The PC left the organization's management: its rules go, the user's stay.</summary>
-    public static int Clear(WfpEngine engine, ManagedPolicyStore store)
+    public static int Clear(WfpEngine engine, ManagedPolicyStore store, DomainRuleStore? domainRules = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(store);
         store.Delete();
+        domainRules?.ReplaceAll(managed: true, []);
         return engine.IsInstalled() ? engine.ClearManaged() : 0;
     }
 

@@ -144,3 +144,7 @@ public sealed record TrafficRow(TrafficItem Item, string Time, string CountText,
 
 /// <summary>One labelled line of the Activity page's details pane.</summary>
 public sealed record Fact(string Label, string Value);
+
+/// <summary>A domain rule on the Rules page.</summary>
+public sealed record DomainRuleRow(CrioFire.Core.Api.DomainRuleInfo Info, string Action, string Domain, string Details,
+    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush, bool CanRemove, string RemoveHint);

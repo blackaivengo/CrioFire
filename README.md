@@ -135,6 +135,13 @@ Nothing that reaches the network is hidden, including what CrioFire or Windows a
   and work (private, domain) or public (cafés, hotels, unknown networks). Elsewhere the mode decides.
   E.g. block file sharing on public networks only: `criofire block --in --tcp --port 445 --networks public`,
   or right-click a rule → *Networks*. Settings shows which networks the PC is on now.
+- **Domains**: block or allow a site by name, with every name under it: `criofire block --domain
+  doubleclick.net`, or *Domain rule...* on the Rules page (optionally for one program or some networks).
+  The filtering platform only sees addresses, so the service follows Windows' own name lookups and
+  adds a filter for the addresses each lookup of a covered name (or its CNAME) returns; an address
+  drops out an hour after the last lookup that returned it. The more specific domain wins when rules
+  overlap. Limits: sites sharing an address with a blocked domain are blocked too, and lookups an
+  application makes on its own (a browser's secure DNS) are not seen.
 - **Automatic rules** are listed under Rules and can be switched off (`criofire auto svchost off`);
   the choice is kept in `%ProgramData%\criofire\auto-rules.txt`. Loopback and inbound handling are
   shown there too.
@@ -246,6 +253,11 @@ stays on across restarts until you resume; the app shows a banner and the tray i
 You can inspect them with `netsh wfp show filters`.
 
 ## How it works
+
+**What the service sees of your browsing.** For domain rules, the service reads Windows' name lookups
+as they complete (a real-time event trace of the DNS client). Each lookup is compared with your domain
+rules in memory and then dropped: nothing is written to disk or sent anywhere, and when there are no
+domain rules the lookups are not even compared.
 
 CrioFire registers its own WFP provider (`criofire-provider`) and sublayer (`criofire-sublayer`),
 then adds filters at the ALE connect (outbound) and receive-accept (inbound) layers for IPv4 and

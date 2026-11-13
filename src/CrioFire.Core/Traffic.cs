@@ -37,6 +37,7 @@ public sealed record TrafficItem(
         nameof(FilterKind.AppRule) => "Your block rule",
         nameof(FilterKind.NetRule) => "Your port/address rule",
         nameof(FilterKind.ServiceRule) => "Your service rule",
+        nameof(FilterKind.DomainAddress) => "Your domain rule",
         nameof(FilterKind.Panic) => "Panic: block all",
         _ => "Blocked",
     };
@@ -117,7 +118,7 @@ public static class TrafficQuery
         ArgumentNullException.ThrowIfNull(item);
         return (group, item.Allowed) switch
         {
-            ("mine", false) => item.Why is nameof(FilterKind.AppRule) or nameof(FilterKind.NetRule) or nameof(FilterKind.ServiceRule),
+            ("mine", false) => item.Why is nameof(FilterKind.AppRule) or nameof(FilterKind.NetRule) or nameof(FilterKind.ServiceRule) or nameof(FilterKind.DomainAddress),
             ("mine", true) => item.Why is nameof(AllowReason.Rule) or nameof(AllowReason.NetRule) or nameof(AllowReason.ServiceRule),
             ("norule", false) => item.Why == nameof(FilterKind.DefaultBlock),
             ("norule", true) => item.Why == nameof(AllowReason.NoRule),

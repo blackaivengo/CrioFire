@@ -34,10 +34,14 @@ public static class ApiOps
     public const string License = "license";
     public const string SetLicense = "setLicense";
     public const string Management = "management";
+    public const string Domains = "domains";
+    public const string SetDomainRule = "setDomainRule";
+    public const string RemoveDomainRule = "removeDomainRule";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
-        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense;
+        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense
+            or SetDomainRule or RemoveDomainRule;
 
     /// <summary>The error code when a change needs administrator approval (tamper protection, or the setting itself).</summary>
     public const string ApprovalRequired = "approval-required";
@@ -79,6 +83,12 @@ public sealed record ApiRequest
 
     /// <summary>setRule, addNetRule, setServiceRule: the kinds of network the rule applies on (domain, private, public); empty or "any" for every network.</summary>
     public string? Networks { get; init; }
+
+    /// <summary>setDomainRule, removeDomainRule: the domain (covers every name under it).</summary>
+    public string? Domain { get; init; }
+
+    /// <summary>removeDomainRule: the rule's id (from domains), instead of Domain.</summary>
+    public string? DomainRuleId { get; init; }
 
     /// <summary>addNetRule: tcp, udp or any.</summary>
     public string? Protocol { get; init; }
@@ -137,6 +147,17 @@ public sealed record ApiRequest
     public int? Limit { get; init; }
 }
 
+/// <summary>A domain rule as the app and command line show it.</summary>
+/// <param name="Addresses">How many addresses its names resolved to have a filter now (lookups add them, an hour without one removes them).</param>
+public sealed record DomainRuleInfo(string Id, string Domain, string Action, string? App, string? Networks, bool Managed, int Addresses)
+{
+    public static DomainRuleInfo From(DomainRule rule, int addresses)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        return new DomainRuleInfo(rule.Id, rule.Domain, RuleDescription.ActionText(rule.Action), rule.AppPath, NetworkScope.TextOrNull(rule.Networks), rule.Managed, addresses);
+    }
+}
+
 public sealed record ApiResponse
 {
     public bool Ok { get; init; }
@@ -183,6 +204,9 @@ public sealed record ApiResponse
 
     /// <summary>backups: the saved rule backups, newest first.</summary>
     public List<BackupInfo>? Backups { get; init; }
+
+    /// <summary>domains: the domain rules, with how many addresses each has a filter for now.</summary>
+    public List<DomainRuleInfo>? Domains { get; init; }
 
     /// <summary>changed: programs whose file changed since they were allowed.</summary>
     public List<ChangedProgram>? Changed { get; init; }
@@ -298,6 +322,7 @@ public static class ApiJson
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(ApiRequest))]
 [JsonSerializable(typeof(ApiResponse))]
+[JsonSerializable(typeof(DomainRuleInfo))]
 internal sealed partial class ApiJsonContext : JsonSerializerContext
 {
 }

@@ -462,7 +462,7 @@
       return;
     }
     modal((close) => {
-      const choice = h('select', {}, state.policies.map((p) => h('option', { value: p.policy.id, text: `${p.policy.name} (${p.policy.rules.programs.length + p.policy.rules.network.length + p.policy.rules.services.length} rules)` })));
+      const choice = h('select', {}, state.policies.map((p) => h('option', { value: p.policy.id, text: `${p.policy.name} (${ruleCount(p.policy.rules)} rules)` })));
       return h('div', { class: 'dialog', role: 'dialog', 'aria-label': 'Apply a policy' },
         h('h2', { text: `Apply a policy to ${ids.length} computer(s)` }),
         h('p', { class: 'hint', style: 'margin:8px 0 14px', text: 'They apply it at their next check-in (within a few minutes). Each computer has one policy; this replaces the one it had.' }),
@@ -563,7 +563,7 @@
         ? h('div', { class: 'card' }, h('p', { class: 'empty', text: 'No policies yet. Create one, or start from rules exported on a computer set up the way you want (criofire export).' }))
         : state.policies.map((v) => {
           const p = v.policy;
-          const count = p.rules.programs.length + p.rules.network.length + p.rules.services.length;
+          const count = ruleCount(p.rules);
           return h('div', { class: 'card policy-card' },
             h('div', {},
               h('div', { class: 'row' }, h('h2', { text: p.name }), v.isDefault ? h('span', { class: 'chip ice', text: 'for new computers' }) : null),
@@ -627,7 +627,8 @@
 
   // ---------- policy editor ----------
 
-  const blankRules = () => ({ format: 1, programs: [], network: [], services: [], autoRules: [] });
+  const blankRules = () => ({ format: 1, programs: [], network: [], services: [], domains: [], autoRules: [] });
+  const ruleCount = (rules) => rules.programs.length + rules.network.length + rules.services.length + (rules.domains || []).length;
 
   function editPolicy(policy) {
     const p = policy
@@ -705,6 +706,17 @@
           h('td', {}, select(r.direction, directions, (v) => { r.direction = v; })),
           h('td', {}, networks(r)),
           h('td', {}, remove(p.rules.services, i))))));
+    p.rules.domains = p.rules.domains || [];
+    const domains = h('table', { class: 'edit' },
+      h('thead', {}, h('tr', {}, h('th', { text: 'Domain (covers every name under it)' }), h('th', { text: 'Action' }), h('th', { text: 'Only for program (optional)' }), h('th', { text: 'Networks' }), h('th', {}))),
+      h('tbody', {}, p.rules.domains.length === 0
+        ? h('tr', {}, h('td', { colspan: 5, class: 'empty', text: 'No domain rules.' }))
+        : p.rules.domains.map((r, i) => h('tr', {},
+          h('td', {}, h('input', { value: r.domain, placeholder: 'example.com', oninput: (e) => { r.domain = e.target.value; } })),
+          h('td', {}, select(r.action, actions, (v) => { r.action = v; })),
+          h('td', {}, h('input', { value: r.app || '', placeholder: 'any program', oninput: (e) => { r.app = e.target.value || null; } })),
+          h('td', {}, networks(r)),
+          h('td', {}, remove(p.rules.domains, i))))));
 
     const file = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onchange: async (e) => {
       const f = e.target.files[0];
@@ -714,7 +726,7 @@
         if (!Array.isArray(data.programs) && !Array.isArray(data.network) && !Array.isArray(data.services)) throw new Error();
         const key = (o) => JSON.stringify(o).toLowerCase();
         let added = 0;
-        for (const list of ['programs', 'network', 'services']) {
+        for (const list of ['programs', 'network', 'services', 'domains']) {
           const have = new Set(p.rules[list].map(key));
           for (const r of data[list] || []) if (!have.has(key(r))) { p.rules[list].push(r); added++; }
         }
@@ -769,7 +781,10 @@
         h('div', { class: 'section-title' }, h('h3', { text: 'Ports and addresses' }), h('button', { class: 'small', text: 'Add network rule', onclick: () => { p.rules.network.push({ action: 'block', direction: 'in', protocol: 'tcp', ports: '', addresses: '', app: null }); redraw(); } })),
         h('div', { class: 'table-wrap' }, network),
         h('div', { class: 'section-title' }, h('h3', { text: 'Windows services' }), h('button', { class: 'small', text: 'Add service rule', onclick: () => { p.rules.services.push({ service: '', action: 'block', direction: 'out' }); redraw(); } })),
-        h('div', { class: 'table-wrap' }, services)));
+        h('div', { class: 'table-wrap' }, services),
+        h('div', { class: 'section-title' }, h('h3', { text: 'Domains' }), h('button', { class: 'small', text: 'Add domain rule', onclick: () => { p.rules.domains.push({ domain: '', action: 'block', app: null, networks: null }); redraw(); } })),
+        h('p', { class: 'sub', text: 'Outgoing connections to the addresses Windows\' name lookups return for these names. Sites sharing an address are affected too.' }),
+        h('div', { class: 'table-wrap' }, domains)));
   }
 
   /** Drops empty rows and spaces before saving. */
@@ -780,6 +795,8 @@
       network: rules.network.filter((r) => (r.ports || '').trim() || (r.addresses || '').trim() || r.protocol !== 'any')
         .map((r) => ({ action: r.action, direction: r.direction, protocol: r.protocol, ports: (r.ports || '').trim(), addresses: (r.addresses || '').trim(), app: r.app && r.app.trim() ? r.app.trim() : null, networks: r.networks || null })),
       services: rules.services.filter((r) => r.service && r.service.trim()).map((r) => ({ service: r.service.trim(), action: r.action, direction: r.direction, networks: r.networks || null })),
+      domains: (rules.domains || []).filter((r) => r.domain && r.domain.trim())
+        .map((r) => ({ domain: r.domain.trim(), action: r.action, app: r.app && r.app.trim() ? r.app.trim() : null, networks: r.networks || null })),
       autoRules: rules.autoRules,
     };
   }
