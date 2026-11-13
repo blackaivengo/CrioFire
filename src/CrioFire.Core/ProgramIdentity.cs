@@ -114,9 +114,9 @@ public static class IdentityRules
     /// </summary>
     public static bool IsExempt(string app, string? windowsFolder = null)
     {
-        if (KnownApps.IsKernel(app))
+        if (KnownApps.IsKernel(app) || StoreApps.IsPackage(app))
         {
-            return true;
+            return true;   // Store apps are signed by the Store and identified by their package
         }
 
         var windows = windowsFolder ?? Environment.GetFolderPath(Environment.SpecialFolder.Windows);
@@ -412,7 +412,11 @@ public sealed partial class AuthenticodeSignatures : ISignatureReader
 
         try
         {
-            using var signer = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
+            // X509CertificateLoader has no way to read an Authenticode signer, so this API stays.
+#pragma warning disable SYSLIB0057
+            using var signed = X509Certificate.CreateFromSignedFile(path);
+#pragma warning restore SYSLIB0057
+            using var signer = new X509Certificate2(signed);
             var name = signer.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
             return string.IsNullOrWhiteSpace(name) ? signer.Subject : name;
         }

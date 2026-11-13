@@ -34,7 +34,7 @@ public partial class ChangedProgramsDialog : Window
 
     internal static void Review(Window owner, AppModel model)
     {
-        var programs = model.ChangedPrograms();
+        var programs = AppModel.ChangedPrograms();
         if (programs.Count == 0)
         {
             model.Say("Every allowed program is still the file you allowed.");

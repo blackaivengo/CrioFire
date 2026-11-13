@@ -14,12 +14,44 @@ public static class KnownApps
 
     public static bool IsKernel(string? app) => string.Equals(app?.Trim(), Kernel, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>A rule's program as stored: "System" for the kernel, otherwise the full path.</summary>
+    /// <summary>
+    /// A rule's program as stored: "System" for the kernel, "pkg:family" for a Microsoft Store app
+    /// (so the rule survives its updates), otherwise the full path.
+    /// </summary>
     public static string Normalize(string app)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(app);
-        return IsKernel(app) ? Kernel : Path.GetFullPath(app);
+        if (IsKernel(app))
+        {
+            return Kernel;
+        }
+
+        if (StoreApps.IsPackage(app))
+        {
+            return app.Trim();
+        }
+
+        var full = Path.GetFullPath(app);
+        return StoreApps.FamilyFromPath(full) is { } family ? StoreApps.Key(family) : full;
     }
+
+    /// <summary>
+    /// What a rule for this program is keyed by, without touching the file system: like
+    /// <see cref="Normalize"/> for paths that are already full (from connections and events).
+    /// </summary>
+    public static string RuleKey(string app)
+    {
+        if (IsKernel(app))
+        {
+            return Kernel;
+        }
+
+        return StoreApps.FamilyFromPath(app) is { } family ? StoreApps.Key(family) : app;
+    }
+
+    /// <summary>True when a rule for <paramref name="ruleApp"/> applies to the program <paramref name="app"/>.</summary>
+    public static bool SameApp(string? ruleApp, string? app) =>
+        ruleApp is not null && app is not null && string.Equals(RuleKey(ruleApp), RuleKey(app), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>True for svchost.exe, the shared host of most Windows services.</summary>
     public static bool IsServiceHost(string? app) =>
@@ -37,6 +69,11 @@ public static class KnownApps
         if (IsKernel(app))
         {
             return "Windows kernel (System)";
+        }
+
+        if (StoreApps.IsPackage(app))
+        {
+            return StoreApps.DisplayName(app);
         }
 
         var slash = app.LastIndexOfAny(['\\', '/']);

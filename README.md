@@ -70,6 +70,12 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
 
+**Microsoft Store apps** live in a folder named after their exact version, so CrioFire keys their
+rules by package family instead of path (`pkg:Microsoft.WindowsTerminal_8wekyb3d8bbwe`): a filter
+on the package SID covers sandboxed Store apps, plus one per program file for desktop apps from the
+Store. The service renews these rules within a minute when the app updates. Allowing or blocking a
+program inside `WindowsApps` makes this kind of rule automatically.
+
 **Program identity.** When you allow a program, CrioFire records who signed it (its Authenticode
 publisher) and a SHA-256 fingerprint of the file. The service checks allowed programs every 30
 seconds: a new version from the same publisher is accepted, as that is how programs update; another

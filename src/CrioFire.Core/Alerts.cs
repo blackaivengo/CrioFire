@@ -29,7 +29,7 @@ public sealed class AlertTracker
                 continue;
             }
 
-            if (withRule.Contains(e.App) || _pending.Contains(e.App) || _dismissed.Contains(e.App))
+            if (withRule.Contains(e.App) || withRule.Contains(KnownApps.RuleKey(e.App)) || _pending.Contains(e.App) || _dismissed.Contains(e.App))
             {
                 continue;
             }

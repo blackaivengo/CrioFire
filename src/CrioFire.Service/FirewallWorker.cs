@@ -17,6 +17,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
     /// <summary>How often allowed programs are checked against the files the user allowed.</summary>
     private static readonly TimeSpan IdentityInterval = TimeSpan.FromSeconds(30);
 
+    /// <summary>How often Store app rules are checked for app updates (a new version folder).</summary>
+    private static readonly TimeSpan PackageInterval = TimeSpan.FromSeconds(60);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         WfpEngine engine;
@@ -55,6 +58,8 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var temporaryRules = new TemporaryRuleStore(TemporaryRuleStore.DefaultPath);
             var identities = new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures());
             var nextIdentityCheck = DateTime.UtcNow;
+            var nextPackageCheck = DateTime.UtcNow;
+            var packagesSeen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             using var timer = new PeriodicTimer(PollInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -95,6 +100,23 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     if (expired > 0)
                     {
                         LogExpired(logger, expired);
+                    }
+
+                    // Store apps move to a new folder with every update; renew their rules to match.
+                    if (now >= nextPackageCheck)
+                    {
+                        nextPackageCheck = now + PackageInterval;
+                        try
+                        {
+                            foreach (var package in StoreApps.Refresh(engine, packagesSeen))
+                            {
+                                LogPackageRenewed(logger, package);
+                            }
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            LogPollError(logger, ex);
+                        }
                     }
 
                     // A program put in place of an allowed one, or a tampered copy, loses the permission.
@@ -161,6 +183,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} expired temporary rules.")]
     private static partial void LogExpired(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Renewed the rules of the Store app {Package}.")]
+    private static partial void LogPackageRenewed(ILogger logger, string package);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "{App} changed since it was allowed (publisher {Was} -> {Now}); blocked: {Blocked}.")]
     private static partial void LogProgramChanged(ILogger logger, string app, string was, string now, bool blocked);

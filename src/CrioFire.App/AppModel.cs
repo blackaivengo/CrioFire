@@ -529,7 +529,7 @@ internal sealed class AppModel
     }
 
     /// <summary>Allowed programs whose file changed since they were allowed.</summary>
-    public IReadOnlyList<ChangedProgram> ChangedPrograms() =>
+    public static IReadOnlyList<ChangedProgram> ChangedPrograms() =>
         Service.Call(new ApiRequest { Op = ApiOps.Changed }, out _)?.Changed ?? [];
 
     /// <summary>The user checked the changed program: allow it again as it is now.</summary>

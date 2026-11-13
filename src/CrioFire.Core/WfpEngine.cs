@@ -381,6 +381,11 @@ public sealed unsafe class WfpEngine : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(appPath);
 
         var fullPath = KnownApps.Normalize(appPath);
+        if (StoreApps.IsPackage(fullPath))
+        {
+            return SetPackageRule(fullPath, action, direction, StoreApps.RootFromPath(appPath));
+        }
+
         var kernel = KnownApps.IsKernel(fullPath);
         if (!kernel && !File.Exists(fullPath))
         {
@@ -794,6 +799,78 @@ public sealed unsafe class WfpEngine : IDisposable
         {
             _ = Fwpuclnt.FwpmEngineClose0(_handle);
             _handle = IntPtr.Zero;
+        }
+    }
+
+    /// <summary>
+    /// A rule for a Microsoft Store app, by package family: one filter on the package SID (which
+    /// covers sandboxed Store apps whatever their version), plus one per program file of the
+    /// installed version (for desktop apps from the Store, which run without a sandbox). The
+    /// service renews these when the app updates (<see cref="StoreApps.Refresh"/>).
+    /// </summary>
+    private List<ulong> SetPackageRule(string key, RuleAction action, TrafficDirection direction, string? root)
+    {
+        var family = StoreApps.Family(key);
+        string[] roots = root is null ? [StoreApps.DefaultRoot] : [StoreApps.DefaultRoot, root];
+        var programs = StoreApps.Programs(family, roots);
+        var description = new RuleDescription(action, direction, key).Format();
+        var name = $"CrioFire: {RuleDescription.ActionText(action)} {StoreApps.DisplayName(key)}";
+        var type = action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT;
+
+        var hr = Userenv.DeriveAppContainerSidFromAppContainerName(family.ToLowerInvariant(), out var sid);
+        if (hr != 0)
+        {
+            throw new ArgumentException($"'{family}' is not a valid Store app package family.");
+        }
+
+        try
+        {
+            using var tx = BeginTransaction();
+            var layers = FilterLayers.For(direction);
+            RemoveAppRulesInternal(key, layers);
+            var added = new List<ulong>();
+            foreach (var layer in layers)
+            {
+                var condition = new FWPM_FILTER_CONDITION0
+                {
+                    fieldKey = WfpIds.ConditionAlePackageId,
+                    matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL,
+                    conditionValue = new FWP_VALUE0
+                    {
+                        type = FWP_DATA_TYPE.FWP_SID,
+                        value = new FWP_VALUE_UNION { sid = (void*)sid },
+                    },
+                };
+                added.Add(AddFilter(layer, name, description, type, RuleWeight, &condition, 1));
+            }
+
+            foreach (var program in programs)
+            {
+                AppId appId;
+                try
+                {
+                    appId = AppId.FromFile(program);
+                }
+                catch (WfpException)
+                {
+                    continue;   // a file being replaced by an update; the next renewal picks it up
+                }
+
+                using (appId)
+                {
+                    foreach (var layer in layers)
+                    {
+                        added.Add(AddAppIdFilter(layer, appId, name, description, type, RuleWeight));
+                    }
+                }
+            }
+
+            tx.Commit();
+            return added;
+        }
+        finally
+        {
+            _ = Userenv.FreeSid(sid);
         }
     }
 

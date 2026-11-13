@@ -16,6 +16,7 @@ internal enum FWP_DATA_TYPE : uint
     FWP_UINT64 = 4,
     FWP_BYTE_ARRAY16_TYPE = 11,
     FWP_BYTE_BLOB_TYPE = 12,
+    FWP_SID = 13,
     FWP_SECURITY_DESCRIPTOR_TYPE = 14,
     FWP_RANGE_TYPE = 0x102,
 }
@@ -87,6 +88,7 @@ internal unsafe struct FWP_VALUE_UNION
     [FieldOffset(0)] public FWP_BYTE_BLOB* byteBlob;
     [FieldOffset(0)] public byte* byteArray16;       // FWP_BYTE_ARRAY16*: an IPv6 address, network order
     [FieldOffset(0)] public FWP_RANGE0* rangeValue;  // FWP_CONDITION_VALUE0 only
+    [FieldOffset(0)] public void* sid;                // FWP_SID: a SID, e.g. a Store app's package SID
 }
 
 /// <summary>FWP_RANGE0: an inclusive range for FWP_MATCH_RANGE; both ends have the same type.</summary>
@@ -348,6 +350,16 @@ internal unsafe struct ENUM_SERVICE_STATUS_PROCESSW
     public uint dwWaitHint;
     public uint dwProcessId;
     public uint dwServiceFlags;
+}
+
+internal static unsafe partial class Userenv
+{
+    /// <summary>The SID of an AppContainer; for a Store app the name is its package family name.</summary>
+    [LibraryImport("userenv.dll", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int DeriveAppContainerSidFromAppContainerName(string appContainerName, out IntPtr sid);
+
+    [LibraryImport("advapi32.dll")]
+    public static partial IntPtr FreeSid(IntPtr sid);
 }
 
 internal static unsafe partial class Kernel32

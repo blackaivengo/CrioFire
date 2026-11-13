@@ -114,7 +114,7 @@ public static class AllowReasons
         _ => -1,
     };
 
-    private static bool SameApp(string? a, string? b) => a is not null && b is not null && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    private static bool SameApp(string? a, string? b) => KnownApps.SameApp(a, b);
 
     private static bool HasService(string? services, string name) =>
         services is not null && services.Split(',', StringSplitOptions.TrimEntries).Contains(name, StringComparer.OrdinalIgnoreCase);

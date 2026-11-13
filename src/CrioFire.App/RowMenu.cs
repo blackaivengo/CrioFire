@@ -175,7 +175,7 @@ internal static class ConnectionFacts
         foreach (var r in model.Rules)
         {
             var program = (r.Kind == nameof(FilterKind.AppRule) || r.Kind == nameof(FilterKind.NetRule)) && t.App is not null
-                && string.Equals(r.App, t.App, StringComparison.OrdinalIgnoreCase);
+                && KnownApps.SameApp(r.App, t.App);
             var service = r.Kind == nameof(FilterKind.ServiceRule) && t.Service is not null && r.Service is not null
                 && t.Service.Split(',', StringSplitOptions.TrimEntries).Contains(r.Service, StringComparer.OrdinalIgnoreCase);
             if (program || service)
@@ -303,7 +303,7 @@ internal static class RowMenu
 
             var hasRules = t.OneService is { } svc
                 ? model.Rules.Any(r => r.Kind == nameof(FilterKind.ServiceRule) && string.Equals(r.Service, svc, StringComparison.OrdinalIgnoreCase))
-                : model.Rules.Any(r => r.Kind == nameof(FilterKind.AppRule) && string.Equals(r.App, t.App, StringComparison.OrdinalIgnoreCase));
+                : model.Rules.Any(r => r.Kind == nameof(FilterKind.AppRule) && KnownApps.SameApp(r.App, t.App));
             if (hasRules)
             {
                 menu.Items.Add(Item($"Remove the rules for {t.Who}", () =>

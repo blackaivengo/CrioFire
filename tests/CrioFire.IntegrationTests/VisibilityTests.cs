@@ -151,6 +151,31 @@ public sealed class VisibilityTests : IDisposable
         return null!;
     }
 
+    [Fact]
+    public void StoreAppRulesAreKeyedByPackageFamily()
+    {
+        // A package SID filter can be written whether or not the app is installed, so this never
+        // touches a real app on the test machine.
+        const string key = "pkg:CrioFire.TestNoSuchApp_0000000000000";
+        var engine = Engine();
+
+        var ids = engine.SetAppRule(key, RuleAction.Block, TrafficDirection.Both);
+
+        Assert.True(ids.Count >= 4, $"Expected a package filter per layer, got {ids.Count}.");
+        var rules = engine.ListFilters().Where(f => f.Kind == FilterKind.AppRule && f.Rule?.AppPath == key).ToList();
+        Assert.Equal(ids.Count, rules.Count);
+        Assert.All(rules, r => Assert.Contains("(Store app)", r.Name, StringComparison.Ordinal));
+
+        // Renewing (what the service does after an app update) writes the same rule again.
+        var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(key, StoreApps.Refresh(engine, seen));
+        Assert.Empty(StoreApps.Refresh(engine, seen));
+        Assert.Equal(ids.Count, engine.ListFilters().Count(f => f.Rule?.AppPath == key));
+
+        Assert.Equal(ids.Count, engine.RemoveAppRules(key));
+        Assert.DoesNotContain(engine.ListFilters(), f => f.Rule?.AppPath == key);
+    }
+
     private WfpEngine Engine()
     {
         Assert.SkipUnless(Environment.GetEnvironmentVariable("CRIOFIRE_INTEGRATION") == "1",

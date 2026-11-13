@@ -45,6 +45,9 @@ public static class WfpIds
     /// <summary>FWPM_CONDITION_ALE_APP_ID: the application's NT device path.</summary>
     public static readonly Guid ConditionAleAppId = new("d78e1e87-8644-4ea5-9437-d809ecefc971");
 
+    /// <summary>FWPM_CONDITION_ALE_PACKAGE_ID: the package SID of a Store app (AppContainer) process.</summary>
+    public static readonly Guid ConditionAlePackageId = new("71bc78fa-f17c-4997-a602-6abb261f351c");
+
     /// <summary>FWPM_CONDITION_ALE_USER_ID: the process token, matched against a security descriptor (e.g. a service SID).</summary>
     public static readonly Guid ConditionAleUserId = new("af043a0a-b34d-4f86-979c-c90371af6e66");
 }
