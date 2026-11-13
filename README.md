@@ -59,6 +59,9 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe block --service DiagTrack                 # block one Windows service, even inside svchost.exe
 .\criofire.exe block System --in                         # rules for the Windows kernel use the name "System"
 .\criofire.exe auto                                      # the automatic rules; "auto svchost off" turns one off
+.\criofire.exe export my-rules.json                       # save every rule to a file
+.\criofire.exe import my-rules.json --dry-run             # what an import would change (--replace removes others)
+.\criofire.exe backups                                   # automatic backups; "restore <name>" puts one back
 .\criofire.exe changed                                   # allowed programs whose file changed since you allowed them
 .\criofire.exe trust "C:\Path\To\Chat.exe"              # you checked it: allow the changed program again
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
@@ -69,6 +72,11 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe panic remove                              # last resort: delete every CrioFire rule
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
+
+**Backups.** The service saves the rules to `%ProgramData%\criofire\backups` whenever they change
+(checked every 5 minutes), and before every import or "remove all rules"; the newest 30 are kept.
+Export and Import (on the Rules page, or `criofire export|import`) move rules between PCs as a
+readable JSON file. Import merges by default; Replace also removes rules that are not in the file.
 
 **Microsoft Store apps** live in a folder named after their exact version, so CrioFire keys their
 rules by package family instead of path (`pkg:Microsoft.WindowsTerminal_8wekyb3d8bbwe`): a filter

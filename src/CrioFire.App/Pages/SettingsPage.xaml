@@ -49,6 +49,15 @@
       </StackPanel>
     </ContentControl>
 
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock Text="Rule backups" Style="{StaticResource H2}" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,14" FontSize="14" LineHeight="21" TextWrapping="Wrap"
+                   Text="CrioFire saves your rules automatically when they change, and before every import or 'remove all rules'. The newest 30 are kept. Restoring puts every rule and the mode back exactly as they were; your rules from now are saved as a backup first. To move rules to another PC, use Export and Import on the Rules page." />
+        <StackPanel x:Name="BackupList" />
+      </StackPanel>
+    </ContentControl>
+
     <ContentControl Style="{StaticResource Card}">
       <StackPanel>
         <TextBlock Text="About" Style="{StaticResource H2}" />

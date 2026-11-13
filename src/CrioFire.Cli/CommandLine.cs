@@ -24,6 +24,10 @@ public enum CommandKind
     AutoSet,
     Changed,
     Trust,
+    Export,
+    Import,
+    Backups,
+    Restore,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -37,6 +41,10 @@ public enum CommandKind
 /// <param name="Service">block/allow/unblock --service: a rule for one Windows service.</param>
 /// <param name="AutoRule">auto: svchost or system.</param>
 /// <param name="Enabled">auto ... on|off.</param>
+/// <param name="FilePath">export/import: the rules file. restore: the backup name.</param>
+/// <param name="Replace">import --replace: also remove rules that are not in the file.</param>
+/// <param name="DryRun">import/restore --dry-run: only show what would change.</param>
+/// <param name="WithMode">import --with-mode: also switch to the mode in the file.</param>
 public sealed record Command(
     CommandKind Kind,
     string? AppPath = null,
@@ -53,7 +61,11 @@ public sealed record Command(
     string? Service = null,
     string? AutoRule = null,
     bool Enabled = true,
-    string? PanicAction = null);
+    string? PanicAction = null,
+    string? FilePath = null,
+    bool Replace = false,
+    bool DryRun = false,
+    bool WithMode = false);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -108,6 +120,17 @@ internal static class CommandLine
                                                contents of an unsigned program). In ask/allowlist mode
                                                they are blocked until you allow them again
           criofire trust <app.exe>             You checked the changed program: allow it again as it is now
+          criofire export <file.json>          Save every rule (program, network, service, automatic rules
+                                               and the mode) to a file
+          criofire import <file.json> [--replace] [--dry-run] [--with-mode]
+                                               Add and update rules from a file. --replace also removes
+                                               rules that are not in it; --dry-run only shows what would
+                                               change; --with-mode also switches to the file's mode. A
+                                               backup is saved first
+          criofire backups                     List the saved backups (made automatically when the rules
+                                               change, and before every import or "remove all")
+          criofire restore <backup> [--dry-run]
+                                               Put the rules back exactly as in a backup
           criofire remove <filter-id>          Remove one CrioFire filter by ID
           criofire events [--minutes N] [--all]
                                                Show connections CrioFire blocked (default: last 10 minutes;
@@ -131,6 +154,47 @@ internal static class CommandLine
         normal prompt while the criofire service runs (changing rules then needs CrioFire's
         installed command line, or an administrator prompt).
         """;
+
+    private static Command ParseImport(string verb, string[] rest, out string? error)
+    {
+        error = null;
+        string? file = null;
+        bool replace = false, dryRun = false, withMode = false;
+        foreach (var arg in rest)
+        {
+            switch (arg.ToLowerInvariant())
+            {
+                case "--replace" when verb == "import":
+                    replace = true;
+                    break;
+                case "--with-mode" when verb == "import":
+                    withMode = true;
+                    break;
+                case "--dry-run":
+                    dryRun = true;
+                    break;
+                default:
+                    if (arg.StartsWith("--", StringComparison.Ordinal) || file is not null)
+                    {
+                        error = verb == "import"
+                            ? "Usage: criofire import <file.json> [--replace] [--dry-run] [--with-mode]"
+                            : "Usage: criofire restore <backup> [--dry-run]";
+                        return new Command(CommandKind.Help);
+                    }
+
+                    file = arg;
+                    break;
+            }
+        }
+
+        if (file is null)
+        {
+            error = verb == "import" ? "Give the rules file to import." : "Give a backup name from 'criofire backups'.";
+            return new Command(CommandKind.Help);
+        }
+
+        return new Command(verb == "import" ? CommandKind.Import : CommandKind.Restore, FilePath: file, Replace: replace, DryRun: dryRun, WithMode: withMode);
+    }
 
     public static Command Parse(IReadOnlyList<string> args, out string? error)
     {
@@ -196,6 +260,25 @@ internal static class CommandLine
 
                 error = "Usage: criofire auto [svchost|system on|off]";
                 return new Command(CommandKind.Help);
+            case "export":
+                if (rest.Length != 1)
+                {
+                    error = "Usage: criofire export <file.json>";
+                    return new Command(CommandKind.Help);
+                }
+
+                return new Command(CommandKind.Export, FilePath: rest[0]);
+            case "import":
+            case "restore":
+                return ParseImport(verb, rest, out error);
+            case "backups":
+                if (rest.Length != 0)
+                {
+                    error = "'backups' takes no arguments.";
+                    return new Command(CommandKind.Help);
+                }
+
+                return new Command(CommandKind.Backups);
             case "changed":
                 if (rest.Length != 0)
                 {

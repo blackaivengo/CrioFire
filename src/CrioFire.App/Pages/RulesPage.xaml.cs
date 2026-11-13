@@ -37,7 +37,10 @@ public partial class RulesPage : UserControl, IPage
 
     public string Subtitle { get; private set; } = string.Empty;
 
-    public FrameworkElement? Actions => null;
+    /// <summary>Export and Import, in the page header.</summary>
+    public FrameworkElement? Actions => _actions ??= BuildActions();
+
+    private StackPanel? _actions;
 
     public TimeSpan? AutoRefresh => null;
 
@@ -484,6 +487,80 @@ public partial class RulesPage : UserControl, IPage
     private void OnAllowHour(object sender, RoutedEventArgs e) => Add("allow", 60);
 
     private void OnBlock(object sender, RoutedEventArgs e) => Add("block", null);
+
+    private StackPanel BuildActions()
+    {
+        var export = new Button { Content = "Export...", Style = (Style)FindResource("GhostButton"), Margin = new Thickness(0, 0, 8, 0), ToolTip = "Save every rule to a file" };
+        export.Click += (_, _) => ExportRules();
+        var import = new Button { Content = "Import...", Style = (Style)FindResource("GhostButton"), ToolTip = "Add or replace rules from a file" };
+        import.Click += (_, _) => ImportRules();
+        return new StackPanel { Orientation = Orientation.Horizontal, Children = { export, import } };
+    }
+
+    private void ExportRules()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export rules",
+            Filter = "CrioFire rules (*.json)|*.json",
+            FileName = $"criofire-rules-{Environment.MachineName}-{DateTime.Now:yyyy-MM-dd}.json",
+        };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true || _model.ExportRules() is not { } set)
+        {
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(dialog.FileName, RuleBackup.ToJson(set));
+            _model.Say($"Saved {set.Count} rules to {Path.GetFileName(dialog.FileName)}.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _model.Say($"Could not save the file: {ex.Message}");
+        }
+    }
+
+    private void ImportRules()
+    {
+        var owner = Window.GetWindow(this);
+        var dialog = new OpenFileDialog { Title = "Import rules", Filter = "CrioFire rules (*.json)|*.json" };
+        if (owner is null || dialog.ShowDialog(owner) != true)
+        {
+            return;
+        }
+
+        RuleSet set;
+        try
+        {
+            set = RuleBackup.FromJson(File.ReadAllText(dialog.FileName));
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            _model.Say(ex.Message);
+            return;
+        }
+
+        if (_model.PlanImport(set, "merge") is not { } merge || _model.PlanImport(set, "replace") is not { } replace)
+        {
+            return;
+        }
+
+        var from = set.Computer is { Length: > 0 } pc ? $" from {pc}" : string.Empty;
+        var missing = merge.Missing.Count == 0 ? string.Empty
+            : $"\n\n{merge.Missing.Count} program(s) in the file are not on this PC and are skipped, e.g. {merge.Missing[0]}.";
+        var message =
+            $"The file has {set.Count} rules{from}.\n\n"
+            + $"Merge: adds {merge.Add}, changes {merge.Change}, keeps your other rules.\n"
+            + $"Replace: the same, and removes {replace.Remove} rule(s) that are not in the file."
+            + missing
+            + "\n\nYour current rules are saved as a backup first (Settings, Rule backups). The mode is not changed.";
+        var choice = ChoiceDialog.Ask(owner, "Import rules?", message, ["Merge", "Replace", "Cancel"], defaultIndex: 0);
+        if (choice is 0 or 1)
+        {
+            _model.ImportRules(set, choice == 0 ? "merge" : "replace");
+        }
+    }
 
     private void Add(string action, int? minutes)
     {

@@ -9,7 +9,8 @@ namespace CrioFire.Core.Api;
 /// </summary>
 /// <param name="allowedLog">The service's log of allowed connections (allowed.log), for reports and the allowed list.</param>
 /// <param name="identities">Checks that allowed programs stay the files the user allowed; null where not used (tests).</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null)
+/// <param name="backups">Where rule backups are kept (automatic, and before imports and "remove all"); null in tests.</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -62,6 +63,12 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.SetAutoRule => SetAutoRule(request),
                     ApiOps.Changed => new ApiResponse { Ok = true, Changed = identities?.Store.Changed().ToList() ?? [] },
                     ApiOps.Trust => Trust(request),
+                    ApiOps.ExportRules => new ApiResponse { Ok = true, RuleSet = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow) },
+                    ApiOps.ImportRules => Import(request.RuleSet ?? throw new ArgumentException("ruleSet is required."), request),
+                    ApiOps.Backups => new ApiResponse { Ok = true, Backups = backups?.List().ToList() ?? [] },
+                    ApiOps.RestoreBackup => Import(
+                        (backups ?? throw new InvalidOperationException("Backups need the criofire service.")).Load(Required(request.Name, "name")),
+                        request with { ImportMode = "replace", WithMode = true }),
                     _ => ApiResponse.Failure($"Unknown operation '{request.Op}'."),
                 };
             }
@@ -255,6 +262,48 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         return new ApiResponse { Ok = true, Count = ids.Count };
     }
 
+    /// <summary>
+    /// importRules / restoreBackup: compares or applies a rules file. A backup of the rules in
+    /// force is saved first, so any import can be undone with restoreBackup.
+    /// </summary>
+    private ApiResponse Import(RuleSet set, ApiRequest request)
+    {
+        if (RuleBackup.Validate(set) is { } invalid)
+        {
+            throw new ArgumentException(invalid);
+        }
+
+        var mode = request.ImportMode?.ToLowerInvariant() switch
+        {
+            null or "" or "merge" => ImportMode.Merge,
+            "replace" => ImportMode.Replace,
+            _ => throw new ArgumentException("importMode must be merge or replace."),
+        };
+        var now = DateTime.UtcNow;
+        var withMode = request.WithMode == true;
+        if (request.DryRun == true)
+        {
+            return new ApiResponse { Ok = true, Plan = RuleBackup.Plan(RuleBackup.Export(engine, temporaryRules, now), set, mode, File.Exists, withMode) };
+        }
+
+        EnsureInstalled();
+        Backup("before-import");
+        var plan = RuleBackup.Apply(engine, set, mode, temporaryRules, withMode, now);
+        return new ApiResponse { Ok = true, Plan = plan };
+    }
+
+    private void Backup(string reason)
+    {
+        if (backups is not null && engine.IsInstalled())
+        {
+            var current = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow);
+            if (current.Count > 0)
+            {
+                backups.Save(current, reason);
+            }
+        }
+    }
+
     private List<AutoRuleInfo> AutoRules() =>
         engine.GetAutoRules().Select(r => new AutoRuleInfo(r.Name, r.Enabled, r.Active)).ToList();
 
@@ -267,6 +316,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         var action = request.Action?.Trim().ToLowerInvariant();
         if (action == "remove")
         {
+            Backup("before-remove-all");
             var count = engine.RemoveAllFilters();
             temporaryRules?.Clear();
             identities?.Store.Clear();

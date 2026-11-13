@@ -528,6 +528,51 @@ internal sealed class AppModel
         SetPanic(action);
     }
 
+    /// <summary>Every rule in force, for saving to a file; null (with a message) when the service cannot answer.</summary>
+    public RuleSet? ExportRules() => Call(new ApiRequest { Op = ApiOps.ExportRules })?.RuleSet;
+
+    /// <summary>What importing a rules file would do, without changing anything.</summary>
+    public ImportPlan? PlanImport(RuleSet set, string importMode) =>
+        Call(new ApiRequest { Op = ApiOps.ImportRules, RuleSet = set, ImportMode = importMode, DryRun = true })?.Plan;
+
+    /// <summary>Imports a rules file (merge or replace). A backup of the current rules is saved first.</summary>
+    public bool ImportRules(RuleSet set, string importMode)
+    {
+        var plan = Call(new ApiRequest { Op = ApiOps.ImportRules, RuleSet = set, ImportMode = importMode })?.Plan;
+        if (plan is null)
+        {
+            return false;
+        }
+
+        Message?.Invoke(this, $"Imported: {plan.Add} added, {plan.Change} changed, {plan.Remove} removed"
+            + (plan.Missing.Count > 0 ? $", {plan.Missing.Count} skipped (program not on this PC)." : "."));
+        RefreshCore();
+        NotifyChanged();
+        return true;
+    }
+
+    /// <summary>The saved rule backups, newest first.</summary>
+    public static IReadOnlyList<BackupInfo> Backups() =>
+        Service.Call(new ApiRequest { Op = ApiOps.Backups }, out _)?.Backups ?? [];
+
+    public ImportPlan? PlanRestore(string name) =>
+        Call(new ApiRequest { Op = ApiOps.RestoreBackup, Name = name, DryRun = true })?.Plan;
+
+    /// <summary>Puts the rules back exactly as in a backup (the current ones are backed up first).</summary>
+    public bool RestoreBackup(string name)
+    {
+        var plan = Call(new ApiRequest { Op = ApiOps.RestoreBackup, Name = name })?.Plan;
+        if (plan is null)
+        {
+            return false;
+        }
+
+        Message?.Invoke(this, $"Restored the backup: {plan.Add} added, {plan.Change} changed, {plan.Remove} removed.");
+        RefreshCore();
+        NotifyChanged();
+        return true;
+    }
+
     /// <summary>Allowed programs whose file changed since they were allowed.</summary>
     public static IReadOnlyList<ChangedProgram> ChangedPrograms() =>
         Service.Call(new ApiRequest { Op = ApiOps.Changed }, out _)?.Changed ?? [];

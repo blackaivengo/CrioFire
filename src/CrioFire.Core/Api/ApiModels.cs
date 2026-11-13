@@ -26,10 +26,14 @@ public static class ApiOps
     public const string SetAutoRule = "setAutoRule";
     public const string Changed = "changed";
     public const string Trust = "trust";
+    public const string ExportRules = "exportRules";
+    public const string ImportRules = "importRules";
+    public const string Backups = "backups";
+    public const string RestoreBackup = "restoreBackup";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
-        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust;
+        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup;
 }
 
 public sealed record ApiRequest
@@ -77,6 +81,21 @@ public sealed record ApiRequest
 
     /// <summary>setServiceRule, removeServiceRules: the service's key name, e.g. "Dnscache".</summary>
     public string? Service { get; init; }
+
+    /// <summary>importRules: the rules to import.</summary>
+    public RuleSet? RuleSet { get; init; }
+
+    /// <summary>importRules: merge (default) or replace.</summary>
+    public string? ImportMode { get; init; }
+
+    /// <summary>importRules, restoreBackup: only report what would change.</summary>
+    public bool? DryRun { get; init; }
+
+    /// <summary>importRules: also switch to the mode in the file.</summary>
+    public bool? WithMode { get; init; }
+
+    /// <summary>restoreBackup: a backup name from the backups operation.</summary>
+    public string? Name { get; init; }
 
     /// <summary>setAutoRule: svchost or system.</summary>
     public string? AutoRule { get; init; }
@@ -136,6 +155,15 @@ public sealed record ApiResponse
 
     /// <summary>list: CrioFire's automatic permits and whether they are on.</summary>
     public List<AutoRuleInfo>? AutoRules { get; init; }
+
+    /// <summary>exportRules: every rule in force.</summary>
+    public RuleSet? RuleSet { get; init; }
+
+    /// <summary>importRules, restoreBackup: what was (or, with dryRun, would be) done.</summary>
+    public ImportPlan? Plan { get; init; }
+
+    /// <summary>backups: the saved rule backups, newest first.</summary>
+    public List<BackupInfo>? Backups { get; init; }
 
     /// <summary>changed: programs whose file changed since they were allowed.</summary>
     public List<ChangedProgram>? Changed { get; init; }

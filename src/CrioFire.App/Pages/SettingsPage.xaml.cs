@@ -24,6 +24,10 @@ public partial class SettingsPage : UserControl, IPage
 
     public TimeSpan? AutoRefresh => null;
 
+    private IReadOnlyList<BackupInfo>? _backups;
+
+    public async Task LoadAsync() => _backups = await Task.Run(AppModel.Backups);
+
     public void Refresh()
     {
         ThemeSystem.IsChecked = ThemeManager.Choice == ThemeManager.System;
@@ -40,6 +44,9 @@ public partial class SettingsPage : UserControl, IPage
             $"Other business use needs a CrioSoft commercial license (see LICENSING.md).\n" +
             $"App {app} · Service {service}\n" +
             $"Blocked-connection log: {TrafficLog.DefaultPath}";
+
+        ShowBackups(_backups ?? AppModel.Backups());
+        _backups = null;
 
         // The same panic choices as the sidebar, without "remove all rules": nothing here deletes a rule.
         var panic = _model.PanicMode;
@@ -79,6 +86,58 @@ public partial class SettingsPage : UserControl, IPage
     {
         Prefs.Current.CloseToTray = CloseToTraySwitch.IsChecked == true;
         Prefs.Save();
+    }
+
+    private void ShowBackups(IReadOnlyList<BackupInfo> backups)
+    {
+        BackupList.Children.Clear();
+        if (backups.Count == 0)
+        {
+            BackupList.Children.Add(new TextBlock { Text = "No backups yet.", FontSize = 13 });
+            return;
+        }
+
+        foreach (var backup in backups.Take(10))
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+            var restore = new Button { Content = "Restore...", Style = (Style)FindResource("GhostButton"), MinHeight = 32 };
+            restore.Click += (_, _) => Restore(backup);
+            DockPanel.SetDock(restore, Dock.Right);
+            row.Children.Add(restore);
+            row.Children.Add(new TextBlock
+            {
+                Text = $"{backup.CreatedUtc.ToLocalTime():g} · {backup.Rules} rules · {ReasonText(backup.Reason)}",
+                FontSize = 13,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            BackupList.Children.Add(row);
+        }
+    }
+
+    private static string ReasonText(string reason) => reason switch
+    {
+        _ when reason.StartsWith("auto", StringComparison.Ordinal) => "saved automatically",
+        _ when reason.StartsWith("before-import", StringComparison.Ordinal) => "before an import",
+        _ when reason.StartsWith("before-remove-all", StringComparison.Ordinal) => "before removing all rules",
+        _ => reason,
+    };
+
+    private void Restore(BackupInfo backup)
+    {
+        if (Window.GetWindow(this) is not { } owner || _model.PlanRestore(backup.Name) is not { } plan)
+        {
+            return;
+        }
+
+        var mode = plan.ModeChange is { } m ? $" The mode goes back to {m}." : string.Empty;
+        var message = $"This puts your rules back as they were on {backup.CreatedUtc.ToLocalTime():g}: "
+            + $"{plan.Add} added, {plan.Change} changed, {plan.Remove} removed.{mode}"
+            + (plan.Missing.Count > 0 ? $" {plan.Missing.Count} program(s) are no longer on this PC and are skipped." : string.Empty)
+            + " Your rules from now are saved as a backup first.";
+        if (ChoiceDialog.Ask(owner, "Restore this backup?", message, ["Restore", "Cancel"], defaultIndex: 1) == 0)
+        {
+            _model.RestoreBackup(backup.Name);
+        }
     }
 
     private void OnResume(object sender, RoutedEventArgs e) => _model.Resume();

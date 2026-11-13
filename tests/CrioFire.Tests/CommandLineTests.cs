@@ -95,4 +95,28 @@ public class CommandLineTests
         CommandLine.Parse(["changed", "x"], out var e4);
         Assert.NotNull(e4);
     }
+    [Fact]
+    public void ExportImportBackupsAndRestoreParse()
+    {
+        var export = CommandLine.Parse(["export", "rules.json"], out var e1);
+        Assert.Null(e1);
+        Assert.Equal(CommandKind.Export, export.Kind);
+        Assert.Equal("rules.json", export.FilePath);
+
+        var import = CommandLine.Parse(["import", "rules.json", "--replace", "--dry-run", "--with-mode"], out var e2);
+        Assert.Null(e2);
+        Assert.Equal(CommandKind.Import, import.Kind);
+        Assert.True(import.Replace && import.DryRun && import.WithMode);
+
+        var restore = CommandLine.Parse(["restore", "rules-20261112-210000-auto.json", "--dry-run"], out var e3);
+        Assert.Null(e3);
+        Assert.Equal(CommandKind.Restore, restore.Kind);
+        Assert.True(restore.DryRun);
+
+        Assert.Equal(CommandKind.Backups, CommandLine.Parse(["backups"], out _).Kind);
+        CommandLine.Parse(["restore", "x.json", "--replace"], out var e4);
+        Assert.NotNull(e4);
+        CommandLine.Parse(["import"], out var e5);
+        Assert.NotNull(e5);
+    }
 }

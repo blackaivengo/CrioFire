@@ -20,6 +20,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
     /// <summary>How often Store app rules are checked for app updates (a new version folder).</summary>
     private static readonly TimeSpan PackageInterval = TimeSpan.FromSeconds(60);
 
+    /// <summary>How often the rules are compared with the last backup (a new backup only when they changed).</summary>
+    private static readonly TimeSpan BackupInterval = TimeSpan.FromMinutes(5);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         WfpEngine engine;
@@ -60,6 +63,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var nextIdentityCheck = DateTime.UtcNow;
             var nextPackageCheck = DateTime.UtcNow;
             var packagesSeen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var backups = new RuleBackupStore(RuleBackupStore.DefaultFolder);
+            var nextBackup = DateTime.UtcNow + TimeSpan.FromMinutes(1);
+            string? lastBackup = null;
 
             using var timer = new PeriodicTimer(PollInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -116,6 +122,20 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         catch (ArgumentException ex)
                         {
                             LogPollError(logger, ex);
+                        }
+                    }
+
+                    // Automatic backups: days of rule-making must not be lost to one wrong click.
+                    if (now >= nextBackup)
+                    {
+                        nextBackup = now + BackupInterval;
+                        lastBackup ??= backups.LatestFingerprint() ?? string.Empty;
+                        var rules = RuleBackup.Export(engine, temporaryRules, now);
+                        var fingerprint = RuleBackup.Fingerprint(rules);
+                        if (rules.Count > 0 && fingerprint != lastBackup)
+                        {
+                            LogBackedUp(logger, backups.Save(rules, "auto"));
+                            lastBackup = fingerprint;
                         }
                     }
 
@@ -183,6 +203,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} expired temporary rules.")]
     private static partial void LogExpired(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Saved a backup of the rules: {Name}.")]
+    private static partial void LogBackedUp(ILogger logger, string name);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Renewed the rules of the Store app {Package}.")]
     private static partial void LogPackageRenewed(ILogger logger, string package);

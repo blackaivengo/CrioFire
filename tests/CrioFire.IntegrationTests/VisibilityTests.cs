@@ -176,6 +176,29 @@ public sealed class VisibilityTests : IDisposable
         Assert.DoesNotContain(engine.ListFilters(), f => f.Rule?.AppPath == key);
     }
 
+    [Fact]
+    public void ExportedRulesComeBackExactlyAfterImport()
+    {
+        var engine = Engine();
+        engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Both);
+        engine.AddNetRule(NetRule.Create(RuleAction.Block, TrafficDirection.Inbound, NetProtocol.Tcp, "65001", null, null, out _)!);
+        engine.SetServiceRule(NoSuchService, RuleAction.Block, TrafficDirection.Outbound);
+        var exported = RuleBackup.Export(engine, null, DateTime.UtcNow);
+        Assert.Equal(3, exported.Count);
+
+        engine.RemoveAllFilters();
+        var plan = RuleBackup.Apply(engine, exported, ImportMode.Merge, null, applyMode: false, DateTime.UtcNow);
+
+        Assert.Equal(3, plan.Add);
+        Assert.Equal(RuleBackup.Fingerprint(exported), RuleBackup.Fingerprint(RuleBackup.Export(engine, null, DateTime.UtcNow)));
+
+        // Importing the same file again changes nothing; Replace with an empty file removes everything.
+        Assert.Equal(0, RuleBackup.Apply(engine, exported, ImportMode.Merge, null, false, DateTime.UtcNow).Total);
+        var emptied = RuleBackup.Apply(engine, new RuleSet { AutoRules = exported.AutoRules }, ImportMode.Replace, null, false, DateTime.UtcNow);
+        Assert.Equal(3, emptied.Remove);
+        Assert.Equal(0, RuleBackup.Export(engine, null, DateTime.UtcNow).Count);
+    }
+
     private WfpEngine Engine()
     {
         Assert.SkipUnless(Environment.GetEnvironmentVariable("CRIOFIRE_INTEGRATION") == "1",

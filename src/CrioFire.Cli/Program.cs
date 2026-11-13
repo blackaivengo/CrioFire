@@ -164,6 +164,65 @@ static int Run(Backend api, Command command)
             return 0;
         }
 
+        case CommandKind.Export:
+        {
+            var set = api.Call(new ApiRequest { Op = ApiOps.ExportRules }).RuleSet!;
+            File.WriteAllText(command.FilePath!, RuleBackup.ToJson(set));
+            Console.WriteLine($"Saved {set.Count} rules to {Path.GetFullPath(command.FilePath!)}.");
+            return 0;
+        }
+
+        case CommandKind.Import or CommandKind.Restore:
+        {
+            var request = command.Kind == CommandKind.Import
+                ? new ApiRequest
+                {
+                    Op = ApiOps.ImportRules,
+                    RuleSet = RuleBackup.FromJson(File.ReadAllText(command.FilePath!)),
+                    ImportMode = command.Replace ? "replace" : "merge",
+                    DryRun = command.DryRun,
+                    WithMode = command.WithMode,
+                }
+                : new ApiRequest { Op = ApiOps.RestoreBackup, Name = command.FilePath, DryRun = command.DryRun };
+            var plan = api.Call(request).Plan!;
+            var verb = command.DryRun ? "Would" : "Done:";
+            Console.WriteLine($"{verb} add {plan.Add}, change {plan.Change}, remove {plan.Remove}; {plan.Same} already as in the file.");
+            if (plan.ModeChange is { } mode)
+            {
+                Console.WriteLine($"{(command.DryRun ? "Would switch" : "Switched")} to {mode} mode.");
+            }
+
+            foreach (var app in plan.Missing)
+            {
+                Console.WriteLine($"Skipped (not on this PC): {app}");
+            }
+
+            if (!command.DryRun)
+            {
+                Console.WriteLine("The rules from before were saved as a backup. See: criofire backups");
+            }
+
+            return 0;
+        }
+
+        case CommandKind.Backups:
+        {
+            var list = api.Call(new ApiRequest { Op = ApiOps.Backups }).Backups ?? [];
+            if (list.Count == 0)
+            {
+                Console.WriteLine("No backups yet. They are made automatically when the rules change.");
+                return 0;
+            }
+
+            foreach (var b in list)
+            {
+                Console.WriteLine($"{b.Name,-48} {b.CreatedUtc.ToLocalTime():g}  {b.Rules} rules  ({b.Reason})");
+            }
+
+            Console.WriteLine("Restore one with: criofire restore <name>");
+            return 0;
+        }
+
         case CommandKind.Changed:
         {
             var changed = api.Call(new ApiRequest { Op = ApiOps.Changed }).Changed ?? [];
@@ -374,7 +433,8 @@ internal sealed class Backend : IDisposable
             new TemporaryRuleStore(TemporaryRuleStore.DefaultPath),
             new TrafficLog(TrafficLog.DefaultPath),
             new TrafficLog(TrafficLog.AllowedPath),
-            new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()));
+            new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()),
+            new RuleBackupStore(RuleBackupStore.DefaultFolder));
         Description = "direct, administrator";
     }
 

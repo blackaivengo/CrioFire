@@ -55,7 +55,7 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
 {
     public const string DefaultPipeName = "criofire";
 
-    private const int MaxLineLength = 64 * 1024;
+    private const int MaxLineLength = 1024 * 1024;   // a rules file for import can hold many rules
 
     private readonly string _trustedDirectory = trustedDirectory ?? AppContext.BaseDirectory;
 
