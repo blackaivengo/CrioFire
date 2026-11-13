@@ -7,16 +7,31 @@
         <StackPanel Orientation="Horizontal">
           <RadioButton x:Name="ShowConnected" Content="Connected" GroupName="Show" Style="{StaticResource SegItem}" IsChecked="True" Click="OnShow" />
           <RadioButton x:Name="ShowAll" Content="Everything, listening too" GroupName="Show" Style="{StaticResource SegItem}" Click="OnShow" />
+          <RadioButton x:Name="ShowUsage" Content="Data used" GroupName="Show" Style="{StaticResource SegItem}" Click="OnShow"
+                       AutomationProperties.HelpText="How much each program sent and received" />
         </StackPanel>
       </Border>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <Button Content="Allow" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllow"
-                ToolTip="Make an allow rule for the selected program or service" />
-        <Button Content="Block" Style="{StaticResource FireButton}" Click="OnBlock"
-                ToolTip="Block the selected program, or the service behind a svchost.exe connection" />
-      </StackPanel>
+      <Border x:Name="PeriodGroup" DockPanel.Dock="Left" Style="{StaticResource SegGroup}" Margin="12,0,0,0" Visibility="Collapsed">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton Content="Today" Tag="today" GroupName="UsagePeriod" Style="{StaticResource SegItem}" IsChecked="True" Click="OnPeriod" />
+          <RadioButton Content="7 days" Tag="7d" GroupName="UsagePeriod" Style="{StaticResource SegItem}" Click="OnPeriod" />
+          <RadioButton Content="30 days" Tag="30d" GroupName="UsagePeriod" Style="{StaticResource SegItem}" Click="OnPeriod" />
+        </StackPanel>
+      </Border>
+      <Grid HorizontalAlignment="Right">
+        <StackPanel x:Name="LiveActions" Orientation="Horizontal">
+          <Button Content="Allow" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllow"
+                  ToolTip="Make an allow rule for the selected program or service" />
+          <Button Content="Block" Style="{StaticResource FireButton}" Click="OnBlock"
+                  ToolTip="Block the selected program, or the service behind a svchost.exe connection" />
+        </StackPanel>
+        <StackPanel x:Name="UsageActions" Orientation="Horizontal" Visibility="Collapsed">
+          <Button Content="Clear counts" Style="{StaticResource OutlineIceButton}" Click="OnClearUsage"
+                  ToolTip="Start counting again from zero" />
+        </StackPanel>
+      </Grid>
     </DockPanel>
-    <ContentControl Style="{StaticResource IceCard}">
+    <ContentControl x:Name="LiveCard" Style="{StaticResource IceCard}">
       <ListView x:Name="Table" SelectionMode="Single">
         <ListView.View>
           <GridView>
@@ -48,6 +63,60 @@
           </GridView>
         </ListView.View>
       </ListView>
+    </ContentControl>
+    <ContentControl x:Name="UsageCard" Style="{StaticResource IceCard}" Visibility="Collapsed">
+      <StackPanel>
+        <TextBlock x:Name="UsageEmpty" Style="{StaticResource Muted}" Visibility="Collapsed" TextWrapping="Wrap"
+                   Text="Nothing counted for this period yet. CrioFire's service counts what each program sends and receives from the moment it starts." />
+        <ListView x:Name="UsageTable" SelectionMode="Single" AutomationProperties.Name="Data used per program">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="PROGRAM" Width="260">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Program}" FontWeight="SemiBold" ToolTip="{Binding App}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="SENT" Width="100">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding SentText}" HorizontalAlignment="Right" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="RECEIVED" Width="100">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding ReceivedText}" HorizontalAlignment="Right" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="TOTAL" Width="100">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding TotalText}" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Header="SHARE" Width="220">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <Grid Height="6" Width="190" VerticalAlignment="Center" ToolTip="{Binding ShareText}">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{Binding Fill}" />
+                        <ColumnDefinition Width="{Binding Rest}" />
+                      </Grid.ColumnDefinitions>
+                      <Border Grid.ColumnSpan="2" CornerRadius="3" Background="{DynamicResource TrackBrush}" />
+                      <Border CornerRadius="3" Background="{DynamicResource IceBrush}" />
+                    </Grid>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </StackPanel>
     </ContentControl>
   </StackPanel>
 </UserControl>

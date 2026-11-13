@@ -249,6 +249,7 @@ internal static class RowMenu
         AllowedRow a => new MenuTarget(a.App, a.Service),
         ShareRow s when !string.IsNullOrEmpty(s.App) => new MenuTarget(s.App),
         ProgramRow p when !string.IsNullOrEmpty(p.App) => new MenuTarget(p.App),
+        UsageRow u when u.App == KnownApps.Kernel || System.IO.Path.IsPathRooted(u.App) => new MenuTarget(u.App),
         PendingAlert p => FromEndpoint(p.Event.App, p.Event.Remote),
         DestinationRow d => new MenuTarget(null, null, d.Address, int.TryParse(d.Port, NumberStyles.None, CultureInfo.InvariantCulture, out var port) ? port : 0),
         _ => null,

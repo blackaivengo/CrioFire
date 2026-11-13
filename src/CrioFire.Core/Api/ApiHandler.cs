@@ -15,7 +15,7 @@ namespace CrioFire.Core.Api;
 /// <param name="serverLink">The link to a company's CrioFire Server, when this PC is managed; null in tests.</param>
 /// <param name="policy">The organization's policy in force, which can stop users from changing rules, the mode or tamper protection.</param>
 /// <param name="domainRules">The domain rules (the service turns them into address filters); null where not used (tests).</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null)
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -52,7 +52,12 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             }
         }
 
-        if (request.Op is ApiOps.Report or ApiOps.Allowed or ApiOps.Traffic)
+        if (request.Op == ApiOps.ResetUsage && rights == ClientRights.ReadOnly)
+        {
+            return ApiResponse.Failure("Not allowed: clearing the data counts needs CrioFire's own app or command line, or an administrator.");
+        }
+
+        if (request.Op is ApiOps.Report or ApiOps.Allowed or ApiOps.Traffic or ApiOps.Usage or ApiOps.ResetUsage)
         {
             // Reads only the log files, not the engine: no need to hold up other clients.
             try
@@ -61,6 +66,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 {
                     ApiOps.Report => Report(request),
                     ApiOps.Allowed => Allowed(request),
+                    ApiOps.Usage => Usage(request, DateOnly.FromDateTime(DateTime.Now)),
+                    ApiOps.ResetUsage => ResetUsage(),
                     _ => Traffic(request),
                 };
             }
@@ -327,6 +334,26 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         Backup("before-import");
         var plan = RuleBackup.Apply(engine, set, mode, temporaryRules, withMode, now, domainRules);
         return new ApiResponse { Ok = true, Plan = plan };
+    }
+
+    /// <summary>usage: each program's data from the service's counts (which reach the file within seconds).</summary>
+    private ApiResponse Usage(ApiRequest request, DateOnly today)
+    {
+        var from = DataUsageStore.PeriodStart(request.Period, today);
+        var period = from == today ? "today" : $"{today.DayNumber - from.DayNumber + 1}d";
+        var apps = usage is null || usage.ResetRequested ? [] : DataUsageStore.Totals(usage.Load(), from);
+        return new ApiResponse
+        {
+            Ok = true,
+            Usage = new UsageInfo(period, DataUsageStore.DayText(from), apps.Sum(a => a.Sent), apps.Sum(a => a.Received), apps),
+        };
+    }
+
+    /// <summary>resetUsage: the service clears its counts within a few seconds.</summary>
+    private ApiResponse ResetUsage()
+    {
+        (usage ?? throw new InvalidOperationException("Data counts need the criofire service.")).RequestReset();
+        return new ApiResponse { Ok = true };
     }
 
     /// <summary>What the organization's policy does not let users change, whoever asks; null when the request may go ahead.</summary>

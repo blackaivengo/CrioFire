@@ -37,6 +37,8 @@ public static class ApiOps
     public const string Domains = "domains";
     public const string SetDomainRule = "setDomainRule";
     public const string RemoveDomainRule = "removeDomainRule";
+    public const string Usage = "usage";
+    public const string ResetUsage = "resetUsage";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
@@ -78,7 +80,7 @@ public sealed record ApiRequest
     /// <summary>setRule: make the rule temporary; CrioFire removes it after this many minutes.</summary>
     public int? ExpiresMinutes { get; init; }
 
-    /// <summary>report: 24h, 7d or 30d.</summary>
+    /// <summary>report: 24h, 7d or 30d. usage: today, 7d or 30d.</summary>
     public string? Period { get; init; }
 
     /// <summary>setRule, addNetRule, setServiceRule: the kinds of network the rule applies on (domain, private, public); empty or "any" for every network.</summary>
@@ -208,6 +210,9 @@ public sealed record ApiResponse
     /// <summary>domains: the domain rules, with how many addresses each has a filter for now.</summary>
     public List<DomainRuleInfo>? Domains { get; init; }
 
+    /// <summary>usage: data used per program over the period.</summary>
+    public UsageInfo? Usage { get; init; }
+
     /// <summary>changed: programs whose file changed since they were allowed.</summary>
     public List<ChangedProgram>? Changed { get; init; }
 
@@ -307,6 +312,11 @@ public sealed record EventInfo(DateTime TimeUtc, string? App, string Protocol, s
         e.FilterId,
         e.Rule?.Kind.ToString());
 }
+
+/// <summary>Data used per program, most first.</summary>
+/// <param name="Period">today, 7d or 30d.</param>
+/// <param name="From">The first day counted (local date, yyyy-MM-dd).</param>
+public sealed record UsageInfo(string Period, string From, long Sent, long Received, List<AppUsage> Apps);
 
 /// <summary>One-line JSON encoding for the pipe protocol (source-generated, no reflection).</summary>
 public static class ApiJson

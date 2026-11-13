@@ -35,6 +35,7 @@ public enum CommandKind
     Unenroll,
     Server,
     Domains,
+    DataUsed,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -121,6 +122,8 @@ internal static class CommandLine
                                                own encrypted DNS is not seen).
           criofire unblock --domain <name>     Remove your rules for that domain
           criofire domains                     List the domain rules and how many addresses each covers now
+          criofire usage [today|7d|30d]        Data each program sent and received (default: today)
+          criofire usage --reset               Clear the data counts
           ... block|allow ... --networks <public|private|domain,...>
                                                Any program, network or service rule can apply only on some
                                                kinds of network (as Windows classifies them: domain = work,
@@ -360,6 +363,24 @@ internal static class CommandLine
             case "request" when rest.Length == 2:
                 // Used by the app: one API request, approved by the user (UAC). Not in the usage text.
                 return new Command(CommandKind.Request, AppPath: rest[0], FilePath: rest[1]);
+            case "usage":
+                if (rest.Length == 0)
+                {
+                    return new Command(CommandKind.DataUsed, FilePath: "today");
+                }
+
+                if (rest.Length == 1 && rest[0].Equals("--reset", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new Command(CommandKind.DataUsed, Replace: true);
+                }
+
+                if (rest.Length == 1 && rest[0].ToLowerInvariant() is "today" or "7d" or "30d")
+                {
+                    return new Command(CommandKind.DataUsed, FilePath: rest[0].ToLowerInvariant());
+                }
+
+                error = "Usage: criofire usage [today|7d|30d|--reset]";
+                return new Command(CommandKind.Help);
             case "domains":
                 if (rest.Length != 0)
                 {

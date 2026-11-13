@@ -16,6 +16,28 @@ public sealed record ShareRow(string Name, string App, string CountText, double 
     public GridLength Rest => new(Math.Max(1 - Share, 0.001), GridUnitType.Star);
 }
 
+/// <summary>One program's data used, with its share of the total.</summary>
+public sealed record UsageRow(string Program, string App, string SentText, string ReceivedText, string TotalText, double Share, string ShareText)
+{
+    public GridLength Fill => new(Math.Max(Share, 0.001), GridUnitType.Star);
+
+    public GridLength Rest => new(Math.Max(1 - Share, 0.001), GridUnitType.Star);
+
+    public static UsageRow From(AppUsage usage, long total, CultureInfo culture)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+        var share = total <= 0 ? 0 : (double)usage.Total / total;
+        return new(
+            DataSize.ProgramName(usage.App),
+            usage.App == AppUsage.UnknownApp ? "Processes that ended within a second of using the network" : usage.App,
+            DataSize.Text(usage.Sent, culture),
+            DataSize.Text(usage.Received, culture),
+            DataSize.Text(usage.Total, culture),
+            share,
+            share.ToString("P0", culture) + " of all data");
+    }
+}
+
 /// <param name="Services">The Windows services running in that process (svchost.exe), comma-separated, or empty.</param>
 public sealed record LiveRow(string Program, string Path, string Local, string Remote, string Protocol, string State, int ProcessId, string Services = "")
 {

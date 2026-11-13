@@ -149,6 +149,13 @@ Nothing that reaches the network is hidden, including what CrioFire or Windows a
   program reach your own network in Ask and Allow-list modes: printers, file shares, casting, smart-home
   devices (private, link-local, multicast and broadcast addresses). It applies on home and work
   networks only, never on public ones, and a program you blocked stays blocked. Off until you turn it on.
+- **Data used per program**: Connections → *Data used* (or `criofire usage [today|7d|30d]`) shows how
+  much each program sent and received today or over the last 7 or 30 days, most first. The service
+  reads Windows' own network events (Microsoft-Windows-Kernel-Network: process id and byte count of
+  every TCP and UDP send and receive) and keeps only per-program daily totals for 31 days, in
+  `%ProgramData%\criofire\data-usage.json`. Traffic that stays on the PC (loopback) is not counted;
+  Windows services that share a svchost.exe are counted together. *Clear counts* (or
+  `criofire usage --reset`) starts again from zero.
 - **Dashboard and Reports** show allowed traffic next to blocked traffic: totals, how much was
   allowed automatically, the programs and services allowed most, the reasons and destinations, and
   the same in the CSV export.
@@ -182,7 +189,8 @@ default; switch with the sun/moon button or in **Settings** (remembered per user
   a rule's Allow or Block chip to switch it; select several to switch or remove them at once; the
   right-click menu also changes the direction. Add program, network and service rules from the top.
 - **Connections**: live TCP and UDP connections with the program, and for svchost.exe the services,
-  that own each, every 3 seconds; allow or block the selected one.
+  that own each, every 3 seconds; allow or block the selected one. *Data used* lists how much each
+  program sent and received today, in 7 days or in 30 days, with its share of the total.
 - **Reports**: the last 24 hours, 7 days or 30 days: totals compared with the period before,
   blocked connections per hour or day (your rules vs. no rule yet), the programs and destinations
   blocked most, outbound vs. inbound, and what was allowed and why. **Export CSV** for spreadsheets;

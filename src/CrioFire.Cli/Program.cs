@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Security.Principal;
 using CrioFire.Cli;
@@ -155,6 +156,30 @@ static int Run(Backend api, Command command)
         {
             var result = api.Call(new ApiRequest { Op = ApiOps.RemoveDomainRule, Domain = domain });
             Console.WriteLine($"Removed {result.Count} rule(s) for {domain}.");
+            return 0;
+        }
+
+        case CommandKind.DataUsed when command.Replace:
+            api.Call(new ApiRequest { Op = ApiOps.ResetUsage });
+            Console.WriteLine("Data counts cleared (the service starts again from zero within a few seconds).");
+            return 0;
+
+        case CommandKind.DataUsed:
+        {
+            var usage = api.Call(new ApiRequest { Op = ApiOps.Usage, Period = command.FilePath }).Usage;
+            if (usage is null || usage.Apps.Count == 0)
+            {
+                Console.WriteLine("No data counted yet for this period.");
+                return 0;
+            }
+
+            Console.WriteLine($"Data used since {usage.From}: {DataSize.Text(usage.Sent, CultureInfo.CurrentCulture)} sent, {DataSize.Text(usage.Received, CultureInfo.CurrentCulture)} received.");
+            Console.WriteLine($"{"Sent",10} {"Received",10} {"Total",10}  Program");
+            foreach (var a in usage.Apps)
+            {
+                Console.WriteLine($"{DataSize.Text(a.Sent, CultureInfo.CurrentCulture),10} {DataSize.Text(a.Received, CultureInfo.CurrentCulture),10} {DataSize.Text(a.Total, CultureInfo.CurrentCulture),10}  {DataSize.ProgramName(a.App)}");
+            }
+
             return 0;
         }
 
