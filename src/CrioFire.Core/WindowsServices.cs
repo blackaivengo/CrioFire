@@ -92,10 +92,10 @@ public static class KnownApps
 /// service inside a shared svchost.exe can be allowed or blocked. Format:
 /// <c>criofire:v1|svc|block|out|Dnscache</c>.
 /// </summary>
-public sealed record ServiceRule(RuleAction Action, TrafficDirection Direction, string ServiceName)
+public sealed record ServiceRule(RuleAction Action, TrafficDirection Direction, string ServiceName, NetworkProfiles Networks = NetworkProfiles.Any)
 {
     public string Format() =>
-        string.Join('|', RuleDescription.Prefix, "svc", RuleDescription.ActionText(Action), RuleDescription.DirectionText(Direction), ServiceName);
+        string.Join('|', RuleDescription.Prefix, "svc", NetworkScope.ActionField(Action, Networks), RuleDescription.DirectionText(Direction), ServiceName);
 
     public static bool TryParse(string? text, out ServiceRule? rule)
     {
@@ -106,7 +106,6 @@ public sealed record ServiceRule(RuleAction Action, TrafficDirection Direction, 
             return false;
         }
 
-        RuleAction? action = parts[2] switch { "block" => RuleAction.Block, "allow" => RuleAction.Allow, _ => null };
         TrafficDirection? direction = parts[3] switch
         {
             "out" => TrafficDirection.Outbound,
@@ -114,12 +113,12 @@ public sealed record ServiceRule(RuleAction Action, TrafficDirection Direction, 
             "both" => TrafficDirection.Both,
             _ => null,
         };
-        if (action is null || direction is null)
+        if (!NetworkScope.TryParseActionField(parts[2], out var action, out var networks) || direction is null)
         {
             return false;
         }
 
-        rule = new ServiceRule(action.Value, direction.Value, parts[4]);
+        rule = new ServiceRule(action, direction.Value, parts[4], networks);
         return true;
     }
 

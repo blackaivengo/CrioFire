@@ -28,6 +28,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
           <TextBlock Text="Action" Style="{StaticResource Muted}" VerticalAlignment="Center" />
@@ -76,6 +77,17 @@
             </DockPanel>
             <TextBlock Text="Leave empty for every program." Style="{StaticResource Caption}" FontSize="12" Margin="2,5,0,0" />
           </StackPanel>
+
+          <TextBlock Grid.Row="6" Text="Networks" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,12,0,0" />
+          <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource SegGroup}" HorizontalAlignment="Left" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal">
+              <RadioButton x:Name="NetAny" Content="Every network" GroupName="Net" Style="{StaticResource SegItem}" IsChecked="True" Click="OnChanged" />
+              <RadioButton x:Name="NetHomeWork" Content="Home and work" GroupName="Net" Style="{StaticResource SegItem}" Click="OnChanged"
+                           ToolTip="Networks Windows calls private or domain" />
+              <RadioButton x:Name="NetPublic" Content="Public networks" GroupName="Net" Style="{StaticResource SegItem}" Click="OnChanged"
+                           ToolTip="Cafés, hotels, airports, and networks Windows does not know" />
+            </StackPanel>
+          </Border>
         </Grid>
 
         <Border x:Name="PreviewBox" CornerRadius="10" Padding="14,10" Margin="0,18,0,0" Background="{DynamicResource ChipIceBrush}">

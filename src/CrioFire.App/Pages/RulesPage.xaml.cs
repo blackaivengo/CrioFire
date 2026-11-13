@@ -69,7 +69,7 @@ public partial class RulesPage : UserControl, IPage
                 return new RuleRow(
                     r,
                     allow ? "Allow" : "Block",
-                    Who.Direction(r.Direction),
+                    Who.Direction(r.Direction) + Networks(r),
                     KnownApps.DisplayName(r.App) + Organization(r),
                     r.App ?? r.Name,
                     r.ExpiresUtc is DateTime t ? Fmt.Time(t) : "always",
@@ -100,7 +100,7 @@ public partial class RulesPage : UserControl, IPage
                 return new NetRuleRow(
                     r,
                     allow ? "Allow" : "Block",
-                    Who.Direction(r.Direction),
+                    Who.Direction(r.Direction) + Networks(r),
                     rule,
                     (r.App is null ? "Any program" : KnownApps.DisplayName(r.App)) + Organization(r),
                     r.App,
@@ -130,7 +130,7 @@ public partial class RulesPage : UserControl, IPage
                 return new ServiceRuleRow(
                     r,
                     allow ? "Allow" : "Block",
-                    Who.Direction(r.Direction),
+                    Who.Direction(r.Direction) + Networks(r),
                     service,
                     (displayNames.TryGetValue(service, out var display) ? display : service) + Organization(r),
                     allow ? chipIce : chipFire,
@@ -363,6 +363,13 @@ public partial class RulesPage : UserControl, IPage
         menu.Items.Add(Item("Inbound only", () => _model.ChangeRules(rules, null, "in"), enabled: rules.Any(r => r.Direction != "in")));
         menu.Items.Add(Item("In and out", () => _model.ChangeRules(rules, null, "both"), enabled: rules.Any(r => r.Direction != "both")));
         menu.Items.Add(new Separator());
+        var networks = new MenuItem { Header = "Networks", ToolTip = "Which kinds of network the rule applies on. On other networks, the mode decides." };
+        networks.Items.Add(Item("Every network", () => _model.ChangeRules(rules, null, null, "any"), enabled: rules.Any(r => r.Networks is not null)));
+        networks.Items.Add(Item("Only home and work networks (private, domain)", () => _model.ChangeRules(rules, null, null, "domain,private"),
+            enabled: rules.Any(r => r.Networks != "domain,private")));
+        networks.Items.Add(Item("Only public networks", () => _model.ChangeRules(rules, null, null, "public"), enabled: rules.Any(r => r.Networks != "public")));
+        menu.Items.Add(networks);
+        menu.Items.Add(new Separator());
         if (!many && (first.App is not null || first.Service is not null))
         {
             menu.Items.Add(Item("Show its connections", () => _model.OpenActivity(first.Service is { } service
@@ -478,7 +485,7 @@ public partial class RulesPage : UserControl, IPage
     {
         if (Window.GetWindow(this) is { } owner && ServiceRuleDialog.Ask(owner) is { } choice)
         {
-            _model.SetServiceRule(choice.Service, choice.Action, choice.Direction);
+            _model.SetServiceRule(choice.Service, choice.Action, choice.Direction, choice.Networks);
         }
     }
 
@@ -489,6 +496,10 @@ public partial class RulesPage : UserControl, IPage
     private void OnBlock(object sender, RoutedEventArgs e) => Add("block", null);
 
     private static string Organization(RuleInfo r) => r.Managed ? " · set by your organization" : string.Empty;
+
+    /// <summary>" · public networks" for a rule on some networks only; nothing for every network.</summary>
+    private static string Networks(RuleInfo r) =>
+        r.Networks is { } text && NetworkScope.TryParse(text, out var n) && n != NetworkProfiles.Any ? " · " + NetworkScope.Label(n) : string.Empty;
 
     private StackPanel BuildActions()
     {

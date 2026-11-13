@@ -1,7 +1,7 @@
 <Window x:Class="CrioFire.App.ServiceRuleDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Rule for a Windows service" Width="660" Height="640" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Title="Rule for a Windows service" Width="660" Height="690" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource BodyFont}" Foreground="{DynamicResource TextBrush}">
   <Grid Margin="28">
@@ -36,6 +36,18 @@
               </StackPanel>
             </Border>
           </Grid>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock Text="On" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <Border Style="{StaticResource SegGroup}">
+              <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="NetAny" Content="Every network" GroupName="Net" Style="{StaticResource SegItem}" IsChecked="True" Click="OnChanged" />
+                <RadioButton x:Name="NetHomeWork" Content="Home and work" GroupName="Net" Style="{StaticResource SegItem}" Click="OnChanged"
+                             ToolTip="Networks Windows calls private or domain" />
+                <RadioButton x:Name="NetPublic" Content="Public networks" GroupName="Net" Style="{StaticResource SegItem}" Click="OnChanged"
+                             ToolTip="Cafés, hotels, airports, and networks Windows does not know" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
           <TextBox x:Name="FilterBox" Style="{StaticResource Field}" TextChanged="OnFilter" ToolTip="Type part of a service's name" Margin="0,0,0,10" />
         </StackPanel>
 

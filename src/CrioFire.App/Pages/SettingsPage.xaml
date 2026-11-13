@@ -51,6 +51,16 @@
 
     <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
       <StackPanel>
+        <TextBlock Text="Networks" Style="{StaticResource H2}" />
+        <TextBlock x:Name="NetworksText" Margin="0,6,0,6" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,12" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                   Text="Rules can apply on every network, or only on home and work networks (private, domain) or only on public ones. Windows decides which kind each network is: mark your home network as private in Windows' network settings, and leave cafés and hotels public. Right-click a rule on the Rules page and choose Networks." />
+        <Button Content="Open Windows network settings" Style="{StaticResource OutlineIceButton}" HorizontalAlignment="Left" Click="OnNetworkSettings" />
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
         <TextBlock Text="License" Style="{StaticResource H2}" />
         <TextBlock x:Name="LicenseText" Margin="0,6,0,6" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,12" FontSize="13" LineHeight="20" TextWrapping="Wrap"

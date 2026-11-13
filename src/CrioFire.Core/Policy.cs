@@ -109,7 +109,7 @@ public static class ManagedPolicies
             {
                 if (KnownApps.IsKernel(p.App) || StoreApps.IsPackage(p.App) || File.Exists(p.App))
                 {
-                    engine.SetAppRule(p.App, Action(p.Action), Direction(p.Direction));
+                    engine.SetAppRule(p.App, Action(p.Action), Direction(p.Direction), RuleBackup.ParseNetworks(p.Networks));
                     count++;
                 }
             }
@@ -125,7 +125,7 @@ public static class ManagedPolicies
 
             foreach (var s in policy.Rules.Services)
             {
-                engine.SetServiceRule(s.Service, Action(s.Action), Direction(s.Direction));
+                engine.SetServiceRule(s.Service, Action(s.Action), Direction(s.Direction), RuleBackup.ParseNetworks(s.Networks));
                 count++;
             }
 

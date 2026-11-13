@@ -131,6 +131,10 @@ Nothing that reaches the network is hidden, including what CrioFire or Windows a
   in the app), matched by the service SID, so one service can be blocked without touching the others
   in the same svchost.exe. A service rule beats a rule for svchost.exe and the automatic rules.
 - **The Windows kernel** ("System": file sharing, NetBIOS, ICMP) can be allowed or blocked like a program.
+- **Networks**: any rule can apply only on some kinds of network, as Windows classifies them: home
+  and work (private, domain) or public (cafés, hotels, unknown networks). Elsewhere the mode decides.
+  E.g. block file sharing on public networks only: `criofire block --in --tcp --port 445 --networks public`,
+  or right-click a rule → *Networks*. Settings shows which networks the PC is on now.
 - **Automatic rules** are listed under Rules and can be switched off (`criofire auto svchost off`);
   the choice is kept in `%ProgramData%\criofire\auto-rules.txt`. Loopback and inbound handling are
   shown there too.

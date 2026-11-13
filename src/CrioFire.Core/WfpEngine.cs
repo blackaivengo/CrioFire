@@ -447,9 +447,10 @@ public sealed unsafe class WfpEngine : IDisposable
     /// <summary>
     /// Sets the rule for one application, replacing any earlier CrioFire rule for the same
     /// app in the same direction. Returns the IDs of the filters added (one per IP version
-    /// and direction).
+    /// and direction). With <paramref name="networks"/>, the rule applies on those kinds of
+    /// network only; elsewhere the mode decides, as for a program without a rule.
     /// </summary>
-    public IReadOnlyList<ulong> SetAppRule(string appPath, RuleAction action, TrafficDirection direction)
+    public IReadOnlyList<ulong> SetAppRule(string appPath, RuleAction action, TrafficDirection direction, NetworkProfiles networks = NetworkProfiles.Any)
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(appPath);
@@ -457,7 +458,7 @@ public sealed unsafe class WfpEngine : IDisposable
         var fullPath = KnownApps.Normalize(appPath);
         if (StoreApps.IsPackage(fullPath))
         {
-            return SetPackageRule(fullPath, action, direction, StoreApps.RootFromPath(appPath));
+            return SetPackageRule(fullPath, action, direction, StoreApps.RootFromPath(appPath), networks);
         }
 
         var kernel = KnownApps.IsKernel(fullPath);
@@ -470,7 +471,7 @@ public sealed unsafe class WfpEngine : IDisposable
         using var tx = BeginTransaction();
         var layers = FilterLayers.For(direction);
         RemoveAppRulesInternal(fullPath, layers);
-        var added = AddAppRuleFilters(appId, fullPath, action, direction);
+        var added = AddAppRuleFilters(appId, fullPath, action, direction, networks);
         tx.Commit();
         return added;
     }
@@ -528,7 +529,7 @@ public sealed unsafe class WfpEngine : IDisposable
 
             foreach (var (id, path) in extraApps)
             {
-                AddAppRuleFilters(id, path, RuleAction.Allow, TrafficDirection.Outbound);
+                AddAppRuleFilters(id, path, RuleAction.Allow, TrafficDirection.Outbound, NetworkProfiles.Any);
             }
 
             if (mode != FirewallMode.Learning)
@@ -606,7 +607,7 @@ public sealed unsafe class WfpEngine : IDisposable
     /// Matched by the service SID, so it works inside a shared svchost.exe for services that run
     /// with a service SID (most Windows services do).
     /// </summary>
-    public IReadOnlyList<ulong> SetServiceRule(string serviceName, RuleAction action, TrafficDirection direction)
+    public IReadOnlyList<ulong> SetServiceRule(string serviceName, RuleAction action, TrafficDirection direction, NetworkProfiles networks = NetworkProfiles.Any)
     {
         ThrowIfDisposed();
         if (!ServiceRule.IsValidName(serviceName))
@@ -614,7 +615,7 @@ public sealed unsafe class WfpEngine : IDisposable
             throw new ArgumentException("Not a valid service name.", nameof(serviceName));
         }
 
-        var rule = new ServiceRule(action, direction, serviceName);
+        var rule = new ServiceRule(action, direction, serviceName, NetworkScope.Normalize(networks));
         using var sd = SecurityDescriptor.FromSddl(ServiceSid.Sddl(ServiceSid.For(serviceName)));
         using var tx = BeginTransaction();
         var layers = FilterLayers.For(direction);
@@ -635,7 +636,7 @@ public sealed unsafe class WfpEngine : IDisposable
         var added = new List<ulong>();
         foreach (var layer in layers)
         {
-            added.Add(AddFilter(layer, name, rule.Format(), type, ServiceRuleWeight, &condition, 1));
+            added.Add(AddFilter(layer, name, rule.Format(), type, ServiceRuleWeight, &condition, 1, rule.Networks));
         }
 
         tx.Commit();
@@ -901,12 +902,13 @@ public sealed unsafe class WfpEngine : IDisposable
     /// installed version (for desktop apps from the Store, which run without a sandbox). The
     /// service renews these when the app updates (<see cref="StoreApps.Refresh"/>).
     /// </summary>
-    private List<ulong> SetPackageRule(string key, RuleAction action, TrafficDirection direction, string? root)
+    private List<ulong> SetPackageRule(string key, RuleAction action, TrafficDirection direction, string? root, NetworkProfiles networks)
     {
         var family = StoreApps.Family(key);
         string[] roots = root is null ? [StoreApps.DefaultRoot] : [StoreApps.DefaultRoot, root];
         var programs = StoreApps.Programs(family, roots);
-        var description = new RuleDescription(action, direction, key).Format();
+        networks = NetworkScope.Normalize(networks);
+        var description = new RuleDescription(action, direction, key, networks).Format();
         var name = $"CrioFire: {RuleDescription.ActionText(action)} {StoreApps.DisplayName(key)}";
         var type = action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT;
 
@@ -934,7 +936,7 @@ public sealed unsafe class WfpEngine : IDisposable
                         value = new FWP_VALUE_UNION { sid = (void*)sid },
                     },
                 };
-                added.Add(AddFilter(layer, name, description, type, RuleWeight, &condition, 1));
+                added.Add(AddFilter(layer, name, description, type, RuleWeight, &condition, 1, networks));
             }
 
             foreach (var program in programs)
@@ -953,7 +955,7 @@ public sealed unsafe class WfpEngine : IDisposable
                 {
                     foreach (var layer in layers)
                     {
-                        added.Add(AddAppIdFilter(layer, appId, name, description, type, RuleWeight));
+                        added.Add(AddAppIdFilter(layer, appId, name, description, type, RuleWeight, networks));
                     }
                 }
             }
@@ -967,21 +969,22 @@ public sealed unsafe class WfpEngine : IDisposable
         }
     }
 
-    private List<ulong> AddAppRuleFilters(AppId appId, string fullPath, RuleAction action, TrafficDirection direction)
+    private List<ulong> AddAppRuleFilters(AppId appId, string fullPath, RuleAction action, TrafficDirection direction, NetworkProfiles networks)
     {
-        var description = new RuleDescription(action, direction, fullPath).Format();
+        networks = NetworkScope.Normalize(networks);
+        var description = new RuleDescription(action, direction, fullPath, networks).Format();
         var name = $"CrioFire: {RuleDescription.ActionText(action)} {Path.GetFileName(fullPath)}";
         var type = action == RuleAction.Block ? FwpActionType.FWP_ACTION_BLOCK : FwpActionType.FWP_ACTION_PERMIT;
         var added = new List<ulong>();
         foreach (var layer in FilterLayers.For(direction))
         {
-            added.Add(AddAppIdFilter(layer, appId, name, description, type, RuleWeight));
+            added.Add(AddAppIdFilter(layer, appId, name, description, type, RuleWeight, networks));
         }
 
         return added;
     }
 
-    private ulong AddAppIdFilter(FilterLayer layer, AppId appId, string name, string description, uint action, byte weight)
+    private ulong AddAppIdFilter(FilterLayer layer, AppId appId, string name, string description, uint action, byte weight, NetworkProfiles networks = NetworkProfiles.Any)
     {
         var condition = new FWPM_FILTER_CONDITION0
         {
@@ -993,13 +996,55 @@ public sealed unsafe class WfpEngine : IDisposable
                 value = new FWP_VALUE_UNION { byteBlob = appId.Blob },
             },
         };
-        return AddFilter(layer, name, description, action, weight, &condition, 1);
+        return AddFilter(layer, name, description, action, weight, &condition, 1, networks);
     }
 
-    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, byte weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount) =>
-        AddFilter(layer, name, description, action, new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT8, value = new FWP_VALUE_UNION { uint8 = weight } }, conditions, conditionCount);
+    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, byte weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount,
+        NetworkProfiles networks = NetworkProfiles.Any) =>
+        AddFilter(layer, name, description, action, new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT8, value = new FWP_VALUE_UNION { uint8 = weight } }, conditions, conditionCount, networks);
 
-    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, FWP_VALUE0 weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount)
+    /// <summary>
+    /// Adds a filter. With <paramref name="networks"/>, also one condition per kind of network on
+    /// FWPM_CONDITION_CURRENT_PROFILE_ID; WFP ORs conditions on the same field, so the filter
+    /// matches traffic on any of those networks.
+    /// </summary>
+    private ulong AddFilter(FilterLayer layer, string name, string description, uint action, FWP_VALUE0 weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount,
+        NetworkProfiles networks = NetworkProfiles.Any)
+    {
+        var profileIds = NetworkScope.ProfileIds(networks);
+        if (profileIds.Count == 0)
+        {
+            return AddFilterExactly(layer, name, description, action, weight, conditions, conditionCount);
+        }
+
+        var total = conditionCount + (uint)profileIds.Count;
+        var all = (FWPM_FILTER_CONDITION0*)NativeMemory.AllocZeroed(total, (nuint)sizeof(FWPM_FILTER_CONDITION0));
+        try
+        {
+            for (var i = 0; i < conditionCount; i++)
+            {
+                all[i] = conditions[i];
+            }
+
+            for (var i = 0; i < profileIds.Count; i++)
+            {
+                all[conditionCount + i] = new FWPM_FILTER_CONDITION0
+                {
+                    fieldKey = WfpIds.ConditionCurrentProfileId,
+                    matchType = FWP_MATCH_TYPE.FWP_MATCH_EQUAL,
+                    conditionValue = new FWP_VALUE0 { type = FWP_DATA_TYPE.FWP_UINT32, value = new FWP_VALUE_UNION { uint32 = profileIds[i] } },
+                };
+            }
+
+            return AddFilterExactly(layer, name, description, action, weight, all, total);
+        }
+        finally
+        {
+            NativeMemory.Free(all);
+        }
+    }
+
+    private ulong AddFilterExactly(FilterLayer layer, string name, string description, uint action, FWP_VALUE0 weight, FWPM_FILTER_CONDITION0* conditions, uint conditionCount)
     {
         var providerKey = WfpIds.ProviderKey;
         fixed (char* pName = name)
@@ -1192,7 +1237,7 @@ public sealed unsafe class WfpEngine : IDisposable
                 }
             }
 
-            return AddFilter(layer, name, description, action, rule.Weight, conditions, (uint)count);
+            return AddFilter(layer, name, description, action, rule.Weight, conditions, (uint)count, rule.Networks);
         }
         finally
         {

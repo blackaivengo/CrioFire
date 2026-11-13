@@ -5,8 +5,8 @@ using CrioFire.Core;
 
 namespace CrioFire.App;
 
-/// <summary>The service rule the user chose: service name, "block"/"allow", "out"/"in"/"both".</summary>
-internal sealed record ServiceRuleChoice(string Service, string Action, string Direction);
+/// <summary>The service rule the user chose: service name, "block"/"allow", "out"/"in"/"both", and the networks it applies on.</summary>
+internal sealed record ServiceRuleChoice(string Service, string Action, string Direction, NetworkProfiles Networks = NetworkProfiles.Any);
 
 public sealed record ServiceRow(string Name, string DisplayName, string State, string Pid);
 
@@ -80,6 +80,9 @@ public partial class ServiceRuleDialog : Window
 
     private string Direction => DirIn.IsChecked == true ? "in" : DirBoth.IsChecked == true ? "both" : "out";
 
+    private NetworkProfiles Networks => NetHomeWork.IsChecked == true ? NetworkProfiles.Domain | NetworkProfiles.Private
+        : NetPublic.IsChecked == true ? NetworkProfiles.Public : NetworkProfiles.Any;
+
     private void Update()
     {
         if (!IsLoaded)
@@ -103,7 +106,8 @@ public partial class ServiceRuleDialog : Window
             "both" => "in both directions",
             _ => "when it connects out",
         };
-        PreviewText.Text = $"{row.DisplayName} ({row.Name}) {(allow ? "is allowed" : "is blocked")} {direction}, whichever process runs it.";
+        var where = Networks == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(Networks)} (elsewhere the mode decides)";
+        PreviewText.Text = $"{row.DisplayName} ({row.Name}) {(allow ? "is allowed" : "is blocked")} {direction}{where}, whichever process runs it.";
         PreviewBox.SetResourceReference(BackgroundProperty, allow ? "ChipIceBrush" : "ChipFireBrush");
         PreviewText.SetResourceReference(ForegroundProperty, allow ? "ChipIceTextBrush" : "ChipFireTextBrush");
     }
@@ -112,7 +116,7 @@ public partial class ServiceRuleDialog : Window
     {
         if (Table.SelectedItem is ServiceRow row)
         {
-            Result = new ServiceRuleChoice(row.Name, ActionAllow.IsChecked == true ? "allow" : "block", Direction);
+            Result = new ServiceRuleChoice(row.Name, ActionAllow.IsChecked == true ? "allow" : "block", Direction, Networks);
             DialogResult = true;
         }
     }

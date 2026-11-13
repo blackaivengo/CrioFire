@@ -181,12 +181,13 @@ internal sealed class AppModel
         .GroupBy(r => (r.Service?.ToUpperInvariant(), r.Action, r.Direction, r.Managed))
         .Select(g => g.First());
 
-    public bool SetServiceRule(string service, string action, string direction = "out")
+    public bool SetServiceRule(string service, string action, string direction = "out", NetworkProfiles networks = NetworkProfiles.Any)
     {
-        var ok = Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = service, Action = action, Direction = direction }) is not null;
+        var ok = Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = service, Action = action, Direction = direction, Networks = NetworkScope.TextOrNull(networks) }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, action == "allow" ? $"Allowed the service {service}." : $"Blocked the service {service}.");
+            var where = NetworkScope.Normalize(networks) == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(networks)}";
+            Message?.Invoke(this, action == "allow" ? $"Allowed the service {service}{where}." : $"Blocked the service {service}{where}.");
             NotifyChanged();
         }
 
@@ -282,7 +283,7 @@ internal sealed class AppModel
 
         if (choice == names.Length)
         {
-            return ServiceRuleDialog.Ask(owner, null, action) is { } picked && SetServiceRule(picked.Service, picked.Action, picked.Direction);
+            return ServiceRuleDialog.Ask(owner, null, action) is { } picked && SetServiceRule(picked.Service, picked.Action, picked.Direction, picked.Networks);
         }
 
         if (action == "block" && ChoiceDialog.Ask(owner, "Block every Windows service?",
@@ -306,6 +307,7 @@ internal sealed class AppModel
             Ports = rule.Ports,
             Addresses = rule.Addresses,
             App = rule.AppPath,
+            Networks = NetworkScope.TextOrNull(rule.Networks),
         }) is not null;
         if (ok)
         {
@@ -396,7 +398,8 @@ internal sealed class AppModel
     /// (program, ports, addresses, service). <paramref name="action"/> and <paramref name="direction"/>
     /// left null keep each rule's own.
     /// </summary>
-    public void ChangeRules(IReadOnlyList<RuleInfo> rules, string? action, string? direction)
+    /// <param name="networks">The kinds of network the rules should apply on ("any", "public", "domain,private"), or null to keep them.</param>
+    public void ChangeRules(IReadOnlyList<RuleInfo> rules, string? action, string? direction, string? networks = null)
     {
         if (OrganizationOnly(ref rules))
         {
@@ -408,7 +411,8 @@ internal sealed class AppModel
         {
             var newAction = action ?? r.Action ?? "block";
             var newDirection = direction ?? r.Direction ?? "out";
-            if (newAction == r.Action && newDirection == r.Direction)
+            var newNetworks = networks is null ? r.Networks : NetworkScope.TryParse(networks, out var n) ? NetworkScope.TextOrNull(n) : r.Networks;
+            if (newAction == r.Action && newDirection == r.Direction && newNetworks == r.Networks)
             {
                 continue;
             }
@@ -417,11 +421,11 @@ internal sealed class AppModel
             {
                 nameof(FilterKind.AppRule) when r.App is not null =>
                     (newDirection == r.Direction || Call(new ApiRequest { Op = ApiOps.RemoveRules, App = r.App, Direction = r.Direction }) is not null)
-                    && Call(new ApiRequest { Op = ApiOps.SetRule, App = r.App, Action = newAction, Direction = newDirection }) is not null,
+                    && Call(new ApiRequest { Op = ApiOps.SetRule, App = r.App, Action = newAction, Direction = newDirection, Networks = newNetworks }) is not null,
                 nameof(FilterKind.ServiceRule) when r.Service is not null =>
                     (newDirection == r.Direction || Call(new ApiRequest { Op = ApiOps.RemoveServiceRules, Service = r.Service, Direction = r.Direction }) is not null)
-                    && Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = r.Service, Action = newAction, Direction = newDirection }) is not null,
-                nameof(FilterKind.NetRule) => ReplaceNetRule(r, newAction, newDirection),
+                    && Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = r.Service, Action = newAction, Direction = newDirection, Networks = newNetworks }) is not null,
+                nameof(FilterKind.NetRule) => ReplaceNetRule(r, newAction, newDirection, newNetworks ?? "any"),
                 _ => false,
             };
             if (ok)
@@ -434,7 +438,8 @@ internal sealed class AppModel
             }
         }
 
-        var what = action is null ? $"to {(direction == "in" ? "inbound" : direction == "both" ? "both directions" : "outbound")}" : $"to {action}";
+        var what = networks is not null ? $"to {NetworkScope.Label(NetworkScope.TryParse(networks, out var label) ? label : NetworkProfiles.Any)}"
+            : action is null ? $"to {(direction == "in" ? "inbound" : direction == "both" ? "both directions" : "outbound")}" : $"to {action}";
         Message?.Invoke(this, changed == 0 && failed == 0
             ? "Nothing to change."
             : $"Switched {changed} rule{(changed == 1 ? string.Empty : "s")} {what}." + (failed > 0 ? $" {failed} could not be changed." : string.Empty));
@@ -443,9 +448,9 @@ internal sealed class AppModel
     }
 
     /// <summary>Adds the changed network rule first, then removes the old one, so there is no moment without a rule.</summary>
-    private bool ReplaceNetRule(RuleInfo r, string action, string direction)
+    private bool ReplaceNetRule(RuleInfo r, string action, string direction, string networks)
     {
-        if (RuleViews.Changed(r, action, direction) is not { } rule)
+        if (RuleViews.Changed(r, action, direction, networks) is not { } rule)
         {
             return false;
         }
@@ -459,6 +464,7 @@ internal sealed class AppModel
             Ports = rule.Ports.Length == 0 ? null : rule.Ports,
             Addresses = rule.Addresses.Length == 0 ? null : rule.Addresses,
             App = rule.AppPath,
+            Networks = NetworkScope.TextOrNull(rule.Networks),
         }) is not null;
         return added && Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = r.FilterId }) is not null;
     }

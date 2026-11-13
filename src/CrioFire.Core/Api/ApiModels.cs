@@ -77,6 +77,9 @@ public sealed record ApiRequest
     /// <summary>report: 24h, 7d or 30d.</summary>
     public string? Period { get; init; }
 
+    /// <summary>setRule, addNetRule, setServiceRule: the kinds of network the rule applies on (domain, private, public); empty or "any" for every network.</summary>
+    public string? Networks { get; init; }
+
     /// <summary>addNetRule: tcp, udp or any.</summary>
     public string? Protocol { get; init; }
 
@@ -204,6 +207,7 @@ public sealed record AutoRuleInfo(string Name, bool Enabled, bool Active);
 /// <param name="Ports">Network rules: ports and ranges, or null for any.</param>
 /// <param name="Addresses">Network rules: remote addresses, or null for any.</param>
 /// <param name="Summary">Network rules: a short description such as "TCP · port 445".</param>
+/// <param name="Networks">The kinds of network the rule applies on (e.g. "public"), or null for every network.</param>
 public sealed record RuleInfo(
     ulong FilterId,
     string Kind,
@@ -218,7 +222,8 @@ public sealed record RuleInfo(
     string? Addresses = null,
     string? Summary = null,
     string? Service = null,
-    bool Managed = false)
+    bool Managed = false,
+    string? Networks = null)
 {
     public static RuleInfo From(CrioFireFilter f)
     {
@@ -227,7 +232,8 @@ public sealed record RuleInfo(
             return new RuleInfo(
                 f.FilterId, f.Kind.ToString(), RuleDescription.ActionText(s.Action), RuleDescription.DirectionText(s.Direction), null, f.Layer?.Name, f.Name,
                 Service: s.ServiceName,
-                Managed: f.Managed);
+                Managed: f.Managed,
+                Networks: NetworkScope.TextOrNull(s.Networks));
         }
 
         if (f.Net is { } n)
@@ -238,7 +244,8 @@ public sealed record RuleInfo(
                 Ports: n.Ports.Length == 0 ? null : n.Ports,
                 Addresses: n.Addresses.Length == 0 ? null : n.Addresses,
                 Summary: n.Summary(),
-                Managed: f.Managed);
+                Managed: f.Managed,
+                Networks: NetworkScope.TextOrNull(n.Networks));
         }
 
         return new RuleInfo(
@@ -256,7 +263,8 @@ public sealed record RuleInfo(
                 : null),
             f.Layer?.Name,
             f.Name,
-            Managed: f.Managed);
+            Managed: f.Managed,
+            Networks: f.Rule is null ? null : NetworkScope.TextOrNull(f.Rule.Networks));
     }
 }
 

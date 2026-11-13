@@ -186,14 +186,16 @@ public sealed record AddressRange(IPAddress Low, IPAddress High, string Text)
 /// inbound", "allow C:\app.exe on remote port 443 only", "block 203.0.113.0/24".
 /// Ports are the remote port for outbound connections and the local port for inbound ones.
 /// Stored in the filter description, like app rules:
-/// <c>criofire:v1|net|block|in|tcp|445|*|*</c> (action, direction, protocol, ports, addresses, program).
+/// <c>criofire:v1|net|block|in|tcp|445|*|*</c> (action, direction, protocol, ports, addresses, program);
+/// for some networks only, <c>block@public</c> in place of the action.
 /// </summary>
-public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetProtocol Protocol, string Ports, string Addresses, string? AppPath)
+public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetProtocol Protocol, string Ports, string Addresses, string? AppPath, NetworkProfiles Networks = NetworkProfiles.Any)
 {
     public const string Tag = "net";
 
     /// <summary>Validates and normalizes; returns null and an error for rules that make no sense.</summary>
-    public static NetRule? Create(RuleAction action, TrafficDirection direction, NetProtocol protocol, string? ports, string? addresses, string? appPath, out string? error)
+    public static NetRule? Create(RuleAction action, TrafficDirection direction, NetProtocol protocol, string? ports, string? addresses, string? appPath, out string? error,
+        NetworkProfiles networks = NetworkProfiles.Any)
     {
         if (!PortRange.TryParseList(ports, out var portList, out error) || !AddressRange.TryParseList(addresses, out var addressList, out error))
         {
@@ -213,7 +215,7 @@ public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetP
         }
 
         var app = string.IsNullOrWhiteSpace(appPath) ? null : Path.GetFullPath(appPath);
-        return new NetRule(action, direction, protocol, string.Join(',', portList), string.Join(',', addressList), app);
+        return new NetRule(action, direction, protocol, string.Join(',', portList), string.Join(',', addressList), app, NetworkScope.Normalize(networks));
     }
 
     public IReadOnlyList<PortRange> PortList => PortRange.TryParseList(Ports, out var list, out _) ? list : [];
@@ -224,7 +226,7 @@ public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetP
     public byte Weight => (byte)((AppPath is null ? 12 : 14) + (Action == RuleAction.Block ? 1 : 0));
 
     public string Format() => string.Join('|',
-        RuleDescription.Prefix, Tag, RuleDescription.ActionText(Action), RuleDescription.DirectionText(Direction),
+        RuleDescription.Prefix, Tag, NetworkScope.ActionField(Action, Networks), RuleDescription.DirectionText(Direction),
         ProtocolText(Protocol), Ports.Length == 0 ? "*" : Ports, Addresses.Length == 0 ? "*" : Addresses, AppPath ?? "*");
 
     /// <summary>A short human description, e.g. "TCP 445 in" or "203.0.113.0/24 · Chat.exe".</summary>
@@ -251,6 +253,11 @@ public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetP
             parts.Add(AppPath[(AppPath.LastIndexOfAny(['\\', '/']) + 1)..]);
         }
 
+        if (NetworkScope.Normalize(Networks) != NetworkProfiles.Any)
+        {
+            parts.Add("on " + NetworkScope.Label(Networks));
+        }
+
         return string.Join(" · ", parts);
     }
 
@@ -263,7 +270,7 @@ public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetP
             return false;
         }
 
-        RuleAction? action = parts[2] switch { "block" => RuleAction.Block, "allow" => RuleAction.Allow, _ => null };
+        RuleAction? action = NetworkScope.TryParseActionField(parts[2], out var parsedAction, out var networks) ? parsedAction : null;
         TrafficDirection? direction = parts[3] switch
         {
             "out" => TrafficDirection.Outbound,
@@ -284,7 +291,7 @@ public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetP
             return false;
         }
 
-        rule = new NetRule(action.Value, direction.Value, protocol.Value, ports, addresses, parts[7] == "*" ? null : parts[7]);
+        rule = new NetRule(action.Value, direction.Value, protocol.Value, ports, addresses, parts[7] == "*" ? null : parts[7], networks);
         return true;
     }
 

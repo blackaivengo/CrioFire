@@ -192,6 +192,124 @@ public enum RuleAction
     Allow,
 }
 
+/// <summary>
+/// The kinds of network a rule applies on, as Windows sorts the networks a PC joins (the same
+/// categories as Windows Firewall's profiles). None set means every network.
+/// </summary>
+[Flags]
+public enum NetworkProfiles
+{
+    /// <summary>Every network (the rule has no network condition).</summary>
+    Any = 0,
+
+    /// <summary>A network where Windows reaches the organization's domain controller (a work network).</summary>
+    Domain = 1,
+
+    /// <summary>A network the user marked as private: home, or a trusted office.</summary>
+    Private = 2,
+
+    /// <summary>Every other network: cafés, hotels, airports, and networks Windows does not know.</summary>
+    Public = 4,
+}
+
+/// <summary>Text, parsing and labels for <see cref="NetworkProfiles"/>.</summary>
+public static class NetworkScope
+{
+    public const NetworkProfiles All = NetworkProfiles.Domain | NetworkProfiles.Private | NetworkProfiles.Public;
+
+    private static readonly (NetworkProfiles Profile, string Text, uint Id)[] Known =
+    [
+        (NetworkProfiles.Domain, "domain", 3),
+        (NetworkProfiles.Private, "private", 2),
+        (NetworkProfiles.Public, "public", 1),
+    ];
+
+    /// <summary>All three is the same as every network.</summary>
+    public static NetworkProfiles Normalize(NetworkProfiles profiles) =>
+        (profiles & All) == All ? NetworkProfiles.Any : profiles & All;
+
+    /// <summary>"domain,private", or "any" for every network.</summary>
+    public static string Text(NetworkProfiles profiles)
+    {
+        var p = Normalize(profiles);
+        return p == NetworkProfiles.Any ? "any" : string.Join(',', Known.Where(k => p.HasFlag(k.Profile)).Select(k => k.Text));
+    }
+
+    /// <summary>The text for files and the API: null for every network, so such rules look as they always did.</summary>
+    public static string? TextOrNull(NetworkProfiles profiles) => Normalize(profiles) == NetworkProfiles.Any ? null : Text(profiles);
+
+    /// <summary>Parses "public", "domain,private", "home" (= private), "work" (= domain); empty, null or "any" is every network.</summary>
+    public static bool TryParse(string? text, out NetworkProfiles profiles)
+    {
+        profiles = NetworkProfiles.Any;
+        if (string.IsNullOrWhiteSpace(text) || text.Trim().Equals("any", StringComparison.OrdinalIgnoreCase) || text.Trim() == "*")
+        {
+            return true;
+        }
+
+        foreach (var part in text.Split([',', '+', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            switch (part.ToLowerInvariant())
+            {
+                case "domain" or "work": profiles |= NetworkProfiles.Domain; break;
+                case "private" or "home": profiles |= NetworkProfiles.Private; break;
+                case "public": profiles |= NetworkProfiles.Public; break;
+                default:
+                    profiles = NetworkProfiles.Any;
+                    return false;
+            }
+        }
+
+        profiles = Normalize(profiles);
+        return true;
+    }
+
+    /// <summary>For people: "public networks", "private and domain networks", or "every network".</summary>
+    public static string Label(NetworkProfiles profiles)
+    {
+        var p = Normalize(profiles);
+        if (p == NetworkProfiles.Any)
+        {
+            return "every network";
+        }
+
+        var names = Known.Where(k => p.HasFlag(k.Profile)).Select(k => k.Text).Reverse().ToList();
+        return (names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1]) + " networks";
+    }
+
+    /// <summary>The values of the WFP condition FWPM_CONDITION_CURRENT_PROFILE_ID: public 1, private 2, domain 3.</summary>
+    public static IReadOnlyList<uint> ProfileIds(NetworkProfiles profiles)
+    {
+        var p = Normalize(profiles);
+        return Known.Where(k => p.HasFlag(k.Profile)).Select(k => k.Id).ToList();
+    }
+
+    /// <summary>The action field of a rule description: "block", or "block@public" for a rule on some networks only.</summary>
+    public static string ActionField(RuleAction action, NetworkProfiles profiles) =>
+        Normalize(profiles) == NetworkProfiles.Any ? RuleDescription.ActionText(action) : $"{RuleDescription.ActionText(action)}@{Text(profiles)}";
+
+    public static bool TryParseActionField(string? field, out RuleAction action, out NetworkProfiles profiles)
+    {
+        action = RuleAction.Block;
+        profiles = NetworkProfiles.Any;
+        if (field is null)
+        {
+            return false;
+        }
+
+        var at = field.IndexOf('@', StringComparison.Ordinal);
+        var actionText = at < 0 ? field : field[..at];
+        RuleAction? parsed = actionText switch { "block" => RuleAction.Block, "allow" => RuleAction.Allow, _ => null };
+        if (parsed is null || (at >= 0 && (!TryParse(field[(at + 1)..], out profiles) || profiles == NetworkProfiles.Any)))
+        {
+            return false;
+        }
+
+        action = parsed.Value;
+        return true;
+    }
+}
+
 /// <summary>A WFP layer CrioFire writes filters into.</summary>
 public sealed record FilterLayer(Guid Key, string Name, TrafficDirection Direction);
 
@@ -221,14 +339,15 @@ public static class FilterLayers
 /// <summary>
 /// The rule CrioFire stores in a filter's description, so rules can be listed back
 /// from the Base Filtering Engine without a separate database.
-/// Format: <c>criofire:v1|block|out|C:\Path\app.exe</c>.
+/// Format: <c>criofire:v1|block|out|C:\Path\app.exe</c>; a rule for some networks only has them
+/// after the action: <c>criofire:v1|block@public|out|...</c>.
 /// </summary>
-public sealed record RuleDescription(RuleAction Action, TrafficDirection Direction, string AppPath)
+public sealed record RuleDescription(RuleAction Action, TrafficDirection Direction, string AppPath, NetworkProfiles Networks = NetworkProfiles.Any)
 {
     public const string Prefix = "criofire:v1";
 
     public string Format() =>
-        string.Join('|', Prefix, ActionText(Action), DirectionText(Direction), AppPath);
+        string.Join('|', Prefix, NetworkScope.ActionField(Action, Networks), DirectionText(Direction), AppPath);
 
     public static bool TryParse(string? text, out RuleDescription? rule)
     {
@@ -245,7 +364,6 @@ public sealed record RuleDescription(RuleAction Action, TrafficDirection Directi
             return false;
         }
 
-        RuleAction? action = parts[1] switch { "block" => RuleAction.Block, "allow" => RuleAction.Allow, _ => null };
         TrafficDirection? direction = parts[2] switch
         {
             "out" => TrafficDirection.Outbound,
@@ -254,12 +372,12 @@ public sealed record RuleDescription(RuleAction Action, TrafficDirection Directi
             _ => null,
         };
 
-        if (action is null || direction is null)
+        if (!NetworkScope.TryParseActionField(parts[1], out var action, out var networks) || direction is null)
         {
             return false;
         }
 
-        rule = new RuleDescription(action.Value, direction.Value, parts[3]);
+        rule = new RuleDescription(action, direction.Value, parts[3], networks);
         return true;
     }
 

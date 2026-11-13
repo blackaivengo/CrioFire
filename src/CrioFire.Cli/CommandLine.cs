@@ -51,6 +51,7 @@ public enum CommandKind
 /// <param name="Replace">import --replace: also remove rules that are not in the file.</param>
 /// <param name="DryRun">import/restore --dry-run: only show what would change.</param>
 /// <param name="WithMode">import --with-mode: also switch to the mode in the file.</param>
+/// <param name="Networks">block/allow --networks: the kinds of network the rule applies on (every network by default).</param>
 public sealed record Command(
     CommandKind Kind,
     string? AppPath = null,
@@ -74,7 +75,8 @@ public sealed record Command(
     bool WithMode = false,
     string? Server = null,
     string? Token = null,
-    string? Fingerprint = null);
+    string? Fingerprint = null,
+    NetworkProfiles Networks = NetworkProfiles.Any);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -108,6 +110,11 @@ internal static class CommandLine
                                                A rule for one Windows service, even inside a shared
                                                svchost.exe (matched by its service SID), e.g.
                                                  criofire block --service DiagTrack
+          ... block|allow ... --networks <public|private|domain,...>
+                                               Any program, network or service rule can apply only on some
+                                               kinds of network (as Windows classifies them: domain = work,
+                                               private = home, public = everything else); elsewhere the mode
+                                               decides. E.g. criofire block --in --tcp --port 445 --networks public
           criofire allowed [--minutes N] [--local]
                                                Show what was allowed to connect and why (default: last
                                                60 minutes; --local also shows loopback traffic)
@@ -522,6 +529,7 @@ internal static class CommandLine
         TrafficDirection? direction = null;
 
         int? expires = null;
+        NetworkProfiles? networks = null;
         string? ports = null;
         string? addresses = null;
         NetProtocol? protocol = null;
@@ -571,6 +579,19 @@ internal static class CommandLine
                 }
 
                 service = rest[i + 1];
+                i++;
+                continue;
+            }
+
+            if ((arg.Equals("--networks", StringComparison.OrdinalIgnoreCase) || arg.Equals("--network", StringComparison.OrdinalIgnoreCase)) && kind != CommandKind.Unblock)
+            {
+                if (i + 1 >= rest.Length || !NetworkScope.TryParse(rest[i + 1], out var parsed))
+                {
+                    error = "--networks needs any, or a list of domain, private and public, e.g. --networks public or --networks domain,private.";
+                    return new Command(CommandKind.Help);
+                }
+
+                networks = parsed;
                 i++;
                 continue;
             }
@@ -630,7 +651,8 @@ internal static class CommandLine
                 return new Command(CommandKind.Help);
             }
 
-            return new Command(kind, Direction: direction ?? (kind == CommandKind.Unblock ? TrafficDirection.Both : TrafficDirection.Outbound), Service: service);
+            return new Command(kind, Direction: direction ?? (kind == CommandKind.Unblock ? TrafficDirection.Both : TrafficDirection.Outbound), Service: service,
+                Networks: networks ?? NetworkProfiles.Any);
         }
 
         if (ports is not null || addresses is not null || protocol is not null)
@@ -648,8 +670,9 @@ internal static class CommandLine
                 ports,
                 addresses,
                 path,
-                out error);
-            return rule is null ? new Command(CommandKind.Help) : new Command(kind, path, rule.Direction, Net: rule);
+                out error,
+                networks ?? NetworkProfiles.Any);
+            return rule is null ? new Command(CommandKind.Help) : new Command(kind, path, rule.Direction, Net: rule, Networks: rule.Networks);
         }
 
         if (path is null)
@@ -659,6 +682,6 @@ internal static class CommandLine
         }
 
         var defaultDirection = kind == CommandKind.Unblock ? TrafficDirection.Both : TrafficDirection.Outbound;
-        return new Command(kind, path, direction ?? defaultDirection, ExpiresMinutes: expires);
+        return new Command(kind, path, direction ?? defaultDirection, ExpiresMinutes: expires, Networks: networks ?? NetworkProfiles.Any);
     }
 }

@@ -154,7 +154,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         }
 
         EnsureInstalled();
-        var ids = engine.SetAppRule(app, action, direction);
+        var ids = engine.SetAppRule(app, action, direction, ParseNetworks(request.Networks));
         temporaryRules?.Remove(app);
         if (action == RuleAction.Allow)
         {
@@ -250,7 +250,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         };
         var service = Required(request.Service, "service");
         EnsureInstalled();
-        var ids = engine.SetServiceRule(service, action, ParseDirection(request.Direction, TrafficDirection.Outbound));
+        var ids = engine.SetServiceRule(service, action, ParseDirection(request.Direction, TrafficDirection.Outbound), ParseNetworks(request.Networks));
         return new ApiResponse { Ok = true, Count = ids.Count };
     }
 
@@ -288,7 +288,9 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         var changed = identities.Store.Changed(app);
         var direction = ParseDirection(request.Direction ?? changed?.Direction, TrafficDirection.Outbound);
         EnsureInstalled();
-        var ids = engine.SetAppRule(app, RuleAction.Allow, direction);
+        var networks = engine.ListFilters().FirstOrDefault(f => !f.Managed && f.Rule is not null
+            && string.Equals(f.Rule.AppPath, app, StringComparison.OrdinalIgnoreCase))?.Rule!.Networks ?? NetworkProfiles.Any;
+        var ids = engine.SetAppRule(app, RuleAction.Allow, direction, networks);   // on the same networks as before
         identities.Record(app, DateTime.UtcNow);
         return new ApiResponse { Ok = true, Count = ids.Count };
     }
@@ -461,7 +463,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             throw new ArgumentException("protocol must be tcp, udp or any.");
         }
 
-        var rule = NetRule.Create(action, ParseDirection(request.Direction, TrafficDirection.Outbound), protocol, request.Ports, request.Addresses, request.App, out var error)
+        var rule = NetRule.Create(action, ParseDirection(request.Direction, TrafficDirection.Outbound), protocol, request.Ports, request.Addresses, request.App, out var error,
+            ParseNetworks(request.Networks))
             ?? throw new ArgumentException(error);
         EnsureInstalled();
         var ids = engine.AddNetRule(rule);
@@ -490,6 +493,9 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
 
     private static string Required(string? value, string name) =>
         string.IsNullOrWhiteSpace(value) ? throw new ArgumentException($"{name} is required.") : value;
+
+    private static NetworkProfiles ParseNetworks(string? text) =>
+        NetworkScope.TryParse(text, out var networks) ? networks : throw new ArgumentException("networks must be any, or a list of domain, private and public.");
 
     private static TrafficDirection ParseDirection(string? text, TrafficDirection fallback) => text?.ToLowerInvariant() switch
     {

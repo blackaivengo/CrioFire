@@ -50,7 +50,9 @@ public partial class NetRuleDialog : Window
         PortsBox.Text,
         AddressesBox.Text,
         string.IsNullOrWhiteSpace(AppBox.Text) ? null : AppBox.Text.Trim().Trim('"'),
-        out error);
+        out error,
+        NetHomeWork.IsChecked == true ? NetworkProfiles.Domain | NetworkProfiles.Private
+            : NetPublic.IsChecked == true ? NetworkProfiles.Public : NetworkProfiles.Any);
 
     /// <summary>Explains the rule in words as it is typed, or what is wrong with it.</summary>
     private void Update()
@@ -102,7 +104,8 @@ public partial class NetRuleDialog : Window
             conditions.Add(rule.Addresses);
         }
 
-        PreviewText.Text = $"{who} {verb} {direction}" + (conditions.Count > 0 ? $": {string.Join(" · ", conditions)}." : ".");
+        var where = rule.Networks == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(rule.Networks)}";
+        PreviewText.Text = $"{who} {verb} {direction}{where}" + (conditions.Count > 0 ? $": {string.Join(" · ", conditions)}." : ".");
         PreviewBox.SetResourceReference(BackgroundProperty, rule.Action == RuleAction.Block ? "ChipFireBrush" : "ChipIceBrush");
         PreviewText.SetResourceReference(ForegroundProperty, rule.Action == RuleAction.Block ? "ChipFireTextBrush" : "ChipIceTextBrush");
     }

@@ -134,7 +134,8 @@ static int Run(Backend api, Command command)
             {
                 var until = r.ExpiresUtc is DateTime t ? $"  (until {t.ToLocalTime():HH:mm})" : string.Empty;
                 var what = r.Summary ?? r.App ?? r.Name;
-                Console.WriteLine($"{r.FilterId,-12} {r.Action ?? "?",-7} {r.Kind,-13} {r.Layer ?? "?",-14} {what}{until}");
+                var where = r.Networks is not null && r.Summary is null && NetworkScope.TryParse(r.Networks, out var scope) ? $"  (on {NetworkScope.Label(scope)})" : string.Empty;
+                Console.WriteLine($"{r.FilterId,-12} {r.Action ?? "?",-7} {r.Kind,-13} {r.Layer ?? "?",-14} {what}{where}{until}");
             }
 
             return 0;
@@ -143,8 +144,9 @@ static int Run(Backend api, Command command)
         case CommandKind.Block or CommandKind.Allow when command.Service is { } service:
         {
             var action = command.Kind == CommandKind.Block ? "block" : "allow";
-            var result = api.Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = service, Action = action, Direction = RuleDescription.DirectionText(command.Direction) });
-            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for the service {service} ({result.Count} filters).");
+            var result = api.Call(new ApiRequest { Op = ApiOps.SetServiceRule, Service = service, Action = action, Direction = RuleDescription.DirectionText(command.Direction),
+                Networks = NetworkScope.TextOrNull(command.Networks) });
+            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for the service {service}{OnNetworks(command.Networks)} ({result.Count} filters).");
             Console.WriteLine($"Undo with: criofire unblock --service {service}");
             return 0;
         }
@@ -368,6 +370,7 @@ static int Run(Backend api, Command command)
                 Ports = net.Ports,
                 Addresses = net.Addresses,
                 App = net.AppPath,
+                Networks = NetworkScope.TextOrNull(net.Networks),
             });
             Console.WriteLine($"{(net.Action == RuleAction.Block ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(net.Direction)}: {net.Summary()} ({result.Count} filters).");
             Console.WriteLine("Remove it with: criofire remove <filter-id>   (see criofire list)");
@@ -378,9 +381,10 @@ static int Run(Backend api, Command command)
         {
             var path = KnownApps.Normalize(command.AppPath!);
             var action = command.Kind == CommandKind.Block ? "block" : "allow";
-            var result = api.Call(new ApiRequest { Op = ApiOps.SetRule, App = path, Action = action, Direction = RuleDescription.DirectionText(command.Direction), ExpiresMinutes = command.ExpiresMinutes });
+            var result = api.Call(new ApiRequest { Op = ApiOps.SetRule, App = path, Action = action, Direction = RuleDescription.DirectionText(command.Direction), ExpiresMinutes = command.ExpiresMinutes,
+                Networks = NetworkScope.TextOrNull(command.Networks) });
             var until = command.ExpiresMinutes is int m ? $" for {m} minutes" : string.Empty;
-            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for {path}{until} ({result.Count} filters).");
+            Console.WriteLine($"{(action == "block" ? "Blocked" : "Allowed")} {RuleDescription.DirectionText(command.Direction)} traffic for {path}{OnNetworks(command.Networks)}{until} ({result.Count} filters).");
             if (action == "block")
             {
                 Console.WriteLine($"Undo with: criofire unblock \"{path}\"");
@@ -446,6 +450,9 @@ static int Run(Backend api, Command command)
             return 2;
     }
 }
+
+static string OnNetworks(NetworkProfiles networks) =>
+    NetworkScope.Normalize(networks) == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(networks)}";
 
 static int Enroll(Command command)
 {

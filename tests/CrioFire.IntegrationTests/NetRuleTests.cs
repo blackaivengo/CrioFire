@@ -129,8 +129,72 @@ public sealed class NetRuleTests : IDisposable
         Assert.Equal(2, engine.RemoveAllFilters());
     }
 
-    private static NetRule Rule(RuleAction action, TrafficDirection direction, NetProtocol protocol, string? ports, string? addresses = null, string? app = null) =>
-        NetRule.Create(action, direction, protocol, ports, addresses, app, out var error) ?? throw new InvalidOperationException(error);
+    /// <summary>
+    /// A rule for some networks only applies on those. Checked on the runner's real network (not
+    /// loopback): a UDP datagram to a documentation address (203.0.113.9, which goes nowhere)
+    /// leaves through the network the default route uses. A block rule for that address on that
+    /// kind of network stops it; the same rule for the other two kinds does not.
+    /// </summary>
+    [Fact]
+    public void NetworkScopedRulesApplyOnlyOnThoseNetworks()
+    {
+        var engine = Engine();
+        var current = DefaultRouteNetwork();
+        Assert.SkipWhen(current is null, "Could not tell which kind of network the default route uses.");
+        var target = new IPEndPoint(IPAddress.Parse("203.0.113.9"), 9);
+
+        Assert.True(CanSend(target), "Baseline: the datagram could not be sent before any rule.");
+
+        engine.AddNetRule(Rule(RuleAction.Block, TrafficDirection.Outbound, NetProtocol.Udp, "9", "203.0.113.9", networks: current!.Value));
+        var blockedHere = !CanSend(target);
+        engine.RemoveAllFilters();
+
+        engine.AddNetRule(Rule(RuleAction.Block, TrafficDirection.Outbound, NetProtocol.Udp, "9", "203.0.113.9", networks: NetworkScope.All & ~current.Value));
+        var blockedElsewhere = !CanSend(target);
+        engine.RemoveAllFilters();
+
+        Assert.True(blockedHere, $"A rule for {NetworkScope.Label(current.Value)} did not apply on this {NetworkScope.Text(current.Value)} network.");
+        Assert.False(blockedElsewhere, $"A rule for the other kinds of network applied on this {NetworkScope.Text(current.Value)} network.");
+    }
+
+    private static bool CanSend(IPEndPoint target)
+    {
+        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        try
+        {
+            socket.SendTo([1, 2, 3], target);
+            return true;
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AccessDenied)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The kind of network the IPv4 default route leaves through, as Windows classifies it.</summary>
+    private static NetworkProfiles? DefaultRouteNetwork()
+    {
+        var script = "(Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Sort-Object RouteMetric | Select-Object -First 1 | Get-NetConnectionProfile).NetworkCategory";
+        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell.exe", $"-NoProfile -NonInteractive -Command \"{script}\"")
+        {
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        });
+        var output = process?.StandardOutput.ReadToEnd().Trim() ?? string.Empty;
+        process?.WaitForExit();
+        return output switch
+        {
+            "Public" => NetworkProfiles.Public,
+            "Private" => NetworkProfiles.Private,
+            "DomainAuthenticated" => NetworkProfiles.Domain,
+            _ => null,
+        };
+    }
+
+    private static NetRule Rule(RuleAction action, TrafficDirection direction, NetProtocol protocol, string? ports, string? addresses = null, string? app = null,
+        NetworkProfiles networks = NetworkProfiles.Any) =>
+        NetRule.Create(action, direction, protocol, ports, addresses, app, out var error, networks) ?? throw new InvalidOperationException(error);
 
     private WfpEngine Engine()
     {

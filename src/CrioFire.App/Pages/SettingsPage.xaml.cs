@@ -27,10 +27,11 @@ public partial class SettingsPage : UserControl, IPage
     private IReadOnlyList<BackupInfo>? _backups;
     private LicenseStatus? _license;
     private CrioFire.Core.Management.ManagementInfo? _management;
+    private IReadOnlyList<ConnectedNetwork>? _networks;
 
     public async Task LoadAsync()
     {
-        (_backups, _license, _management) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management()));
+        (_backups, _license, _management, _networks) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management(), ConnectedNetworks.Current()));
     }
 
     public void Refresh()
@@ -51,6 +52,12 @@ public partial class SettingsPage : UserControl, IPage
             $"Blocked-connection log: {TrafficLog.DefaultPath}" +
             ManagedText(_management ?? AppModel.Management());
         _management = null;
+
+        var networks = _networks ?? ConnectedNetworks.Current();
+        _networks = null;
+        NetworksText.Text = networks.Count == 0
+            ? "Windows does not report a network right now."
+            : $"This PC is on {ConnectedNetworks.Describe(networks)}.";
 
         ShowLicense(_license ?? AppModel.License());
         _license = null;
@@ -169,6 +176,18 @@ public partial class SettingsPage : UserControl, IPage
         LicenseText.SetResourceReference(TextBlock.ForegroundProperty,
             status?.State is LicenseStates.Expired or LicenseStates.Invalid or LicenseStates.Expiring ? "FireBrush" : "TextBrush");
         LicenseRemove.Visibility = status is { State: not LicenseStates.None } ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnNetworkSettings(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:network-status") { UseShellExecute = true })?.Dispose();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // No Settings app (Windows Server core): nothing to open.
+        }
     }
 
     private void OnEnterLicense(object sender, RoutedEventArgs e)

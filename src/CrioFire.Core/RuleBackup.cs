@@ -38,11 +38,14 @@ public sealed record RuleSet
 }
 
 /// <summary>A program rule. App is a full path, "System" for the kernel, or "pkg:family" for a Store app.</summary>
-public sealed record AppRuleEntry(string App, string Action, string Direction);
+/// <param name="Networks">The kinds of network the rule applies on ("public", "domain,private"); null for every network.</param>
+public sealed record AppRuleEntry(string App, string Action, string Direction, string? Networks = null);
 
-public sealed record NetRuleEntry(string Action, string Direction, string Protocol, string Ports, string Addresses, string? App);
+/// <param name="Networks">The kinds of network the rule applies on; null for every network.</param>
+public sealed record NetRuleEntry(string Action, string Direction, string Protocol, string Ports, string Addresses, string? App, string? Networks = null);
 
-public sealed record ServiceRuleEntry(string Service, string Action, string Direction);
+/// <param name="Networks">The kinds of network the rule applies on; null for every network.</param>
+public sealed record ServiceRuleEntry(string Service, string Action, string Direction, string? Networks = null);
 
 public sealed record AutoRuleSetting(string Name, bool Enabled);
 
@@ -81,7 +84,7 @@ public static class RuleBackup
 
         var programs = filters
             .Where(f => !f.Managed && f.Kind == FilterKind.AppRule && f.Rule is not null && !temporary.Contains(f.Rule.AppPath))
-            .Select(f => new AppRuleEntry(f.Rule!.AppPath, RuleDescription.ActionText(f.Rule.Action), RuleDescription.DirectionText(f.Rule.Direction)))
+            .Select(f => new AppRuleEntry(f.Rule!.AppPath, RuleDescription.ActionText(f.Rule.Action), RuleDescription.DirectionText(f.Rule.Direction), NetworkScope.TextOrNull(f.Rule.Networks)))
             .Distinct(AppEntryComparer.Instance)
             .OrderBy(e => e.App, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Direction, StringComparer.Ordinal)
             .ToList();
@@ -93,7 +96,7 @@ public static class RuleBackup
             .ToList();
         var services = filters
             .Where(f => !f.Managed && f.Kind == FilterKind.ServiceRule && f.Service is not null)
-            .Select(f => new ServiceRuleEntry(f.Service!.ServiceName, RuleDescription.ActionText(f.Service.Action), RuleDescription.DirectionText(f.Service.Direction)))
+            .Select(f => new ServiceRuleEntry(f.Service!.ServiceName, RuleDescription.ActionText(f.Service.Action), RuleDescription.DirectionText(f.Service.Direction), NetworkScope.TextOrNull(f.Service.Networks)))
             .Distinct()
             .OrderBy(e => e.Service, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -131,7 +134,8 @@ public static class RuleBackup
             NetRule.ProtocolText(n.Protocol),
             n.Ports,
             n.Addresses,
-            n.AppPath);
+            n.AppPath,
+            NetworkScope.TextOrNull(n.Networks));
     }
 
     /// <summary>Checks a file's contents before anything is applied. Returns null when it is fine.</summary>
@@ -145,7 +149,7 @@ public static class RuleBackup
 
         foreach (var p in set.Programs)
         {
-            if (string.IsNullOrWhiteSpace(p.App) || !IsAction(p.Action) || !IsDirection(p.Direction))
+            if (string.IsNullOrWhiteSpace(p.App) || !IsAction(p.Action) || !IsDirection(p.Direction) || !NetworkScope.TryParse(p.Networks, out _))
             {
                 return $"A program rule in the file is not valid ({p.App}).";
             }
@@ -153,7 +157,7 @@ public static class RuleBackup
 
         foreach (var s in set.Services)
         {
-            if (string.IsNullOrWhiteSpace(s.Service) || !IsAction(s.Action) || !IsDirection(s.Direction))
+            if (string.IsNullOrWhiteSpace(s.Service) || !IsAction(s.Action) || !IsDirection(s.Direction) || !NetworkScope.TryParse(s.Networks, out _))
             {
                 return $"A service rule in the file is not valid ({s.Service}).";
             }
@@ -184,7 +188,7 @@ public static class RuleBackup
         int add = 0, change = 0, same = 0, remove = 0;
         var missing = new List<string>();
 
-        var currentApps = current.Programs.ToDictionary(AppKey, e => e.Action, StringComparer.OrdinalIgnoreCase);
+        var currentApps = current.Programs.ToDictionary(AppKey, Effect, StringComparer.OrdinalIgnoreCase);
         var incomingApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in incoming.Programs)
         {
@@ -199,7 +203,7 @@ public static class RuleBackup
             {
                 add++;
             }
-            else if (!string.Equals(action, p.Action, StringComparison.OrdinalIgnoreCase))
+            else if (!string.Equals(action, Effect(p), StringComparison.OrdinalIgnoreCase))
             {
                 change++;
             }
@@ -209,10 +213,10 @@ public static class RuleBackup
             }
         }
 
-        var currentNet = current.Network.ToHashSet();
+        var currentNet = current.Network.Select(Normal).ToHashSet();
         foreach (var n in incoming.Network)
         {
-            if (currentNet.Contains(n))
+            if (currentNet.Contains(Normal(n)))
             {
                 same++;
             }
@@ -222,14 +226,14 @@ public static class RuleBackup
             }
         }
 
-        var currentServices = current.Services.ToDictionary(ServiceKey, s => s.Action, StringComparer.OrdinalIgnoreCase);
+        var currentServices = current.Services.ToDictionary(ServiceKey, Effect, StringComparer.OrdinalIgnoreCase);
         foreach (var s in incoming.Services)
         {
             if (!currentServices.TryGetValue(ServiceKey(s), out var action))
             {
                 add++;
             }
-            else if (!string.Equals(action, s.Action, StringComparison.OrdinalIgnoreCase))
+            else if (!string.Equals(action, Effect(s), StringComparison.OrdinalIgnoreCase))
             {
                 change++;
             }
@@ -241,10 +245,10 @@ public static class RuleBackup
 
         if (mode == ImportMode.Replace)
         {
-            var incomingNet = incoming.Network.ToHashSet();
+            var incomingNet = incoming.Network.Select(Normal).ToHashSet();
             var incomingServices = incoming.Services.Select(ServiceKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
             remove += current.Programs.Count(p => !incomingApps.Contains(AppKey(p)));
-            remove += current.Network.Count(n => !incomingNet.Contains(n));
+            remove += current.Network.Count(n => !incomingNet.Contains(Normal(n)));
             remove += current.Services.Count(s => !incomingServices.Contains(ServiceKey(s)));
         }
 
@@ -270,9 +274,9 @@ public static class RuleBackup
 
         var current = Export(engine, temporaryRules, nowUtc);
         var plan = Plan(current, incoming, mode, File.Exists, applyMode);
-        var currentApps = current.Programs.ToDictionary(AppKey, e => e.Action, StringComparer.OrdinalIgnoreCase);
-        var currentServices = current.Services.ToDictionary(ServiceKey, s => s.Action, StringComparer.OrdinalIgnoreCase);
-        var currentNet = current.Network.ToHashSet();
+        var currentApps = current.Programs.ToDictionary(AppKey, Effect, StringComparer.OrdinalIgnoreCase);
+        var currentServices = current.Services.ToDictionary(ServiceKey, Effect, StringComparer.OrdinalIgnoreCase);
+        var currentNet = current.Network.Select(Normal).ToHashSet();
 
         if (mode == ImportMode.Replace)
         {
@@ -282,9 +286,9 @@ public static class RuleBackup
                 engine.RemoveAppRules(p.App, ParseDirection(p.Direction));
             }
 
-            var incomingNet = incoming.Network.ToHashSet();
+            var incomingNet = incoming.Network.Select(Normal).ToHashSet();
             var filters = engine.ListFilters();
-            foreach (var n in current.Network.Where(n => !incomingNet.Contains(n)))
+            foreach (var n in current.Network.Where(n => !incomingNet.Contains(Normal(n))))
             {
                 var first = filters.FirstOrDefault(f => !f.Managed && f.Kind == FilterKind.NetRule && f.Net is not null && ToEntry(f.Net) == n);
                 if (first is not null)
@@ -303,14 +307,14 @@ public static class RuleBackup
         foreach (var p in incoming.Programs)
         {
             if (!IsAvailable(p.App, File.Exists)
-                || (currentApps.TryGetValue(AppKey(p), out var action) && string.Equals(action, p.Action, StringComparison.OrdinalIgnoreCase)))
+                || (currentApps.TryGetValue(AppKey(p), out var action) && string.Equals(action, Effect(p), StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
 
             try
             {
-                engine.SetAppRule(p.App, ParseAction(p.Action), ParseDirection(p.Direction));
+                engine.SetAppRule(p.App, ParseAction(p.Action), ParseDirection(p.Direction), ParseNetworks(p.Networks));
             }
             catch (FileNotFoundException)
             {
@@ -318,16 +322,16 @@ public static class RuleBackup
             }
         }
 
-        foreach (var n in incoming.Network.Where(n => !currentNet.Contains(n)))
+        foreach (var n in incoming.Network.Where(n => !currentNet.Contains(Normal(n))))
         {
             engine.AddNetRule(ToNetRule(n, out _)!);
         }
 
         foreach (var s in incoming.Services)
         {
-            if (!currentServices.TryGetValue(ServiceKey(s), out var action) || !string.Equals(action, s.Action, StringComparison.OrdinalIgnoreCase))
+            if (!currentServices.TryGetValue(ServiceKey(s), out var action) || !string.Equals(action, Effect(s), StringComparison.OrdinalIgnoreCase))
             {
-                engine.SetServiceRule(s.Service, ParseAction(s.Action), ParseDirection(s.Direction));
+                engine.SetServiceRule(s.Service, ParseAction(s.Action), ParseDirection(s.Direction), ParseNetworks(s.Networks));
             }
         }
 
@@ -389,13 +393,31 @@ public static class RuleBackup
 
         var ports = n.Ports is "*" ? null : n.Ports;
         var addresses = n.Addresses is "*" ? null : n.Addresses;
-        return NetRule.Create(ParseAction(n.Action), ParseDirection(n.Direction), protocol, ports, addresses, n.App, out error);
+        if (!NetworkScope.TryParse(n.Networks, out var networks))
+        {
+            error = "networks must be any, or a list of domain, private and public.";
+            return null;
+        }
+
+        return NetRule.Create(ParseAction(n.Action), ParseDirection(n.Direction), protocol, ports, addresses, n.App, out error, networks);
     }
 
     private static bool IsAvailable(string app, Func<string, bool> programExists) =>
         KnownApps.IsKernel(app) || StoreApps.IsPackage(app) || programExists(app);
 
     private static string AppKey(AppRuleEntry e) => e.App + "|" + e.Direction;
+
+    /// <summary>What a rule does, for comparing: the action and the networks, e.g. "block@public".</summary>
+    private static string Effect(AppRuleEntry e) => e.Action.ToLowerInvariant() + "@" + Networks(e.Networks);
+
+    private static string Effect(ServiceRuleEntry e) => e.Action.ToLowerInvariant() + "@" + Networks(e.Networks);
+
+    /// <summary>A network rule with its networks written one way, so "Private,Domain" and "domain,private" compare equal.</summary>
+    private static NetRuleEntry Normal(NetRuleEntry e) => e with { Networks = NetworkScope.TryParse(e.Networks, out var n) ? NetworkScope.TextOrNull(n) : e.Networks };
+
+    private static string Networks(string? text) => NetworkScope.TryParse(text, out var n) ? NetworkScope.Text(n) : text ?? "any";
+
+    public static NetworkProfiles ParseNetworks(string? text) => NetworkScope.TryParse(text, out var n) ? n : NetworkProfiles.Any;
 
     private static string ServiceKey(ServiceRuleEntry e) => e.Service + "|" + e.Direction;
 
@@ -420,10 +442,10 @@ public static class RuleBackup
         public bool Equals(AppRuleEntry? x, AppRuleEntry? y) =>
             x is not null && y is not null
             && string.Equals(x.App, y.App, StringComparison.OrdinalIgnoreCase)
-            && x.Action == y.Action && x.Direction == y.Direction;
+            && x.Action == y.Action && x.Direction == y.Direction && x.Networks == y.Networks;
 
         public int GetHashCode(AppRuleEntry obj) =>
-            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.App), obj.Action, obj.Direction);
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.App), obj.Action, obj.Direction, obj.Networks);
     }
 }
 

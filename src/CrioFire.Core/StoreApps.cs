@@ -175,15 +175,15 @@ public static class StoreApps
                 continue;
             }
 
-            foreach (var (action, direction) in package.Select(f => (f.Rule!.Action, f.Rule.Direction)).Distinct())
+            foreach (var (action, direction, networks) in package.Select(f => (f.Rule!.Action, f.Rule.Direction, f.Rule.Networks)).Distinct())
             {
                 if (package.Key.Managed)
                 {
-                    engine.Managed(() => engine.SetAppRule(key, action, direction));   // an organization rule stays one
+                    engine.Managed(() => engine.SetAppRule(key, action, direction, networks));   // an organization rule stays one
                 }
                 else
                 {
-                    engine.SetAppRule(key, action, direction);
+                    engine.SetAppRule(key, action, direction, networks);
                 }
             }
 

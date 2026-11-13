@@ -663,21 +663,29 @@
       options.map(([v, t]) => h('option', { value: v, text: t, selected: value === v ? 'selected' : null })));
     const actions = [['allow', 'Allow'], ['block', 'Block']];
     const directions = [['out', 'Outgoing'], ['in', 'Incoming'], ['both', 'Both']];
+    // Which kinds of network a rule applies on (as Windows classifies them); elsewhere the mode decides.
+    const networkChoices = (value) => {
+      const list = [['', 'Every network'], ['domain,private', 'Home and work'], ['public', 'Public']];
+      if (value && !list.some(([v]) => v === value)) list.push([value, value]);
+      return list;
+    };
+    const networks = (r) => select(r.networks || '', networkChoices(r.networks || ''), (v) => { r.networks = v || null; });
     const remove = (list, i) => h('button', { class: 'icon ghost', title: 'Remove this rule', 'aria-label': 'Remove this rule', text: '✕', onclick: () => { list.splice(i, 1); redraw(); } });
 
     const programs = h('table', { class: 'edit' },
-      h('thead', {}, h('tr', {}, h('th', { text: 'Program (full path, System for the Windows kernel, or pkg:<family> for a Store app)' }), h('th', { text: 'Action' }), h('th', { text: 'Direction' }), h('th', {}))),
+      h('thead', {}, h('tr', {}, h('th', { text: 'Program (full path, System for the Windows kernel, or pkg:<family> for a Store app)' }), h('th', { text: 'Action' }), h('th', { text: 'Direction' }), h('th', { text: 'Networks' }), h('th', {}))),
       h('tbody', {}, p.rules.programs.length === 0
-        ? h('tr', {}, h('td', { colspan: 4, class: 'empty', text: 'No program rules.' }))
+        ? h('tr', {}, h('td', { colspan: 5, class: 'empty', text: 'No program rules.' }))
         : p.rules.programs.map((r, i) => h('tr', {},
           h('td', {}, h('input', { value: r.app, placeholder: 'C:\\Program Files\\App\\app.exe', oninput: (e) => { r.app = e.target.value; } })),
           h('td', {}, select(r.action, actions, (v) => { r.action = v; })),
           h('td', {}, select(r.direction, directions, (v) => { r.direction = v; })),
+          h('td', {}, networks(r)),
           h('td', {}, remove(p.rules.programs, i))))));
     const network = h('table', { class: 'edit' },
-      h('thead', {}, h('tr', {}, h('th', { text: 'Action' }), h('th', { text: 'Direction' }), h('th', { text: 'Protocol' }), h('th', { text: 'Ports' }), h('th', { text: 'Remote addresses' }), h('th', { text: 'Only for program (optional)' }), h('th', {}))),
+      h('thead', {}, h('tr', {}, h('th', { text: 'Action' }), h('th', { text: 'Direction' }), h('th', { text: 'Protocol' }), h('th', { text: 'Ports' }), h('th', { text: 'Remote addresses' }), h('th', { text: 'Only for program (optional)' }), h('th', { text: 'Networks' }), h('th', {}))),
       h('tbody', {}, p.rules.network.length === 0
-        ? h('tr', {}, h('td', { colspan: 7, class: 'empty', text: 'No port or address rules.' }))
+        ? h('tr', {}, h('td', { colspan: 8, class: 'empty', text: 'No port or address rules.' }))
         : p.rules.network.map((r, i) => h('tr', {},
           h('td', {}, select(r.action, actions, (v) => { r.action = v; })),
           h('td', {}, select(r.direction, directions, (v) => { r.direction = v; })),
@@ -685,15 +693,17 @@
           h('td', {}, h('input', { value: r.ports, placeholder: '445 or 80,443', oninput: (e) => { r.ports = e.target.value; } })),
           h('td', {}, h('input', { value: r.addresses, placeholder: '10.0.0.0/8', oninput: (e) => { r.addresses = e.target.value; } })),
           h('td', {}, h('input', { value: r.app || '', placeholder: 'any program', oninput: (e) => { r.app = e.target.value || null; } })),
+          h('td', {}, networks(r)),
           h('td', {}, remove(p.rules.network, i))))));
     const services = h('table', { class: 'edit' },
-      h('thead', {}, h('tr', {}, h('th', { text: 'Windows service (its short name, e.g. DiagTrack)' }), h('th', { text: 'Action' }), h('th', { text: 'Direction' }), h('th', {}))),
+      h('thead', {}, h('tr', {}, h('th', { text: 'Windows service (its short name, e.g. DiagTrack)' }), h('th', { text: 'Action' }), h('th', { text: 'Direction' }), h('th', { text: 'Networks' }), h('th', {}))),
       h('tbody', {}, p.rules.services.length === 0
-        ? h('tr', {}, h('td', { colspan: 4, class: 'empty', text: 'No service rules.' }))
+        ? h('tr', {}, h('td', { colspan: 5, class: 'empty', text: 'No service rules.' }))
         : p.rules.services.map((r, i) => h('tr', {},
           h('td', {}, h('input', { value: r.service, placeholder: 'DiagTrack', oninput: (e) => { r.service = e.target.value; } })),
           h('td', {}, select(r.action, actions, (v) => { r.action = v; })),
           h('td', {}, select(r.direction, directions, (v) => { r.direction = v; })),
+          h('td', {}, networks(r)),
           h('td', {}, remove(p.rules.services, i))))));
 
     const file = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onchange: async (e) => {
@@ -766,10 +776,10 @@
   function cleanRules(rules) {
     return {
       format: 1,
-      programs: rules.programs.filter((r) => r.app && r.app.trim()).map((r) => ({ app: r.app.trim(), action: r.action, direction: r.direction })),
+      programs: rules.programs.filter((r) => r.app && r.app.trim()).map((r) => ({ app: r.app.trim(), action: r.action, direction: r.direction, networks: r.networks || null })),
       network: rules.network.filter((r) => (r.ports || '').trim() || (r.addresses || '').trim() || r.protocol !== 'any')
-        .map((r) => ({ action: r.action, direction: r.direction, protocol: r.protocol, ports: (r.ports || '').trim(), addresses: (r.addresses || '').trim(), app: r.app && r.app.trim() ? r.app.trim() : null })),
-      services: rules.services.filter((r) => r.service && r.service.trim()).map((r) => ({ service: r.service.trim(), action: r.action, direction: r.direction })),
+        .map((r) => ({ action: r.action, direction: r.direction, protocol: r.protocol, ports: (r.ports || '').trim(), addresses: (r.addresses || '').trim(), app: r.app && r.app.trim() ? r.app.trim() : null, networks: r.networks || null })),
+      services: rules.services.filter((r) => r.service && r.service.trim()).map((r) => ({ service: r.service.trim(), action: r.action, direction: r.direction, networks: r.networks || null })),
       autoRules: rules.autoRules,
     };
   }

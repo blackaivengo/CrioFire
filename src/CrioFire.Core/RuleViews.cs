@@ -98,8 +98,8 @@ public static class RuleViews
         return result.DistinctBy(b => b.Label).OrderBy(b => b.Kind).ThenBy(b => b.Label, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    /// <summary>A network rule rebuilt with another action and/or direction (to replace it), or null if it can't be.</summary>
-    public static NetRule? Changed(RuleInfo rule, string? action = null, string? direction = null)
+    /// <summary>A network rule rebuilt with another action, direction and/or networks (to replace it), or null if it can't be.</summary>
+    public static NetRule? Changed(RuleInfo rule, string? action = null, string? direction = null, string? networks = null)
     {
         ArgumentNullException.ThrowIfNull(rule);
         if (rule.Kind != nameof(FilterKind.NetRule) || !NetRule.TryParseProtocol(rule.Protocol ?? "any", out var protocol))
@@ -114,7 +114,9 @@ public static class RuleViews
             "both" => TrafficDirection.Both,
             _ => TrafficDirection.Outbound,
         };
-        return NetRule.Create(newAction, newDirection, protocol, rule.Ports, rule.Addresses, rule.App, out _);
+        return NetworkScope.TryParse(networks ?? rule.Networks, out var newNetworks)
+            ? NetRule.Create(newAction, newDirection, protocol, rule.Ports, rule.Addresses, rule.App, out _, newNetworks)
+            : null;
     }
 
     /// <summary>The other action: allow ↔ block.</summary>
