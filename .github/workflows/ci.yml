@@ -48,6 +48,12 @@ jobs:
           path: out/${{ matrix.arch }}
           retention-days: 7
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: criofire-server-ci-${{ matrix.arch }}
+          path: out/server-${{ matrix.arch }}
+          retention-days: 7
+
       # One project at a time, each with its own results file (two .trx files written in the same
       # second can otherwise overwrite each other).
       - name: Test (unit tests and real firewall tests)
@@ -83,21 +89,28 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          pattern: criofire-ci-*
+          pattern: criofire-*ci-*
           path: out
 
-      - name: Build x64 and ARM64 MSIs (unsigned)
+      - name: Build x64 and ARM64 MSIs, CrioFire and CrioFire Server (unsigned)
         shell: pwsh
         run: |
           foreach ($arch in 'x64', 'arm64') {
             ./build/package-msi.ps1 -Arch $arch -Version "0.0.${{ github.run_number }}" -PublishDir "out/criofire-ci-$arch"
+            ./build/package-server-msi.ps1 -Arch $arch -Version "0.0.${{ github.run_number }}" -PublishDir "out/criofire-server-ci-$arch"
           }
 
       # Install the x64 MSI on the runner, check that everything is in place, then uninstall and
       # check that nothing is left. Learning mode, so the runner's own connections keep working.
       - name: Install, check and uninstall the x64 MSI
         shell: pwsh
-        run: ./build/test-msi.ps1 -Msi (Get-Item out/msi/criofire-*-x64.msi).FullName
+        run: ./build/test-msi.ps1 -Msi (Get-Item out/msi/criofire-0*-x64.msi).FullName
+
+      # The same for CrioFire Server: service, firewall rule, locked-down data folder, the console
+      # answering and the first administrator; uninstall keeps the server's data.
+      - name: Install, check and uninstall the x64 server MSI
+        shell: pwsh
+        run: ./build/test-server-msi.ps1 -Msi (Get-Item out/msi/criofire-server-*-x64.msi).FullName
 
       - uses: actions/upload-artifact@v7
         if: always()

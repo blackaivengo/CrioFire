@@ -9,8 +9,8 @@ maintainer's approval in GitHub, and only that approved job can get an Azure tok
 2. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`
 3. The workflow checks the tag is on `main`, tests and publishes x64 and ARM64 builds.
 4. The **Sign** job pauses: GitHub shows "Review deployments". Approve it (web or mobile app).
-5. The job signs CrioFire's own binaries, builds the x64 and ARM64 MSI installers from them and
-   signs those too, verifies every signature names CrioSoft LLC, adds a portable zip per
+5. The job signs CrioFire's own binaries, builds the x64 and ARM64 MSI installers (CrioFire and
+   CrioFire Server) from them and signs those too, verifies every signature names CrioSoft LLC, adds a portable zip per
    architecture, writes `SHA256SUMS.txt` and creates a **draft** GitHub Release.
 6. Check the draft, then publish it.
 
@@ -55,6 +55,7 @@ maintainer's approval in GitHub, and only that approved job can get an Azure tok
   the certificate itself expires.
 - A newly signed publisher still has little SmartScreen reputation; warnings fade as downloads grow.
 - Release files: `criofire-<version>-x64.msi`, `criofire-<version>-arm64.msi` (the installers most
-  people want) and `criofire-<version>-<arch>-portable.zip` (no installer; for testing).
+  people want), `criofire-server-<version>-<arch>.msi` (the company server, see `docs/SERVER.md`)
+  and `criofire-<version>-<arch>-portable.zip` (no installer; for testing).
 - The MSIs are built with the WiX Toolset v7 under its Open Source Maintenance Fee EULA; see
   `installer/README.md`.

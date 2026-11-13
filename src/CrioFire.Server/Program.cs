@@ -37,6 +37,12 @@ try
             return Commands.Policy(folder, args[1..]);
         case "activity" when args.Length >= 2:
             return Commands.Activity(folder, args[1], args[2..]);
+        case "setup":
+            return ServerSetup.Setup(folder, args[1..]);
+        case "uninstall":
+            return ServerSetup.Uninstall();
+        case "license":
+            return Commands.License(folder, args[1..]);
         case "fingerprint":
             Console.WriteLine(Fingerprints.Of(ServerCertificate.LoadOrCreate(folder, DateTime.UtcNow)));
             return 0;
@@ -45,7 +51,12 @@ try
             return 2;
     }
 }
-catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or FormatException)
+catch (UnauthorizedAccessException)
+{
+    Console.Error.WriteLine("Only administrators can do this: run it from an administrator prompt.");
+    return 1;
+}
+catch (Exception ex) when (ex is IOException or ArgumentException or FormatException)
 {
     Console.Error.WriteLine(ex.Message);
     return 1;
@@ -76,6 +87,8 @@ internal sealed record ServerSettings(int Port = ServerDefaults.Port, int Checki
 
         return settings;
     }
+
+    public static void SavePort(string folder, int port) => ServerSettingsFile.Set(folder, "port", port);
 }
 
 internal static class Commands
@@ -110,6 +123,16 @@ internal static class Commands
           criofire-server policy default <id|none>    The policy new PCs get when they enroll
           criofire-server policy delete <id>
           criofire-server fingerprint             Show the server certificate's fingerprint
+
+        License (the organization's CrioFire business license; the server gives it to every PC):
+          criofire-server license                 Show the license and how many of its seats are used
+          criofire-server license <key>           Use this license key
+          criofire-server license --remove        Stop using a license key
+
+        Installation (the installer runs these):
+          criofire-server setup [--port N]        Set the port (default 7443), allow it in Windows Firewall,
+                                                  lock the data folder down and make the certificate
+          criofire-server uninstall               Remove the Windows Firewall rule (the data folder stays)
         """;
 
     public static int Token(string folder, ServerSettings settings, string[] args)
@@ -187,6 +210,33 @@ internal static class Commands
             Console.WriteLine($"{d.Computer,-20} {d.DeviceId,-18} last check-in {seen,-20} {state}");
         }
 
+        return 0;
+    }
+
+    public static int License(string folder, string[] args)
+    {
+        using var publicKey = CrioFire.Core.LicenseKeys.ProductPublicKey();
+        var license = new ServerLicense(folder, publicKey);
+        var now = DateTime.UtcNow;
+        switch (args)
+        {
+            case []:
+                break;
+            case ["--remove"]:
+                license.Set(null, now);
+                Console.WriteLine("The server no longer has a license key. PCs keep the key they were given.");
+                break;
+            case [var key, ..] when !key.StartsWith("--", StringComparison.Ordinal):
+                // A key copied from an email may arrive split over several arguments.
+                license.Set(string.Concat(args), now);
+                Console.WriteLine("License key saved. PCs get it at their next check-in.");
+                break;
+            default:
+                Console.WriteLine(Usage);
+                return 2;
+        }
+
+        Console.WriteLine(ServerLicense.Describe(license.View(new ServerStore(folder).Devices().Count, now)));
         return 0;
     }
 

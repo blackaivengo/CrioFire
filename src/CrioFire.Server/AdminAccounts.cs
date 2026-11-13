@@ -48,6 +48,21 @@ public sealed class AdminAccounts(string folder)
         }
     }
 
+    /// <summary>Adds the first administrator; false (and nothing changes) when there already is one.</summary>
+    public bool AddFirst(string name, string password, DateTime nowUtc)
+    {
+        lock (_gate)
+        {
+            if (Load().Count > 0)
+            {
+                return false;
+            }
+
+            Add(name, password, nowUtc);
+            return true;
+        }
+    }
+
     public void SetPassword(string name, string password)
     {
         CheckPassword(password);

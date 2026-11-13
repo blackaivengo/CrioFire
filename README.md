@@ -40,6 +40,10 @@ and run it. Setup asks how CrioFire should start (Learning, Ask or Allow-list), 
 programs already running, and whether to start the app at sign-in. Silent installs and all options:
 see [installer/README.md](installer/README.md). Uninstalling removes every CrioFire rule.
 
+Businesses managing many PCs also install `criofire-server-<version>-x64.msi` on one machine: a
+company server with a web console for policies, enrollment, status and the license
+(see [docs/SERVER.md](docs/SERVER.md)).
+
 ## Try the prototype
 
 From an **administrator** terminal, in the published folder:

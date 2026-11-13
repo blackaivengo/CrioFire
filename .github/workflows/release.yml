@@ -57,6 +57,12 @@ jobs:
           path: out/${{ matrix.arch }}
           retention-days: 3
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-server-${{ matrix.arch }}
+          path: out/server-${{ matrix.arch }}
+          retention-days: 3
+
   sign-and-draft-release:
     name: Sign (needs approval) and draft release
     needs: build
@@ -100,11 +106,12 @@ jobs:
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
-      - name: Build MSIs from the signed binaries
+      - name: Build MSIs (CrioFire and CrioFire Server) from the signed binaries
         shell: pwsh
         run: |
           foreach ($arch in 'x64', 'arm64') {
             ./build/package-msi.ps1 -Arch $arch -Version '${{ github.ref_name }}' -PublishDir "out/unsigned-$arch"
+            ./build/package-server-msi.ps1 -Arch $arch -Version '${{ github.ref_name }}' -PublishDir "out/unsigned-server-$arch"
           }
 
       - name: Sign the MSIs with Azure Artifact Signing

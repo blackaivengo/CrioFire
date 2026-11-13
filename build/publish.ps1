@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-  Publishes CrioFire (service, desktop app, command line) for one architecture into out\<arch>.
+  Publishes CrioFire (service, desktop app, command line) for one architecture into out\<arch>,
+  and CrioFire Server into out\server-<arch>.
 
 .EXAMPLE
   ./build/publish.ps1 -Arch x64 -Version v0.1.0
@@ -16,9 +17,12 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root "out/$Arch"
+$serverOut = Join-Path $root "out/server-$Arch"
 $ver = $Version.TrimStart('v')
 
-if (Test-Path $out) { Remove-Item $out -Recurse -Force }
+foreach ($dir in $out, $serverOut) {
+    if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+}
 
 # All three apps share one self-contained .NET 10 runtime in the same folder.
 foreach ($project in 'src/CrioFire.Service', 'src/CrioFire.App', 'src/CrioFire.Cli') {
@@ -41,4 +45,20 @@ foreach ($doc in 'LICENSE', 'THIRD-PARTY-NOTICES.md') {
     Copy-Item (Join-Path $root $doc) (Join-Path $out $doc) -Force
 }
 
-Write-Host "Published CrioFire $ver for $Arch to $out"
+# CrioFire Server: its own folder (with its own runtime, including ASP.NET Core) and its own installer.
+dotnet publish (Join-Path $root 'src/CrioFire.Server') `
+    --configuration Release `
+    --runtime "win-$Arch" `
+    --self-contained true `
+    --output $serverOut `
+    -p:Version=$ver `
+    -p:DebugType=embedded
+if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed for src/CrioFire.Server' }
+foreach ($file in 'criofire-server.exe', 'wwwroot/index.html', 'wwwroot/app.js') {
+    if (-not (Test-Path (Join-Path $serverOut $file))) { throw "Missing $file in $serverOut" }
+}
+foreach ($doc in 'LICENSE', 'THIRD-PARTY-NOTICES.md') {
+    Copy-Item (Join-Path $root $doc) (Join-Path $serverOut $doc) -Force
+}
+
+Write-Host "Published CrioFire $ver for $Arch to $out, and CrioFire Server to $serverOut"

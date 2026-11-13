@@ -19,6 +19,11 @@
     <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(CrioFirePublishDir);AppIcon=$(MSBuildThisFileDirectory)..\src\CrioFire.App\Assets\criofire.ico</DefineConstants>
   </PropertyGroup>
 
+  <!-- The CrioFire Server installer in server\ is a project of its own. -->
+  <ItemGroup>
+    <Compile Remove="server\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" />
     <PackageReference Include="WixToolset.Util.wixext" />

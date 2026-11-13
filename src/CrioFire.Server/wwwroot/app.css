@@ -201,6 +201,13 @@ td input[type="checkbox"], th input[type="checkbox"] { accent-color: var(--ice);
 .toast { background: var(--text); color: var(--panel); padding: 10px 16px; border-radius: 10px; box-shadow: var(--shadow); max-width: 560px; }
 .toast.bad { background: var(--fire); color: #fff; }
 
+/* License seats */
+.meter { height: 10px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; margin: 14px 0 6px; }
+.meter > div { height: 100%; background: var(--ice); }
+.meter.over > div { background: var(--fire); }
+.bulk.warn { background: var(--fire-soft); border-color: var(--fire); color: var(--fire-text); }
+textarea.mono { width: 100%; resize: vertical; word-break: break-all; }
+
 /* Wide tables scroll inside their card instead of widening the page. */
 .shell > * { min-width: 0; }
 table.edit select { min-width: 7.5em; }

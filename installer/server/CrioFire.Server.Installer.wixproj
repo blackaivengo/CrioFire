@@ -1,0 +1,25 @@
+<Project Sdk="WixToolset.Sdk">
+  <!--
+    Builds criofire-server-<version>-<arch>.msi from an already published folder
+    (see build/package-server-msi.ps1). WiX Toolset v7, under the same Open Source Maintenance Fee
+    EULA as the CrioFire installer (see ..\README.md).
+  -->
+  <PropertyGroup>
+    <AcceptEula>wix7</AcceptEula>
+
+    <InstallerPlatform Condition="'$(InstallerPlatform)' == ''">x64</InstallerPlatform>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.1.0</ProductVersion>
+    <CrioFireServerPublishDir Condition="'$(CrioFireServerPublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\out\server-$(InstallerPlatform)</CrioFireServerPublishDir>
+
+    <OutputName>criofire-server-$(ProductVersion)-$(InstallerPlatform)</OutputName>
+    <IntermediateOutputPath>obj\$(InstallerPlatform)\$(Configuration)\</IntermediateOutputPath>
+    <!-- ICE61: same-version upgrades are allowed on purpose (prerelease builds share MSI versions). -->
+    <SuppressIces>ICE61</SuppressIces>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(CrioFireServerPublishDir);AppIcon=$(MSBuildThisFileDirectory)..\..\src\CrioFire.App\Assets\criofire.ico;InstallerDir=$(MSBuildThisFileDirectory)..</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" />
+    <PackageReference Include="WixToolset.Util.wixext" />
+  </ItemGroup>
+</Project>

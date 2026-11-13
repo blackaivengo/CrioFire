@@ -27,7 +27,7 @@ public sealed record DeviceView(
 
 public sealed record PolicyView(ServerPolicy Policy, int Computers, bool IsDefault);
 
-public sealed record Overview(string Server, int Computers, int Online, int Attention, int Offline, int Policies, int Unmanaged, List<DeviceView> NeedAttention);
+public sealed record Overview(string Server, int Computers, int Online, int Attention, int Offline, int Policies, int Unmanaged, List<DeviceView> NeedAttention, LicenseView License);
 
 public sealed record SignIn(string Name, string Password);
 
@@ -51,6 +51,8 @@ public sealed record NewAdmin(string Name, string Password);
 
 public sealed record PasswordChange(string Current, string New);
 
+public sealed record LicenseInput(string Key);
+
 /// <summary>
 /// The admin console's API (/api/admin/...), used by the web console in wwwroot. Every call but
 /// sign-in needs a signed-in administrator; every change also needs the X-CrioFire header, which
@@ -60,7 +62,7 @@ internal static class AdminApi
 {
     public const string CsrfHeader = "X-CrioFire";
 
-    public static void Map(WebApplication app, ServerStore store, AdminAccounts admins, ServerSettings settings, string serverName, string enrollHost, string fingerprint)
+    public static void Map(WebApplication app, ServerStore store, AdminAccounts admins, ServerLicense license, ServerSettings settings, string serverName, string enrollHost, string fingerprint)
     {
         var api = app.MapGroup("/api/admin").AddEndpointFilter(async (context, next) =>
         {
@@ -81,7 +83,32 @@ internal static class AdminApi
         });
 
         // Not signed in yet.
-        api.MapGet("/state", () => Results.Json(new { server = serverName, adminsExist = admins.Any() }));
+        api.MapGet("/state", (HttpContext http) => Results.Json(new
+        {
+            server = serverName,
+            adminsExist = admins.Any(),
+            canSetUpHere = ServerSetup.IsLocal(http.Connection.RemoteIpAddress),
+            port = settings.Port,
+        }));
+
+        // The very first administrator can be created in the browser, but only on the server itself
+        // (a browser on another PC gets the command to run instead), so nobody on the network can
+        // claim a freshly installed server.
+        api.MapPost("/setup", async (HttpContext http, NewAdmin input) =>
+        {
+            if (!ServerSetup.IsLocal(http.Connection.RemoteIpAddress))
+            {
+                return Results.Json(new { error = "Create the first administrator on the server itself." }, statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            if (!admins.AddFirst(input.Name, input.Password, DateTime.UtcNow))
+            {
+                return Results.Json(new { error = "This server already has an administrator. Sign in." }, statusCode: StatusCodes.Status409Conflict);
+            }
+
+            await SignInAs(http, input.Name.Trim()).ConfigureAwait(false);
+            return Results.Json(new { name = input.Name.Trim() });
+        }).RequireRateLimiting(ServerHost.SignInLimit);
         api.MapPost("/signin", async (HttpContext http, SignIn input) =>
         {
             var account = admins.Verify(input.Name, input.Password, DateTime.UtcNow);
@@ -91,8 +118,7 @@ internal static class AdminApi
                 return Results.Json(new { error = "Wrong name or password." }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, account.Name)], CookieAuthenticationDefaults.AuthenticationScheme);
-            await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity)).ConfigureAwait(false);
+            await SignInAs(http, account.Name).ConfigureAwait(false);
             return Results.Json(new { name = account.Name });
         }).RequireRateLimiting(ServerHost.SignInLimit);
 
@@ -115,7 +141,20 @@ internal static class AdminApi
                 devices.Count(d => d.Status is "offline" or "new"),
                 store.Policies().Count,
                 devices.Count(d => d.PolicyId is null),
-                devices.Where(d => d.Status is "attention" or "offline").Take(20).ToList()));
+                devices.Where(d => d.Status is "attention" or "offline").Take(20).ToList(),
+                license.View(devices.Count, DateTime.UtcNow)));
+        });
+
+        signedIn.MapGet("/license", () => Results.Json(license.View(store.Devices().Count, DateTime.UtcNow)));
+        signedIn.MapPut("/license", (LicenseInput input) =>
+        {
+            license.Set(input.Key, DateTime.UtcNow);
+            return Results.Json(license.View(store.Devices().Count, DateTime.UtcNow));
+        });
+        signedIn.MapDelete("/license", () =>
+        {
+            license.Set(null, DateTime.UtcNow);
+            return Results.Json(license.View(store.Devices().Count, DateTime.UtcNow));
         });
 
         signedIn.MapGet("/devices", () => Results.Json(Devices(store, settings)));
@@ -209,6 +248,12 @@ internal static class AdminApi
             admins.SetPassword(name, input.New);
             return Results.NoContent();
         });
+    }
+
+    private static Task SignInAs(HttpContext http, string name)
+    {
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, name)], CookieAuthenticationDefaults.AuthenticationScheme);
+        return http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
     }
 
     /// <summary>Every PC with its state judged: online, needing attention (and why), or offline.</summary>

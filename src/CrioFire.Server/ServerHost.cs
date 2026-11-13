@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using CrioFire.Core.Management;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Hosting.WindowsServices;
 
 namespace CrioFire.Server;
 
@@ -14,8 +15,16 @@ internal static class ServerHost
 
     public static async Task RunAsync(string[] args, string folder, ServerSettings settings)
     {
+        Directory.CreateDirectory(folder);
+        if (WindowsServiceHelpers.IsWindowsService())
+        {
+            ServerSetup.SecureFolder(folder);   // also when the server was set up by hand
+        }
+
         var certificate = ServerCertificate.LoadOrCreate(folder, DateTime.UtcNow);
         var store = new ServerStore(folder);
+        using var publicKey = CrioFire.Core.LicenseKeys.ProductPublicKey();
+        var license = new ServerLicense(folder, publicKey);
 
         var admins = new AdminAccounts(folder);
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -87,13 +96,13 @@ internal static class ServerHost
         app.UseAuthorization();
 
         var hostNames = ServerCertificate.HostNames();
-        MapAgentApi(app, store, Environment.MachineName, settings.CheckinSeconds);
-        AdminApi.Map(app, store, admins, settings, Environment.MachineName, hostNames[^2], Fingerprints.Of(certificate));
+        MapAgentApi(app, store, license, Environment.MachineName, settings.CheckinSeconds);
+        AdminApi.Map(app, store, admins, license, settings, Environment.MachineName, hostNames[^2], Fingerprints.Of(certificate));
         await app.RunAsync().ConfigureAwait(false);
     }
 
     /// <summary>The endpoints PCs use: enroll once, check in every few minutes, and send connections when asked.</summary>
-    public static void MapAgentApi(IEndpointRouteBuilder app, ServerStore store, string serverName, int checkinSeconds)
+    public static void MapAgentApi(IEndpointRouteBuilder app, ServerStore store, ServerLicense license, string serverName, int checkinSeconds)
     {
         app.MapGet("/health", () => Results.Text("ok"));
 
@@ -133,7 +142,8 @@ internal static class ServerHost
             var policy = store.AssignedPolicy(device.DeviceId);
             var send = policy is not null && (report.PolicyId != policy.Id || report.PolicyVersion != policy.Version);
             return Results.Json(
-                new CheckinResponse(policy?.Version ?? 0, DateTime.UtcNow, checkinSeconds, pending, policy?.Id, send ? policy!.ToManaged() : null),
+                new CheckinResponse(policy?.Version ?? 0, DateTime.UtcNow, checkinSeconds, pending, policy?.Id, send ? policy!.ToManaged() : null,
+                    license.KeyFor(report.LicenseId, DateTime.UtcNow)),
                 ManagementJson.Default.CheckinResponse);
         });
 

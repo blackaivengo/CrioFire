@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CrioFire Server installer (WiX v7).
+
+  Installs to %ProgramFiles%\CrioFire Server, registers and starts the "criofire-server" service,
+  and on a fresh install runs "criofire-server setup": the port, a Windows Firewall rule for it,
+  a data folder only SYSTEM and administrators can read, and the server's certificate. Adds the
+  install folder to PATH. Uninstall removes the service, the program and the firewall rule, and
+  keeps %ProgramData%\criofire-server (enrolled PCs, policies, administrators, the certificate PCs
+  pinned), so reinstalling picks up where it left off.
+
+  Silent install:
+    msiexec /i criofire-server-0.1.0-x64.msi /qn CRIOFIRE_SERVER_PORT=7443
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="CrioFire Server"
+           Manufacturer="CrioSoft LLC"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="57d187b5-671a-4602-8624-055f3fac543e"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="CrioFire Server" Manufacturer="CrioSoft LLC" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Launch Condition="Installed OR VersionNT64 &gt;= 603"
+            Message="CrioFire Server needs 64-bit Windows: Windows 10 or 11, or Windows Server 2016 or later." />
+
+    <Icon Id="CrioFireIcon" SourceFile="$(var.AppIcon)" />
+    <Property Id="ARPPRODUCTICON" Value="CrioFireIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/blackaivengo/CrioFire" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/blackaivengo/CrioFire/issues" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.InstallerDir)\License.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.InstallerDir)\Assets\Banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.InstallerDir)\Assets\Dialog.bmp" />
+
+    <!-- The port PCs and administrators use. Remembered for upgrades and for "Open the console". -->
+    <Property Id="CRIOFIRE_SERVER_PORT" Value="7443" Secure="yes">
+      <RegistrySearch Id="ExistingPort" Root="HKLM" Key="Software\CrioSoft\CrioFire Server" Name="Port" Type="raw" Bitness="always64" />
+    </Property>
+
+    <!-- Remember a custom install folder for upgrades. -->
+    <Property Id="INSTALLFOLDER" Secure="yes" />
+    <Property Id="CRIOFIRE_SAVED_INSTALLDIR">
+      <RegistrySearch Id="ExistingInstallFolder" Root="HKLM" Key="Software\CrioSoft\CrioFire Server" Name="InstallDir"
+                      Type="raw" Bitness="always64" />
+    </Property>
+    <SetDirectory Id="INSTALLFOLDER" Value="[CRIOFIRE_SAVED_INSTALLDIR]" Sequence="first" Condition="CRIOFIRE_SAVED_INSTALLDIR" />
+
+    <!-- "Open the console now" on the last page: the browser on this machine, where the first administrator is created. -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open the CrioFire Server console now" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="https://localhost:[CRIOFIRE_SERVER_PORT]/" />
+    <CustomAction Id="OpenConsole" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixShellExec" Impersonate="yes" Return="ignore" />
+
+    <UIRef Id="CrioFireServerUI" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CrioFire Server" />
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATAFOLDER" Name="criofire-server" />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="CrioFire Server" AllowAbsent="no">
+      <ComponentGroupRef Id="ServerFiles" />
+      <ComponentRef Id="DataFolder" />
+    </Feature>
+
+    <ComponentGroup Id="ServerFiles" Directory="INSTALLFOLDER">
+      <!-- Everything dotnet publish produced (the self-contained .NET runtime, the console in wwwroot)... -->
+      <Files Include="$(var.PublishDir)\**">
+        <!-- ...except the program, which gets a component of its own below. -->
+        <Exclude Files="$(var.PublishDir)\criofire-server.exe" />
+      </Files>
+
+      <Component Id="ServerExe">
+        <File Id="ServerExe" Source="$(var.PublishDir)\criofire-server.exe" KeyPath="yes" />
+        <Environment Id="PathEntry" Name="PATH" Value="[INSTALLFOLDER]" Part="last" Action="set" System="yes" />
+        <RegistryValue Root="HKLM" Key="Software\CrioSoft\CrioFire Server" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" />
+        <RegistryValue Root="HKLM" Key="Software\CrioSoft\CrioFire Server" Name="Port" Type="string" Value="[CRIOFIRE_SERVER_PORT]" />
+        <ServiceInstall Id="CrioFireServerService"
+                        Name="criofire-server"
+                        DisplayName="CrioFire Server"
+                        Description="Manages CrioFire Private Firewall on the organization's PCs: enrollment, policies and the admin console."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem"
+                        Vital="yes">
+          <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="5" ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="CrioFireServerControl" Name="criofire-server" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!--
+      %ProgramData%\criofire-server: SYSTEM and Administrators only (the certificate's private key,
+      administrators' password hashes, the console's cookie keys). Kept on uninstall.
+    -->
+    <Component Id="DataFolder" Directory="DATAFOLDER" Guid="1793d4f2-c473-4ec0-b2c2-9a00212fc699" Permanent="yes">
+      <CreateFolder>
+        <PermissionEx Sddl="D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)" />
+      </CreateFolder>
+    </Component>
+
+    <!-- Fresh install: port, firewall rule, data folder and certificate. Runs elevated, after the files are in place and before the service starts. -->
+    <SetProperty Id="CA_ServerSetup" Sequence="execute" Before="CA_ServerSetup"
+                 Value="&quot;[INSTALLFOLDER]criofire-server.exe&quot; setup --port &quot;[CRIOFIRE_SERVER_PORT]&quot;" />
+    <CustomAction Id="CA_ServerSetup" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixQuietExec"
+                  Execute="deferred" Impersonate="no" Return="check" />
+
+    <!-- If a fresh install fails after setup ran, remove the firewall rule it added. -->
+    <SetProperty Id="CA_ServerSetupRollback" Sequence="execute" Before="CA_ServerSetupRollback"
+                 Value="&quot;[INSTALLFOLDER]criofire-server.exe&quot; uninstall" />
+    <CustomAction Id="CA_ServerSetupRollback" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixQuietExec"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+
+    <!-- Full uninstall (not an upgrade): remove the firewall rule. Never blocks the uninstall. -->
+    <SetProperty Id="CA_ServerUninstall" Sequence="execute" Before="CA_ServerUninstall"
+                 Value="&quot;[INSTALLFOLDER]criofire-server.exe&quot; uninstall" />
+    <CustomAction Id="CA_ServerUninstall" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixQuietExec"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="CA_ServerSetupRollback" Before="CA_ServerSetup" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE" />
+      <Custom Action="CA_ServerSetup" After="InstallFiles" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE" />
+      <Custom Action="CA_ServerUninstall" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

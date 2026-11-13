@@ -6,37 +6,54 @@ protection, license): a few hundred bytes, no connection data. What a PC blocked
 only when an administrator asks for it, for that one PC, so even thousands of PCs do not flood the
 server. It runs on a machine the company controls; nothing goes to CrioSoft.
 
-> **Status:** steps 1 to 3 of 4: enrollment, status reporting, policies and the admin web console.
-> An installer for the server follows.
+It comes with a web console for administrators, an installer, and the organization's license,
+which the server hands to every PC.
 
-## Set it up (for now, by hand)
+## Install it
 
-On the server machine (Windows 10/11 or Windows Server), from an administrator prompt in the
-repository:
+On the server machine (Windows 10/11 or Windows Server 2016 or later, 64-bit), run
+`criofire-server-<version>-x64.msi` from the GitHub Releases page. It asks for the port (default
+7443), then:
+
+- installs `%ProgramFiles%\CrioFire Server` and the `criofire-server` service (starts with Windows),
+- allows the port in Windows Firewall (allow it in any other firewall between PCs and the server),
+- makes the server's own HTTPS certificate (self-signed, 10 years) in `%ProgramData%\criofire-server`,
+  a folder only SYSTEM and administrators can read,
+- opens the console in your browser on the server, where you create the first administrator.
+
+The browser warns about the certificate the first time, because the server made it itself. Check
+that the fingerprint the browser shows matches `criofire-server fingerprint`, then accept it. PCs pin
+that fingerprint when they enroll, so no certificate authority is needed.
+
+Silent install: `msiexec /i criofire-server-<version>-x64.msi /qn CRIOFIRE_SERVER_PORT=7443`, then
+create the first administrator with `criofire-server admin add <name>`. More in
+[installer/README.md](../installer/README.md).
+
+Uninstalling removes the program, the service and the firewall rule, and keeps the data folder
+(enrolled PCs, policies, administrators, the certificate PCs pinned): reinstall and everything is
+as it was. Delete `%ProgramData%\criofire-server` to start over.
+
+Settings: `%ProgramData%\criofire-server\settings.json`, e.g. `{ "port": 9443, "checkinSeconds": 600 }`
+(check-ins every 30 to 3600 seconds; default 300). To change the port later, run
+`criofire-server setup --port 9443` (it also updates the firewall rule), restart the service, and
+re-enroll PCs with the new address.
+
+<details><summary>Without the installer</summary>
 
 ```powershell
 dotnet publish src/CrioFire.Server -c Release -r win-x64 --self-contained -o "C:\Program Files\CrioFire Server"
+& "C:\Program Files\CrioFire Server\criofire-server.exe" setup --port 7443
 sc.exe create criofire-server binPath= "\"C:\Program Files\CrioFire Server\criofire-server.exe\"" start= auto DisplayName= "CrioFire Server"
-New-NetFirewallRule -DisplayName "CrioFire Server" -Direction Inbound -Protocol TCP -LocalPort 7443 -Action Allow
 sc.exe start criofire-server
 ```
 
-On first start it makes its own HTTPS certificate (self-signed, 10 years) in
-`%ProgramData%\criofire-server`. PCs pin its fingerprint when they enroll, so no certificate
-authority is needed. Another port or check-in interval: `%ProgramData%\criofire-server\settings.json`
-with `{ "port": 9443, "checkinSeconds": 600 }` (30 to 3600 seconds; default 300).
+</details>
 
 ## The admin console
 
-Everything below can be done in a browser at `https://<server>:7443/`. First create an
-administrator on the server, from an administrator prompt:
-
-```powershell
-& "C:\Program Files\CrioFire Server\criofire-server.exe" admin add dana      # asks for a password (10+ characters)
-```
-
-The browser warns about the certificate the first time, because the server made it itself. Check that
-the fingerprint the browser shows matches `criofire-server fingerprint`, then accept it.
+Everything below can be done in a browser at `https://<server>:7443/`. The first administrator is
+created in the browser on the server itself (from any other PC the console only says how), or with
+`criofire-server admin add <name>` from an administrator prompt on the server.
 
 - **Overview**: how many PCs are online, need attention or are offline, and why (panic on, programs
   changed since they were allowed, a policy not applied yet, an expired license...).
@@ -47,6 +64,7 @@ the fingerprint the browser shows matches `criofire-server fingerprint`, then ac
   automatic Windows rules, and program, port/address and service rules), add rules from a file made
   with `criofire export`, apply a policy to all, some or one PC, and choose the one new PCs get.
 - **Add computers**: make an enrollment code and copy the command to run on each PC.
+- **License**: enter the organization's license key and see how many seats are used.
 - **Administrators**: add and remove administrators, change your password.
 
 Other administrator commands: `admin list`, `admin remove <name>`, `admin password <name>`.
@@ -57,10 +75,10 @@ Allow port 7443 only from the networks your PCs and administrators are on.
 
 ## Enroll PCs
 
-On the server:
+In the console, **Add computers** makes a code and shows the command; or, on the server:
 
 ```powershell
-& "C:\Program Files\CrioFire Server\criofire-server.exe" token --uses 50 --days 14 --note "Office PCs"
+criofire-server token --uses 50 --days 14 --note "Office PCs"
 ```
 
 It prints the command to run on each PC from an administrator prompt, for example:
@@ -100,6 +118,18 @@ criofire-server policy list
 - Rules for programs that are not installed on a PC are skipped there.
 - Unassigning a policy (`assign none ...`) or deleting it removes its rules from the PCs at their
   next check-in; `criofire unenroll` on a PC removes them at once. The user's own rules stay.
+
+## The license
+
+Enter the organization's CrioFire business license once, on the server (the License page, or
+`criofire-server license <key>`). The server gives it to every PC at its next check-in, so nobody
+enters the key on each PC; PCs check CrioSoft's signature themselves before using it. A renewed key
+reaches every PC the same way.
+
+Seats are counted against the enrolled PCs: the overview and the License page say when more PCs are
+enrolled than the license covers. Nothing stops working when that happens, or when a license
+expires; the console just says so. `criofire-server license` shows the same from the command line;
+`criofire-server license --remove` stops handing out the key (PCs keep the one they have).
 
 ## See what one PC blocked and allowed
 

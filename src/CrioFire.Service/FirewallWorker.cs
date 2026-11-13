@@ -107,11 +107,13 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         checkin = null;
                         if (links.Load() is { } link)
                         {
+                            var license = LicenseKeys.Check(new LicenseStore(LicenseStore.DefaultPath).Key, now, licenseKey);
                             var report = CheckinReports.Build(engine, identities.Store.Changed().Count,
                                 new TamperProtection(TamperProtection.DefaultPath).RequireAdmin,
-                                LicenseKeys.Check(new LicenseStore(LicenseStore.DefaultPath).Key, now, licenseKey).State,
+                                license.State,
                                 link.PolicyId,
-                                link.PolicyVersion);
+                                link.PolicyVersion,
+                                license.LicenseId);
                             checkin = CheckinAsync(links, link, report, log, allowedLog, stoppingToken);
                         }
                     }
@@ -207,6 +209,23 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                 var upload = CheckinReports.Activity(asked, blockedLog, allowedLog, DateTime.UtcNow);
                 await client.UploadActivityAsync(link, upload, stoppingToken).ConfigureAwait(false);
                 LogActivitySent(logger, upload.Page.Items.Count, link.Url);
+            }
+
+            // The organization's license, so nobody types the key on each PC.
+            if (answer.LicenseKey is { } key)
+            {
+                using var publicKey = LicenseKeys.ProductPublicKey();
+                try
+                {
+                    if (CheckinReports.AcceptLicense(key, new LicenseStore(LicenseStore.DefaultPath), publicKey, DateTime.UtcNow))
+                    {
+                        LogLicenseReceived(logger, link.Url);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    LogPollError(logger, ex);   // the check-in itself worked; the key comes again next time
+                }
             }
 
             SaveIfStillEnrolled(links, link with { LastCheckinUtc = DateTime.UtcNow, LastError = null });
@@ -330,6 +349,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not check in with the CrioFire Server {Url}: {Error}")]
     private static partial void LogCheckinFailed(ILogger logger, string url, string error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Received the organization's license from {Url}")]
+    private static partial void LogLicenseReceived(ILogger logger, string url);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Saved a backup of the rules: {Name}.")]
     private static partial void LogBackedUp(ILogger logger, string name);

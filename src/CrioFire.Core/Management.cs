@@ -46,6 +46,9 @@ public sealed record CheckinReport
 
     public string License { get; init; } = "none";
 
+    /// <summary>The id of the license this PC has (null: none), so the server sends its key only when it differs.</summary>
+    public string? LicenseId { get; init; }
+
     /// <summary>The policy this PC has applied (null: none) and its version.</summary>
     public string? PolicyId { get; init; }
 
@@ -56,13 +59,15 @@ public sealed record CheckinReport
 /// <param name="Activity">An administrator asked for this PC's connections: send them (POST api/v1/activity).</param>
 /// <param name="PolicyId">The policy assigned to this PC, or null for none (the PC then removes organization rules).</param>
 /// <param name="Policy">The whole policy, sent only when the PC reported another policy or version.</param>
+/// <param name="LicenseKey">The organization's license key, sent only when the PC reported another license.</param>
 public sealed record CheckinResponse(
     int PolicyVersion,
     DateTime ServerTimeUtc,
     int NextCheckinSeconds = ServerDefaults.CheckinSeconds,
     ActivityRequest? Activity = null,
     string? PolicyId = null,
-    ManagedPolicy? Policy = null);
+    ManagedPolicy? Policy = null,
+    string? LicenseKey = null);
 
 /// <summary>An administrator's request for one PC's connections.</summary>
 /// <param name="Kind">blocked, allowed or all.</param>
@@ -301,7 +306,8 @@ public static class CheckinReports
         bool requireAdmin,
         string license,
         string? policyId,
-        int policyVersion)
+        int policyVersion,
+        string? licenseId = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
         var installed = engine.IsInstalled();
@@ -320,9 +326,27 @@ public static class CheckinReports
             ChangedPrograms = changedPrograms,
             RequireAdmin = requireAdmin,
             License = license,
+            LicenseId = licenseId,
             PolicyId = policyId,
             PolicyVersion = policyVersion,
         };
+    }
+
+    /// <summary>
+    /// Takes the organization's license key the server sent: only a valid key signed by CrioSoft,
+    /// and only when this PC does not have that license yet. True when the key was saved.
+    /// </summary>
+    public static bool AcceptLicense(string? key, LicenseStore store, ECDsa? publicKey, DateTime nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        var offered = LicenseKeys.Check(key, nowUtc, publicKey);
+        if (!offered.IsLicensed || LicenseKeys.Check(store.Key, nowUtc, publicKey).LicenseId == offered.LicenseId)
+        {
+            return false;
+        }
+
+        store.Set(key);
+        return true;
     }
 
     /// <summary>The connections an administrator asked for, from this PC's own logs, grouped and most frequent first.</summary>

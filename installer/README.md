@@ -51,15 +51,45 @@ msiexec /i criofire-0.1.0-x64.msi /qn CRIOFIRE_MODE=ask
 msiexec /x criofire-0.1.0-x64.msi /qn
 ```
 
+## CrioFire Server installer
+
+`server/CrioFire.Server.Installer.wixproj` builds `criofire-server-<version>-<arch>.msi`, the
+company server (see `docs/SERVER.md`).
+
+| Step | Detail |
+| --- | --- |
+| Files | `%ProgramFiles%\CrioFire Server` (self-contained .NET 10 and ASP.NET Core runtime, the web console) |
+| Service | Registers `criofire-server` (LocalSystem, automatic start, restarts if it fails) and starts it |
+| Setup | `criofire-server setup --port <port>` (fresh install only): the port, a Windows Firewall rule for it, a data folder only SYSTEM and Administrators can read, and the server's certificate |
+| Command line | Adds the install folder to the system `PATH`, so `criofire-server` works in an administrator prompt |
+| Finish | "Open the CrioFire Server console now": `https://localhost:<port>/`, where the first administrator is created |
+| Uninstall | Removes the service, the program and the firewall rule. `%ProgramData%\criofire-server` (enrolled PCs, policies, administrators, the certificate PCs pinned) is kept, so a reinstall picks up where it left off; delete it to start over |
+| Upgrades | Keep the port, the install folder and all data; skip the Server options page |
+
+Wizard: Welcome, License, Install folder, **Server options** (the port, default 7443), Ready, Finish.
+
+| Property | Values | Default |
+| --- | --- | --- |
+| `CRIOFIRE_SERVER_PORT` | 1 to 65535 | `7443` (on upgrade: the earlier port) |
+| `INSTALLFOLDER` | a folder | `%ProgramFiles%\CrioFire Server` |
+
+```powershell
+msiexec /i criofire-server-0.1.0-x64.msi /qn CRIOFIRE_SERVER_PORT=7443
+```
+
 ## Building locally (Windows)
 
 ```powershell
 ./build/publish.ps1 -Arch x64 -Version v0.1.0
 ./build/package-msi.ps1 -Arch x64 -Version v0.1.0     # out\msi\criofire-0.1.0-x64.msi
 ./build/test-msi.ps1 -Msi out\msi\criofire-0.1.0-x64.msi   # installs, checks, uninstalls (admin; changes this PC)
+./build/package-server-msi.ps1 -Arch x64 -Version v0.1.0     # out\msi\criofire-server-0.1.0-x64.msi
+./build/test-server-msi.ps1 -Msi out\msi\criofire-server-0.1.0-x64.msi
 ```
 
-CI builds both MSIs on every push, installs the x64 one on the runner, checks the service, the
-Windows Filtering Platform registration, the mode, the sign-in entry, the shortcut and `PATH`, then
-uninstalls it and checks that nothing is left. Releases build the MSIs from the signed binaries and
-sign the MSIs too (see `docs/RELEASING.md`).
+CI builds all four MSIs on every push, installs the x64 CrioFire one on the runner, checks the
+service, the Windows Filtering Platform registration, the mode, the sign-in entry, the shortcut and
+`PATH`, then uninstalls it and checks that nothing is left. It does the same with the x64 server
+MSI: the service, the firewall rule, the data folder's permissions, the console answering over HTTPS
+and creating the first administrator, then uninstall (the server's data stays). Releases build the
+MSIs from the signed binaries and sign the MSIs too (see `docs/RELEASING.md`).

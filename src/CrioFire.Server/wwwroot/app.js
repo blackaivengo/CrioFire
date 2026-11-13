@@ -137,7 +137,7 @@
     try {
       const s = await api('GET', '/state');
       state.server = s.server;
-      if (!s.adminsExist) return renderNoAdmins();
+      if (!s.adminsExist) return renderNoAdmins(s);
       const me = await fetch('/api/admin/me', { credentials: 'same-origin' });
       if (me.ok) {
         state.me = (await me.json()).name;
@@ -150,12 +150,54 @@
     }
   }
 
-  function renderNoAdmins() {
-    app.replaceChildren(h('div', { class: 'signin' }, h('div', { class: 'dialog' },
-      h('h2', { text: 'Set up the first administrator' }),
-      h('p', { class: 'hint', style: 'margin-top:10px', text: 'On the server, from an administrator prompt, run:' }),
-      h('div', { class: 'copy' }, h('code', { text: 'criofire-server admin add <your name>' })),
-      h('p', { class: 'hint', style: 'margin-top:10px', text: 'Then reload this page and sign in.' }))));
+  /** A new server: the first administrator is created here when the browser runs on the server itself. */
+  function renderNoAdmins(s) {
+    const brand = h('div', { class: 'brand', style: 'padding:0' }, h('img', { src: 'favicon.svg', alt: '' }),
+      h('div', {}, h('b', { text: 'CrioFire Server' }), h('span', { text: state.server })));
+    if (!s.canSetUpHere) {
+      app.replaceChildren(h('div', { class: 'signin' }, h('div', { class: 'dialog' }, brand,
+        h('h2', { text: 'Set up the first administrator' }),
+        h('p', { class: 'hint', style: 'margin-top:10px', text: `For safety, the first administrator is created on the server itself: open https://localhost:${s.port}/ there, or run this from an administrator prompt on the server:` }),
+        h('div', { class: 'copy' }, h('code', { text: 'criofire-server admin add <your name>' })),
+        h('p', { class: 'hint', style: 'margin-top:10px', text: 'Then reload this page and sign in.' }))));
+      return;
+    }
+    const error = h('p', { class: 'error', hidden: true });
+    const name = h('input', { autocomplete: 'username', required: true, maxlength: 40 });
+    const password = h('input', { type: 'password', autocomplete: 'new-password', required: true, minlength: 10 });
+    const again = h('input', { type: 'password', autocomplete: 'new-password', required: true });
+    const submit = h('button', { class: 'primary', type: 'submit', text: 'Create and sign in' });
+    const form = h('form', {
+      onsubmit: async (e) => {
+        e.preventDefault();
+        error.hidden = true;
+        if (password.value !== again.value) {
+          error.textContent = 'The two passwords are not the same.';
+          error.hidden = false;
+          return;
+        }
+        submit.disabled = true;
+        try {
+          const me = await api('POST', '/setup', { name: name.value, password: password.value });
+          state.me = me.name;
+          go('overview');
+          toast('Welcome. Next: create a policy, then add computers.');
+        } catch (err) {
+          error.textContent = err.message;
+          error.hidden = false;
+          submit.disabled = false;
+        }
+      },
+    },
+    h('label', { class: 'field' }, h('span', { text: 'Your name (letters, digits, . - _ @)' }), name),
+    h('label', { class: 'field' }, h('span', { text: 'Password (at least 10 characters)' }), password),
+    h('label', { class: 'field' }, h('span', { text: 'The same password again' }), again),
+    error, submit);
+    app.replaceChildren(h('div', { class: 'signin' }, h('div', { class: 'dialog' }, brand,
+      h('h2', { text: 'Welcome to CrioFire Server' }),
+      h('p', { class: 'hint', style: 'margin-top:6px', text: 'Create the first administrator. You can add more later, under Administrators.' }),
+      form)));
+    name.focus();
   }
 
   function renderSignIn() {
@@ -198,6 +240,7 @@
     ['computers', 'Computers'],
     ['policies', 'Policies'],
     ['enroll', 'Add computers'],
+    ['license', 'License'],
     ['admins', 'Administrators'],
   ];
 
@@ -229,7 +272,7 @@
         h('button', { class: 'nav', text: 'Sign out', onclick: signOut })),
       main));
     if (state.editing) return renderEditor(main, state.editing);
-    const render = { overview: viewOverview, computers: viewComputers, policies: viewPolicies, enroll: viewEnroll, admins: viewAdmins }[state.view];
+    const render = { overview: viewOverview, computers: viewComputers, policies: viewPolicies, enroll: viewEnroll, license: viewLicense, admins: viewAdmins }[state.view];
     render(main);
   }
 
@@ -284,6 +327,7 @@
       h('div', { class: 'l', text: label }), h('div', { class: 'n', text: n }));
     const filterTo = (status) => () => { state.filter.status = status; go('computers'); };
     fill(main,
+      licenseNote(o.license),
       head('Overview', `Every computer that reports to ${o.server}.`,
         h('button', { class: 'primary', text: 'New policy', onclick: () => editPolicy(null) }),
         h('button', { text: 'Add computers', onclick: () => go('enroll') })),
@@ -306,6 +350,19 @@
               h('td', { text: d.problems.join(' ') }),
               h('td', { text: ago(d.lastSeenUtc) }))))))));
     autoRefresh(main, viewOverview);
+  }
+
+  /** A warning above the overview when the license needs attention; nothing otherwise. */
+  function licenseNote(l) {
+    if (!l) return null;
+    let text = null;
+    if (l.over) text = `${l.computers} computers report to this server, but the license covers ${l.seats}. Add seats to stay covered.`;
+    else if (l.state === 'expired') text = 'The organization\'s license has expired. Computers keep working; renew to stay covered.';
+    else if (l.state === 'expiring') text = l.message;
+    else if (l.state === 'none' && l.computers > 3) text = `${l.computers} computers and no license. Free use covers businesses with up to 3 computers.`;
+    if (!text) return null;
+    return h('div', { class: 'bulk warn' }, h('span', { text }), h('span', { class: 'spacer' }),
+      h('button', { class: 'small', text: 'License', onclick: () => go('license') }));
   }
 
   // ---------- computers ----------
@@ -761,6 +818,47 @@
           } }))))))));
     };
     refreshList();
+  }
+
+  // ---------- license ----------
+
+  async function viewLicense(main) {
+    fill(main, head('License', 'Loading...'));
+    const l = await attempt(() => api('GET', '/license'));
+    if (!l) return;
+    const chipClass = { valid: 'ok', expiring: 'attention', expired: 'fire', invalid: 'fire', unavailable: 'offline', none: 'offline' }[l.state] || 'offline';
+    const chipText = { valid: 'Valid', expiring: 'Expires soon', expired: 'Expired', invalid: 'Not valid', unavailable: 'Cannot be checked', none: 'No license' }[l.state] || l.state;
+    const counted = l.seats > 0 && ['valid', 'expiring', 'expired'].includes(l.state);
+    const pct = counted ? Math.min(100, Math.round((l.computers / l.seats) * 100)) : 0;
+    const key = h('textarea', { rows: 4, placeholder: 'CRIOFIRE1....', spellcheck: 'false', 'aria-label': 'License key', class: 'mono' });
+    fill(main,
+      head('License', 'Your organization\'s CrioFire business license. The server gives it to every computer at its next check-in, so nobody has to enter it on each one.'),
+      h('div', { class: 'card' },
+        h('div', { class: 'row' }, h('h2', { text: l.licensee || 'No license yet' }), h('span', { class: 'chip ' + chipClass, text: chipText })),
+        h('p', { class: 'sub', text: l.message }),
+        counted ? [
+          h('div', { class: 'meter' + (l.over ? ' over' : ''), role: 'meter', 'aria-valuemin': 0, 'aria-valuemax': l.seats, 'aria-valuenow': l.computers, 'aria-label': 'Seats used' },
+            h('div', { style: `width:${pct}%` })),
+          h('p', { class: 'hint', text: `${l.computers} of ${l.seats} seats used` + (l.over ? `: ${l.computers - l.seats} computer(s) more than the license covers. Computers keep working; add seats to stay covered.` : '.') }),
+        ] : h('p', { class: 'hint', text: `${l.computers} computer(s) report to this server.` }),
+        l.expiresUtc && l.state !== 'none' ? h('dl', { class: 'facts' },
+          h('dt', { text: 'Edition' }), h('dd', { text: l.edition || '-' }),
+          h('dt', { text: 'Valid until' }), h('dd', { text: when(l.expiresUtc) }),
+          h('dt', { text: 'License id' }), h('dd', { class: 'mono', text: l.licenseId || '-' })) : null),
+      h('div', { class: 'card' },
+        h('h2', { text: l.state === 'none' ? 'Enter your license key' : 'Replace the license key' }),
+        h('p', { class: 'sub', text: 'Paste the key from the email you received from CrioSoft (it starts with CRIOFIRE1).' }),
+        key,
+        h('div', { class: 'row', style: 'margin-top:12px' },
+          h('button', { class: 'primary', text: 'Save key', onclick: async () => {
+            if (!key.value.trim()) return toast('Paste the license key first.', true);
+            if (await attempt(() => api('PUT', '/license', { key: key.value }), 'License saved. Computers get it at their next check-in.')) viewLicense(main);
+          } }),
+          h('span', { class: 'spacer' }),
+          l.state === 'none' ? null : h('button', { class: 'danger', text: 'Remove key', onclick: async () => {
+            if (!(await confirmDialog('Remove the license key?', 'The server stops giving it to computers. Computers that already have it keep it.', 'Remove', true))) return;
+            if (await attempt(() => api('DELETE', '/license'), 'License key removed.')) viewLicense(main);
+          } }))));
   }
 
   // ---------- administrators ----------
