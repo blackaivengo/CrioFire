@@ -131,43 +131,86 @@ public sealed class NetRuleTests : IDisposable
 
     /// <summary>
     /// A rule for some networks only applies on those. Checked on the runner's real network (not
-    /// loopback): a UDP datagram to a documentation address (203.0.113.9, which goes nowhere)
-    /// leaves through the network the default route uses. A block rule for that address on that
-    /// kind of network stops it; the same rule for the other two kinds does not.
+    /// loopback): connections to a documentation address (203.0.113.9, which goes nowhere) leave
+    /// through the network the default route uses. A block rule for that address on that kind of
+    /// network stops them; the same rule for the other kinds does not. When it fails, the message
+    /// lists what every variant did, so the cause can be read from the run page.
     /// </summary>
     [Fact]
-    public void NetworkScopedRulesApplyOnlyOnThoseNetworks()
+    public async Task NetworkScopedRulesApplyOnlyOnThoseNetworks()
     {
         var engine = Engine();
         var current = DefaultRouteNetwork();
         Assert.SkipWhen(current is null, "Could not tell which kind of network the default route uses.");
-        var target = new IPEndPoint(IPAddress.Parse("203.0.113.9"), 9);
 
-        Assert.True(CanSend(target), "Baseline: the datagram could not be sent before any rule.");
+        async Task<string> Probe(NetworkProfiles? networks)
+        {
+            if (networks is { } n)
+            {
+                engine.AddNetRule(Rule(RuleAction.Block, TrafficDirection.Outbound, NetProtocol.Any, null, "203.0.113.9", networks: n));
+            }
 
-        engine.AddNetRule(Rule(RuleAction.Block, TrafficDirection.Outbound, NetProtocol.Udp, "9", "203.0.113.9", networks: current!.Value));
-        var blockedHere = !CanSend(target);
-        engine.RemoveAllFilters();
+            try
+            {
+                return $"tcp {(await TcpBlocked() ? "blocked" : "open")}, udp {(UdpBlocked() ? "blocked" : "open")}";
+            }
+            finally
+            {
+                engine.RemoveAllFilters();
+            }
+        }
 
-        engine.AddNetRule(Rule(RuleAction.Block, TrafficDirection.Outbound, NetProtocol.Udp, "9", "203.0.113.9", networks: NetworkScope.All & ~current.Value));
-        var blockedElsewhere = !CanSend(target);
-        engine.RemoveAllFilters();
+        var results = new List<(string Name, string Result)>
+        {
+            ("no rule", await Probe(null)),
+            ("every network", await Probe(NetworkProfiles.Any)),
+            ("public", await Probe(NetworkProfiles.Public)),
+            ("private", await Probe(NetworkProfiles.Private)),
+            ("domain", await Probe(NetworkProfiles.Domain)),
+        };
+        var report = $"Default route network: {NetworkScope.Text(current!.Value)}. " + string.Join("; ", results.Select(r => $"{r.Name}: {r.Result}"));
+        string Of(string name) => results.Single(r => r.Name == name).Result;
 
-        Assert.True(blockedHere, $"A rule for {NetworkScope.Label(current.Value)} did not apply on this {NetworkScope.Text(current.Value)} network.");
-        Assert.False(blockedElsewhere, $"A rule for the other kinds of network applied on this {NetworkScope.Text(current.Value)} network.");
+        Assert.True(Of("no rule").Contains("tcp open", StringComparison.Ordinal), "Baseline failed. " + report);
+        Assert.True(Of("every network").Contains("tcp blocked", StringComparison.Ordinal), "A rule for every network did not block. " + report);
+        Assert.True(Of(NetworkScope.Text(current.Value)).Contains("tcp blocked", StringComparison.Ordinal), "The rule for this kind of network did not block. " + report);
+        foreach (var other in new[] { "public", "private", "domain" }.Where(o => o != NetworkScope.Text(current.Value)))
+        {
+            Assert.True(Of(other).Contains("tcp open", StringComparison.Ordinal), $"The rule for {other} networks blocked on a {NetworkScope.Text(current.Value)} network. " + report);
+        }
     }
 
-    private static bool CanSend(IPEndPoint target)
+    /// <summary>A blocked TCP connect fails at once with "access denied"; an allowed one to nowhere just times out.</summary>
+    private static async Task<bool> TcpBlocked()
+    {
+        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        try
+        {
+            await socket.ConnectAsync(new IPEndPoint(IPAddress.Parse("203.0.113.9"), 9), timeout.Token);
+            return false;
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AccessDenied)
+        {
+            return true;
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or SocketException)
+        {
+            return false;
+        }
+    }
+
+    private static bool UdpBlocked()
     {
         using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         try
         {
-            socket.SendTo([1, 2, 3], target);
-            return true;
+            socket.SendTo([1, 2, 3], new IPEndPoint(IPAddress.Parse("203.0.113.9"), 9));
+            return false;
         }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AccessDenied)
         {
-            return false;
+            return true;
         }
     }
 
