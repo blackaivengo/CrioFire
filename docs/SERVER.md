@@ -6,8 +6,8 @@ protection, license): a few hundred bytes, no connection data. What a PC blocked
 only when an administrator asks for it, for that one PC, so even thousands of PCs do not flood the
 server. It runs on a machine the company controls; nothing goes to CrioSoft.
 
-> **Status:** steps 1 and 2 of 4: enrollment, status reporting and policies. The admin web console
-> and an installer for the server follow.
+> **Status:** steps 1 to 3 of 4: enrollment, status reporting, policies and the admin web console.
+> An installer for the server follows.
 
 ## Set it up (for now, by hand)
 
@@ -25,6 +25,35 @@ On first start it makes its own HTTPS certificate (self-signed, 10 years) in
 `%ProgramData%\criofire-server`. PCs pin its fingerprint when they enroll, so no certificate
 authority is needed. Another port or check-in interval: `%ProgramData%\criofire-server\settings.json`
 with `{ "port": 9443, "checkinSeconds": 600 }` (30 to 3600 seconds; default 300).
+
+## The admin console
+
+Everything below can be done in a browser at `https://<server>:7443/`. First create an
+administrator on the server, from an administrator prompt:
+
+```powershell
+& "C:\Program Files\CrioFire Server\criofire-server.exe" admin add dana      # asks for a password (10+ characters)
+```
+
+The browser warns about the certificate the first time, because the server made it itself. Check that
+the fingerprint the browser shows matches `criofire-server fingerprint`, then accept it.
+
+- **Overview**: how many PCs are online, need attention or are offline, and why (panic on, programs
+  changed since they were allowed, a policy not applied yet, an expired license...).
+- **Computers**: search and filter the PCs; select some, all shown, or one, and apply a policy, remove
+  it, or remove the PCs from the server. Click a PC for its details, to change its policy, or to ask
+  it for what it blocked and allowed.
+- **Policies**: create and edit policies (mode, whether users may add rules, tamper protection, the
+  automatic Windows rules, and program, port/address and service rules), add rules from a file made
+  with `criofire export`, apply a policy to all, some or one PC, and choose the one new PCs get.
+- **Add computers**: make an enrollment code and copy the command to run on each PC.
+- **Administrators**: add and remove administrators, change your password.
+
+Other administrator commands: `admin list`, `admin remove <name>`, `admin password <name>`.
+
+The console signs you out after 8 hours without use. Sign-in tries are limited to 10 a minute per
+address, and the console's pages only run their own scripts (a strict Content Security Policy).
+Allow port 7443 only from the networks your PCs and administrators are on.
 
 ## Enroll PCs
 
@@ -88,5 +117,8 @@ The PC sends its connections grouped by program, destination and reason, most fr
   hashes on the server. On the PC, the secret is in `%ProgramData%\criofire\server.json`, readable
   only by SYSTEM and administrators.
 - All traffic is HTTPS; with `--fingerprint` the PC accepts only the server's own certificate.
+- Administrator passwords are stored as salted PBKDF2-SHA256 hashes (210,000 iterations) in
+  `%ProgramData%\criofire-server\admins.json`. The console's sign-in cookie is HTTPS-only and not
+  readable by scripts; its keys are protected with Windows DPAPI.
 - In Ask and Allow-list mode CrioFire has a built-in permit for its own service, so it can always
   reach the server.

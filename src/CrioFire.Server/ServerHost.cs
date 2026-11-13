@@ -1,11 +1,15 @@
-using System.Net;
+using System.Threading.RateLimiting;
 using CrioFire.Core.Management;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace CrioFire.Server;
 
 /// <summary>The HTTPS server PCs talk to.</summary>
 internal static class ServerHost
 {
+    public const string SignInLimit = "signin";
+
     private const long MaxRequestBytes = 1024 * 1024;
 
     public static async Task RunAsync(string[] args, string folder, ServerSettings settings)
@@ -13,7 +17,12 @@ internal static class ServerHost
         var certificate = ServerCertificate.LoadOrCreate(folder, DateTime.UtcNow);
         var store = new ServerStore(folder);
 
-        var builder = WebApplication.CreateBuilder(args.Length > 0 && args[0] == "run" ? args[1..] : args);
+        var admins = new AdminAccounts(folder);
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = args.Length > 0 && args[0] == "run" ? args[1..] : args,
+            ContentRootPath = AppContext.BaseDirectory,   // the console's files (wwwroot) sit next to the program
+        });
         builder.Host.UseWindowsService(o => o.ServiceName = "criofire-server");
         builder.WebHost.ConfigureKestrel(k =>
         {
@@ -25,8 +34,61 @@ internal static class ServerHost
         builder.Services.AddSingleton(store);
         builder.Services.AddHostedService<StoreSaver>();
 
+        // The admin console: cookie sign-in, keys kept in the data folder (encrypted for this machine on Windows).
+        var keys = builder.Services.AddDataProtection().SetApplicationName("CrioFire Server")
+            .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(folder, "keys")));
+        if (OperatingSystem.IsWindows())
+        {
+            keys.ProtectKeysWithDpapi(protectToLocalMachine: true);
+        }
+
+        builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
+        {
+            o.Cookie.Name = "criofire-admin";
+            o.Cookie.HttpOnly = true;
+            o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            o.Cookie.SameSite = SameSiteMode.Strict;
+            o.ExpireTimeSpan = TimeSpan.FromHours(8);
+            o.SlidingExpiration = true;
+            o.Events.OnRedirectToLogin = c =>
+            {
+                c.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            };
+            o.Events.OnRedirectToAccessDenied = c =>
+            {
+                c.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            };
+        });
+        builder.Services.AddAuthorization();
+        builder.Services.AddRateLimiter(o =>
+        {
+            o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            o.AddPolicy(SignInLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+        });
+
         var app = builder.Build();
+        app.Use(async (context, next) =>
+        {
+            var headers = context.Response.Headers;
+            headers["X-Content-Type-Options"] = "nosniff";
+            headers["X-Frame-Options"] = "DENY";
+            headers["Referrer-Policy"] = "no-referrer";
+            headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'";
+            await next(context).ConfigureAwait(false);
+        });
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
+        app.UseRateLimiter();
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        var hostNames = ServerCertificate.HostNames();
         MapAgentApi(app, store, Environment.MachineName, settings.CheckinSeconds);
+        AdminApi.Map(app, store, admins, settings, Environment.MachineName, hostNames[^2], Fingerprints.Of(certificate));
         await app.RunAsync().ConfigureAwait(false);
     }
 

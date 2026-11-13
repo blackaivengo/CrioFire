@@ -31,6 +31,8 @@ try
             return Commands.Revoke(folder, args[1]);
         case "devices":
             return Commands.Devices(folder);
+        case "admin" when args.Length >= 2:
+            return Commands.Admin(folder, args[1..]);
         case "policy" when args.Length >= 2:
             return Commands.Policy(folder, args[1..]);
         case "activity" when args.Length >= 2:
@@ -81,7 +83,10 @@ internal static class Commands
     public const string Usage = """
         CrioFire Server
 
-          criofire-server                         Run the server (normally as the Windows service criofire-server)
+          criofire-server                         Run the server (normally as the Windows service criofire-server).
+                                                  The admin console is at https://<this server>:7443/
+          criofire-server admin add <name>        Add an administrator for the console (asks for a password)
+          criofire-server admin list | remove <name> | password <name>
           criofire-server token [--days N] [--uses N] [--note <text>]
                                                   Create an enrollment code (default: 7 days, 1 use) and show
                                                   the command to run on each PC
@@ -183,6 +188,82 @@ internal static class Commands
         }
 
         return 0;
+    }
+
+    public static int Admin(string folder, string[] args)
+    {
+        var admins = new AdminAccounts(folder);
+        switch (args[0].ToLowerInvariant())
+        {
+            case "add" when args.Length == 2:
+            case "password" when args.Length == 2:
+            {
+                var password = Password("Password: ");
+                if (password != Password("Same password again: "))
+                {
+                    throw new ArgumentException("The passwords differ.");
+                }
+
+                if (args[0].Equals("add", StringComparison.OrdinalIgnoreCase))
+                {
+                    admins.Add(args[1], password, DateTime.UtcNow);
+                    var settings = ServerSettings.Load(folder);
+                    Console.WriteLine($"Added {args[1]}. Sign in at https://{ServerCertificate.HostNames()[^2]}:{settings.Port}/");
+                }
+                else
+                {
+                    admins.SetPassword(args[1], password);
+                    Console.WriteLine($"Changed the password of {args[1]}.");
+                }
+
+                return 0;
+            }
+
+            case "list":
+                foreach (var a in admins.List())
+                {
+                    Console.WriteLine($"{a.Name,-24} added {a.CreatedUtc.ToLocalTime():d}, last sign-in {(a.LastSignInUtc is { } t ? t.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) : "never")}");
+                }
+
+                return 0;
+            case "remove" when args.Length == 2:
+                admins.Remove(args[1]);
+                Console.WriteLine($"Removed {args[1]}.");
+                return 0;
+            default:
+                Console.WriteLine(Usage);
+                return 2;
+        }
+    }
+
+    private static string Password(string prompt)
+    {
+        Console.Write(prompt);
+        if (Console.IsInputRedirected)
+        {
+            var line = Console.ReadLine() ?? string.Empty;
+            Console.WriteLine();
+            return line;
+        }
+
+        var chars = new List<char>();
+        for (var key = Console.ReadKey(intercept: true); key.Key != ConsoleKey.Enter; key = Console.ReadKey(intercept: true))
+        {
+            if (key.Key == ConsoleKey.Backspace)
+            {
+                if (chars.Count > 0)
+                {
+                    chars.RemoveAt(chars.Count - 1);
+                }
+            }
+            else
+            {
+                chars.Add(key.KeyChar);
+            }
+        }
+
+        Console.WriteLine();
+        return new string(chars.ToArray());
     }
 
     public static int Policy(string folder, string[] args)
