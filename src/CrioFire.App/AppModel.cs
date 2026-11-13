@@ -602,6 +602,21 @@ internal sealed class AppModel
         SetPanic(action);
     }
 
+    /// <summary>The license on this PC, or null when the service cannot answer.</summary>
+    public static LicenseStatus? License() => Service.Call(new ApiRequest { Op = ApiOps.License }, out _)?.License;
+
+    /// <summary>Enters (or, with an empty key, removes) the license key; returns the new status, or null with a message.</summary>
+    public LicenseStatus? SetLicense(string key)
+    {
+        var status = Call(new ApiRequest { Op = ApiOps.SetLicense, LicenseKey = key })?.License;
+        if (status is not null)
+        {
+            Message?.Invoke(this, status.Message);
+        }
+
+        return status;
+    }
+
     /// <summary>Turns tamper protection on or off (Windows asks for administrator approval).</summary>
     public bool SetProtection(bool on)
     {

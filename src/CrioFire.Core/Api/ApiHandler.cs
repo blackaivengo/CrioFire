@@ -11,12 +11,14 @@ namespace CrioFire.Core.Api;
 /// <param name="identities">Checks that allowed programs stay the files the user allowed; null where not used (tests).</param>
 /// <param name="backups">Where rule backups are kept (automatic, and before imports and "remove all"); null in tests.</param>
 /// <param name="protection">Tamper protection; null means off (tests).</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null)
+/// <param name="license">The license key entered on this PC; null in tests.</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
 
     private readonly Lock _gate = new();
+    private readonly Lazy<System.Security.Cryptography.ECDsa?> _licenseKey = new(LicenseKeys.ProductPublicKey);
 
     /// <summary>For callers that are either fully trusted (an elevated command line) or read-only.</summary>
     public ApiResponse Handle(ApiRequest request, bool canWrite) =>
@@ -83,6 +85,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.ExportRules => new ApiResponse { Ok = true, RuleSet = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow) },
                     ApiOps.ImportRules => Import(request.RuleSet ?? throw new ArgumentException("ruleSet is required."), request),
                     ApiOps.SetProtection => SetProtection(request),
+                    ApiOps.License => new ApiResponse { Ok = true, License = LicenseKeys.Check(license?.Key, DateTime.UtcNow, _licenseKey.Value) },
+                    ApiOps.SetLicense => SetLicense(request),
                     ApiOps.Backups => new ApiResponse { Ok = true, Backups = backups?.List().ToList() ?? [] },
                     ApiOps.RestoreBackup => Import(
                         (backups ?? throw new InvalidOperationException("Backups need the criofire service.")).Load(Required(request.Name, "name")),
@@ -309,6 +313,24 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         Backup("before-import");
         var plan = RuleBackup.Apply(engine, set, mode, temporaryRules, withMode, now);
         return new ApiResponse { Ok = true, Plan = plan };
+    }
+
+    /// <summary>setLicense: stores a license key after checking it; an empty key goes back to free use.</summary>
+    private ApiResponse SetLicense(ApiRequest request)
+    {
+        if (license is null)
+        {
+            throw new InvalidOperationException("License keys need the criofire service.");
+        }
+
+        var status = LicenseKeys.Check(request.LicenseKey, DateTime.UtcNow, _licenseKey.Value);
+        if (status.State is LicenseStates.Invalid or LicenseStates.Unavailable)
+        {
+            return ApiResponse.Failure(status.Message);
+        }
+
+        license.Set(request.LicenseKey);
+        return new ApiResponse { Ok = true, License = status };
     }
 
     private ApiResponse SetProtection(ApiRequest request)

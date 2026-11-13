@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CrioFire.Tests" />
+    <!-- CrioSoft's public key for checking license keys (see docs/LICENSE-KEYS.md). -->
+    <EmbeddedResource Include="LicensePublicKey.pem" LogicalName="CrioFire.Core.LicensePublicKey.pem" />
   </ItemGroup>
 
 </Project>

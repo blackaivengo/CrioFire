@@ -25,8 +25,12 @@ public partial class SettingsPage : UserControl, IPage
     public TimeSpan? AutoRefresh => null;
 
     private IReadOnlyList<BackupInfo>? _backups;
+    private LicenseStatus? _license;
 
-    public async Task LoadAsync() => _backups = await Task.Run(AppModel.Backups);
+    public async Task LoadAsync()
+    {
+        (_backups, _license) = await Task.Run(() => (AppModel.Backups(), AppModel.License()));
+    }
 
     public void Refresh()
     {
@@ -45,6 +49,8 @@ public partial class SettingsPage : UserControl, IPage
             $"App {app} · Service {service}\n" +
             $"Blocked-connection log: {TrafficLog.DefaultPath}";
 
+        ShowLicense(_license ?? AppModel.License());
+        _license = null;
         ProtectionSwitch.IsChecked = _model.Status?.RequireAdmin == true;
         ProtectionSwitch.IsEnabled = _model.Status is not null;
         ShowBackups(_backups ?? AppModel.Backups());
@@ -139,6 +145,40 @@ public partial class SettingsPage : UserControl, IPage
         if (ChoiceDialog.Ask(owner, "Restore this backup?", message, ["Restore", "Cancel"], defaultIndex: 1) == 0)
         {
             _model.RestoreBackup(backup.Name);
+        }
+    }
+
+    private void ShowLicense(LicenseStatus? status)
+    {
+        LicenseText.Text = status?.Message ?? "The license is shown when the CrioFire service is running.";
+        LicenseText.SetResourceReference(TextBlock.ForegroundProperty,
+            status?.State is LicenseStates.Expired or LicenseStates.Invalid or LicenseStates.Expiring ? "FireBrush" : "TextBrush");
+        LicenseRemove.Visibility = status is { State: not LicenseStates.None } ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnEnterLicense(object sender, RoutedEventArgs e)
+    {
+        var key = LicenseKeys.Clean(LicenseKeyBox.Text);
+        if (key.Length == 0)
+        {
+            _model.Say("Paste the license key from your license email first.");
+            return;
+        }
+
+        if (_model.SetLicense(key) is { } status)
+        {
+            LicenseKeyBox.Clear();
+            ShowLicense(status);
+        }
+    }
+
+    private void OnRemoveLicense(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is { } owner
+            && ChoiceDialog.Ask(owner, "Remove the license key?", "CrioFire goes back to free use. Keep the key if this PC belongs to a business with more than 3 computers.", ["Remove", "Cancel"], defaultIndex: 1) == 0
+            && _model.SetLicense(string.Empty) is { } status)
+        {
+            ShowLicense(status);
         }
     }
 

@@ -31,10 +31,12 @@ public static class ApiOps
     public const string Backups = "backups";
     public const string RestoreBackup = "restoreBackup";
     public const string SetProtection = "setProtection";
+    public const string License = "license";
+    public const string SetLicense = "setLicense";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
-        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection;
+        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense;
 
     /// <summary>The error code when a change needs administrator approval (tamper protection, or the setting itself).</summary>
     public const string ApprovalRequired = "approval-required";
@@ -97,6 +99,9 @@ public sealed record ApiRequest
 
     /// <summary>importRules: also switch to the mode in the file.</summary>
     public bool? WithMode { get; init; }
+
+    /// <summary>setLicense: the license key; empty removes it.</summary>
+    public string? LicenseKey { get; init; }
 
     /// <summary>restoreBackup: a backup name from the backups operation.</summary>
     public string? Name { get; init; }
@@ -165,6 +170,9 @@ public sealed record ApiResponse
 
     /// <summary>importRules, restoreBackup: what was (or, with dryRun, would be) done.</summary>
     public ImportPlan? Plan { get; init; }
+
+    /// <summary>license, setLicense: the license on this PC.</summary>
+    public LicenseStatus? License { get; init; }
 
     /// <summary>backups: the saved rule backups, newest first.</summary>
     public List<BackupInfo>? Backups { get; init; }

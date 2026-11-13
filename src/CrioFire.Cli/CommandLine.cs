@@ -30,6 +30,7 @@ public enum CommandKind
     Restore,
     Request,
     Protection,
+    License,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -133,6 +134,9 @@ internal static class CommandLine
                                                change, and before every import or "remove all")
           criofire restore <backup> [--dry-run]
                                                Put the rules back exactly as in a backup
+          criofire license [<key>|--remove]    Show the license, enter a business license key, or go back
+                                               to free use (personal use, non-profits, schools,
+                                               government, businesses with up to 3 computers)
           criofire protection [on|off]         Tamper protection: when on, changing rules needs
                                                administrator approval, so a program running as you
                                                cannot use CrioFire to allow itself (changing it needs an
@@ -277,6 +281,21 @@ internal static class CommandLine
             case "import":
             case "restore":
                 return ParseImport(verb, rest, out error);
+            case "license":
+                if (rest.Length == 0)
+                {
+                    return new Command(CommandKind.License);
+                }
+
+                if (rest.Length == 1)
+                {
+                    return rest[0].Equals("--remove", StringComparison.OrdinalIgnoreCase)
+                        ? new Command(CommandKind.License, FilePath: string.Empty, All: true)
+                        : new Command(CommandKind.License, FilePath: rest[0], All: true);
+                }
+
+                error = "Usage: criofire license [<key>|--remove]";
+                return new Command(CommandKind.Help);
             case "protection":
                 if (rest.Length == 0)
                 {

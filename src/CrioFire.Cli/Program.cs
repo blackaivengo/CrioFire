@@ -164,6 +164,20 @@ static int Run(Backend api, Command command)
             return 0;
         }
 
+        case CommandKind.License:
+        {
+            var status = command.All
+                ? api.Call(new ApiRequest { Op = ApiOps.SetLicense, LicenseKey = command.FilePath }).License!
+                : api.Call(new ApiRequest { Op = ApiOps.License }).License!;
+            Console.WriteLine(status.Message);
+            if (status.LicenseId is { } id)
+            {
+                Console.WriteLine($"License ID: {id}");
+            }
+
+            return status.State is LicenseStates.Invalid or LicenseStates.Expired ? 1 : 0;
+        }
+
         case CommandKind.Protection:
         {
             if (command.All)
@@ -470,7 +484,8 @@ internal sealed class Backend : IDisposable
             new TrafficLog(TrafficLog.AllowedPath),
             new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()),
             new RuleBackupStore(RuleBackupStore.DefaultFolder),
-            new TamperProtection(TamperProtection.DefaultPath));
+            new TamperProtection(TamperProtection.DefaultPath),
+            new LicenseStore(LicenseStore.DefaultPath));
         Description = "direct, administrator";
     }
 

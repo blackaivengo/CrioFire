@@ -51,6 +51,20 @@
 
     <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
       <StackPanel>
+        <TextBlock Text="License" Style="{StaticResource H2}" />
+        <TextBlock x:Name="LicenseText" Margin="0,6,0,6" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,12" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                   Text="CrioFire is free for personal use, non-profits, schools, government, and businesses with up to 3 computers. Businesses with more computers need a license for each one; paste the key from your license email here." />
+        <DockPanel>
+          <Button x:Name="LicenseRemove" DockPanel.Dock="Right" Content="Remove" Style="{StaticResource GhostButton}" Margin="8,0,0,0" Click="OnRemoveLicense" />
+          <Button DockPanel.Dock="Right" Content="Enter key" Style="{StaticResource IceButton}" Margin="8,0,0,0" Click="OnEnterLicense" />
+          <TextBox x:Name="LicenseKeyBox" VerticalContentAlignment="Center" ToolTip="CRIOFIRE1..." />
+        </DockPanel>
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
         <TextBlock Text="Tamper protection" Style="{StaticResource H2}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,16" FontSize="14" LineHeight="21" TextWrapping="Wrap"
                    Text="Without it, CrioFire's app and command line may change rules for anyone signed in to this PC, so a harmful program running as you could use them to allow itself. With it, every change asks Windows for administrator approval first." />

@@ -62,6 +62,7 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe export my-rules.json                       # save every rule to a file
 .\criofire.exe import my-rules.json --dry-run             # what an import would change (--replace removes others)
 .\criofire.exe backups                                   # automatic backups; "restore <name>" puts one back
+.\criofire.exe license <key>                              # enter a business license key (free use needs none)
 .\criofire.exe protection on                             # tamper protection: rule changes need administrator approval
 .\criofire.exe changed                                   # allowed programs whose file changed since you allowed them
 .\criofire.exe trust "C:\Path\To\Chat.exe"              # you checked it: allow the changed program again

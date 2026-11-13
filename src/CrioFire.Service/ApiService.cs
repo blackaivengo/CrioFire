@@ -21,7 +21,8 @@ internal sealed partial class ApiService(ILogger<ApiService> logger) : Backgroun
                 new TrafficLog(TrafficLog.AllowedPath),
                 new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()),
                 new RuleBackupStore(RuleBackupStore.DefaultFolder),
-                new TamperProtection(TamperProtection.DefaultPath)));
+                new TamperProtection(TamperProtection.DefaultPath),
+                new LicenseStore(LicenseStore.DefaultPath)));
             LogListening(logger, ApiServer.DefaultPipeName);
             await server.RunAsync(stoppingToken).ConfigureAwait(false);
         }
