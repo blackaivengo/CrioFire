@@ -1161,6 +1161,20 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
                 AddAppIdFilter(layer, systemId, "CrioFire: allow Windows kernel", FilterDescriptions.BuiltInAllow(AutoRulePolicy.WindowsKernel), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
             }
         }
+
+        // The local network: every program may reach private, link-local, multicast and broadcast
+        // addresses, on home and work networks only. At the automatic rules' weight, so a program
+        // the user blocked stays blocked here too.
+        if (policy.IsEnabled(AutoRulePolicy.LocalNetwork))
+        {
+            var lan = LocalNetwork.AsRule();
+            foreach (var layer in layers)
+            {
+                var family = layer == FilterLayers.ConnectV6 ? System.Net.Sockets.AddressFamily.InterNetworkV6 : System.Net.Sockets.AddressFamily.InterNetwork;
+                AddNetFilter(layer, lan, lan.AddressList.Where(a => a.Family == family).ToList(), null, "CrioFire: allow the local network (home and work networks)",
+                    FilterDescriptions.BuiltInAllow(AutoRulePolicy.LocalNetwork), FwpActionType.FWP_ACTION_PERMIT, BuiltInWeight);
+            }
+        }
     }
 
     private int RemoveServiceRulesInternal(string serviceName, IReadOnlyList<FilterLayer> layers)
@@ -1198,7 +1212,7 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
     /// Builds one filter's conditions. WFP ORs conditions on the same field and ANDs different
     /// fields: (app) AND (protocol: tcp OR udp) AND (port: a OR b) AND (address: x OR y).
     /// </summary>
-    private ulong AddNetFilter(FilterLayer layer, NetRule rule, List<AddressRange> addresses, AppId? appId, string name, string description, uint action)
+    private ulong AddNetFilter(FilterLayer layer, NetRule rule, List<AddressRange> addresses, AppId? appId, string name, string description, uint action, byte? weight = null)
     {
         byte[] protocols = rule.Protocol switch
         {
@@ -1296,7 +1310,7 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
                 }
             }
 
-            return AddFilter(layer, name, description, action, rule.Weight, conditions, (uint)count, rule.Networks);
+            return AddFilter(layer, name, description, action, weight ?? rule.Weight, conditions, (uint)count, rule.Networks);
         }
         finally
         {

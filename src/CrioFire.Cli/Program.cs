@@ -386,9 +386,9 @@ static int Run(Backend api, Command command)
                 : api.Call(new ApiRequest { Op = ApiOps.List }).AutoRules ?? [];
             foreach (var r in autoRules)
             {
-                var what = r.Name == AutoRulePolicy.WindowsKernel ? "Windows kernel (System)" : "Windows services (svchost.exe)";
+                var what = AutoRulePolicy.Label(r.Name);
                 var state = r.Enabled ? (r.Active ? "on, in force" : "on (applies in ask/allowlist mode)") : "off";
-                Console.WriteLine($"{r.Name,-8} {what,-32} {state}");
+                Console.WriteLine($"{r.Name,-8} {what,-40} {state}");
             }
 
             Console.WriteLine("Always allowed as well: traffic that stays on this PC (loopback). Inbound traffic is left to");

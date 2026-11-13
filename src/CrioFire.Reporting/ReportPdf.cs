@@ -394,7 +394,7 @@ public static class ReportPdf
         var k = 0;
         foreach (var a in input.AutoRules)
         {
-            var name = a.Name == AutoRulePolicy.WindowsKernel ? "Windows kernel (System)" : "Windows services (svchost.exe)";
+            var name = AutoRulePolicy.Label(a.Name);
             AddRow(auto, k++, name, !a.Enabled ? "Off" : a.Active ? "On" : "On in Ask and Allow-list modes");
         }
 

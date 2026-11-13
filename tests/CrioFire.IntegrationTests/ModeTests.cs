@@ -311,6 +311,46 @@ public sealed class ModeTests : IDisposable
         return address;
     }
 
+    /// <summary>
+    /// The local-network automatic rule lets programs without a rule reach private addresses in Ask
+    /// mode, on home and work networks only. A private address that answers nobody (192.168.255.254)
+    /// tells them apart: blocked fails at once ("access denied"), allowed just times out. On a public
+    /// network (as CI runners are) the rule must not open anything.
+    /// </summary>
+    [Fact]
+    public async Task TheLocalNetworkRuleOpensHomeAndWorkNetworksOnly()
+    {
+        var engine = Engine;
+        var network = NetRuleTests.DefaultRouteNetwork();
+        Assert.SkipWhen(network is null, "Could not tell which kind of network the default route uses.");
+        var lanAddress = IPAddress.Parse("192.168.255.254");
+        var on = new AutoRulePolicy();
+        on.Set(AutoRulePolicy.LocalNetwork, true);
+
+        try
+        {
+            engine.SetMode(FirewallMode.Ask, RunningProgramsExceptPeer(), new AutoRulePolicy());
+            var off = await Peer.ConnectAsync(lanAddress, 9);
+            Assert.True(off.Output.Contains("AccessDenied", StringComparison.Ordinal), $"Without the rule, Ask mode should block the local address: {off.Output}");
+
+            engine.SetMode(FirewallMode.Ask, RunningProgramsExceptPeer(), on);
+            Assert.Equal(2, engine.ListFilters().Count(f => f.BuiltIn == AutoRulePolicy.LocalNetwork));   // IPv4 and IPv6
+            var result = await Peer.ConnectAsync(lanAddress, 9);
+            if (network == NetworkProfiles.Public)
+            {
+                Assert.True(result.Output.Contains("AccessDenied", StringComparison.Ordinal), $"On a public network the local-network rule must not apply: {result.Output}");
+            }
+            else
+            {
+                Assert.False(result.Output.Contains("AccessDenied", StringComparison.Ordinal), $"On a {NetworkScope.Text(network!.Value)} network the local-network rule should apply: {result.Output}");
+            }
+        }
+        finally
+        {
+            engine.SetMode(FirewallMode.Learning);
+        }
+    }
+
     internal static List<string> RunningProgramsExceptPeer()
     {
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

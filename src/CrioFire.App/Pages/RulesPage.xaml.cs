@@ -456,6 +456,7 @@ public partial class RulesPage : UserControl, IPage
         string State(AutoRuleInfo? r) => r is null ? "unknown" : !r.Enabled ? "Off" : r.Active ? "On" : "On in Ask and Allow-list modes";
         var services = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.WindowsServices);
         var kernel = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.WindowsKernel);
+        var lan = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.LocalNetwork);
         var known = _model.Status is not null;
         return
         [
@@ -465,6 +466,10 @@ public partial class RulesPage : UserControl, IPage
             new AutoRuleRow(AutoRulePolicy.WindowsKernel, "Windows kernel (System)",
                 "Kernel-mode traffic such as file and printer sharing (SMB), NetBIOS and ICMP may connect out.",
                 State(kernel), known, kernel?.Enabled ?? true),
+            new AutoRuleRow(AutoRulePolicy.LocalNetwork, "Local network",
+                "Every program may reach printers, file shares, casting and other devices on your own network (private and link-local addresses), "
+                + "on home and work networks only, never on public ones. Programs you blocked stay blocked. Off unless you turn it on.",
+                lan is null ? "Not available with this service version" : State(lan), known && lan is not null, lan?.Enabled ?? false),
             new AutoRuleRow("loopback", "Local traffic (loopback)",
                 "Programs on this PC may talk to each other over 127.0.0.1 and ::1. A block rule for a program still stops its local traffic too.",
                 "Always on", false, true),

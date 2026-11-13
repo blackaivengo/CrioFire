@@ -32,13 +32,16 @@ public enum AllowReason
 
     /// <summary>The panic switch is on "allow everything": rules are paused.</summary>
     Paused,
+
+    /// <summary>CrioFire's automatic permit for the local network (home and work networks, when turned on).</summary>
+    LocalNetwork,
 }
 
 public static class AllowReasons
 {
     /// <summary>Allowed without anyone making a rule for it.</summary>
     public static bool IsAutomatic(AllowReason reason) =>
-        reason is AllowReason.WindowsServices or AllowReason.WindowsKernel or AllowReason.Loopback or AllowReason.NoRule;
+        reason is AllowReason.WindowsServices or AllowReason.WindowsKernel or AllowReason.LocalNetwork or AllowReason.Loopback or AllowReason.NoRule;
 
     public static bool IsAutomatic(string? reason) => Enum.TryParse<AllowReason>(reason, out var r) && IsAutomatic(r);
 
@@ -57,9 +60,12 @@ public static class AllowReasons
                 case FilterKind.Panic:
                     return AllowReason.Paused;
                 case FilterKind.BuiltInAllow:
-                    return string.Equals(filter.BuiltIn, AutoRulePolicy.WindowsKernel, StringComparison.OrdinalIgnoreCase)
-                        ? AllowReason.WindowsKernel
-                        : AllowReason.WindowsServices;
+                    return filter.BuiltIn?.ToLowerInvariant() switch
+                    {
+                        AutoRulePolicy.WindowsKernel => AllowReason.WindowsKernel,
+                        AutoRulePolicy.LocalNetwork => AllowReason.LocalNetwork,
+                        _ => AllowReason.WindowsServices,
+                    };
             }
         }
 
@@ -109,17 +115,18 @@ public static class AllowReasons
         FilterKind.ServiceRule when f.Service is { Action: RuleAction.Allow } s && (ignoreMatch || HasService(c.Service, s.ServiceName)) => 11,
         FilterKind.NetRule when f.Net is { Action: RuleAction.Allow } n && (ignoreMatch || Matches(n, c)) => n.Weight,
         FilterKind.Panic when f.Panic == PanicState.AllowAll => int.MaxValue,   // matches everything, above every rule
-        FilterKind.BuiltInAllow when ignoreMatch || BuiltInCovers(f.BuiltIn, c.AppPath) => 5,
+        FilterKind.BuiltInAllow when ignoreMatch || BuiltInCovers(f.BuiltIn, c) => 5,
         _ => -1,
     };
 
     private static bool SameApp(string? a, string? b) => KnownApps.SameApp(a, b);
 
-    private static bool BuiltInCovers(string? builtIn, string? app) => builtIn?.ToLowerInvariant() switch
+    private static bool BuiltInCovers(string? builtIn, AllowedConnection c) => builtIn?.ToLowerInvariant() switch
     {
-        AutoRulePolicy.WindowsKernel => KnownApps.IsKernel(app),
-        KnownApps.CrioFireServiceRule => app?.EndsWith(@"" + KnownApps.CrioFireService, StringComparison.OrdinalIgnoreCase) == true,
-        _ => KnownApps.IsServiceHost(app),
+        AutoRulePolicy.WindowsKernel => KnownApps.IsKernel(c.AppPath),
+        AutoRulePolicy.LocalNetwork => LocalNetwork.Covers(c.Remote?.Address),
+        KnownApps.CrioFireServiceRule => c.AppPath?.EndsWith(@"" + KnownApps.CrioFireService, StringComparison.OrdinalIgnoreCase) == true,
+        _ => KnownApps.IsServiceHost(c.AppPath),
     };
 
     private static bool HasService(string? services, string name) =>
@@ -172,6 +179,7 @@ public static class AllowReasons
         nameof(AllowReason.ServiceRule) => "Your service rule",
         nameof(AllowReason.WindowsServices) => "Automatic: Windows services",
         nameof(AllowReason.WindowsKernel) => "Automatic: Windows kernel",
+        nameof(AllowReason.LocalNetwork) => "Automatic: local network",
         nameof(AllowReason.Loopback) => "Automatic: local only",
         nameof(AllowReason.NoRule) when direction == "in" => "No rule: Windows Firewall decides",
         nameof(AllowReason.NoRule) => "No rule: Learning mode",

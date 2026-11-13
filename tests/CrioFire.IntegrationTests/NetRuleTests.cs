@@ -204,7 +204,7 @@ public sealed class NetRuleTests : IDisposable
     }
 
     /// <summary>The kind of network the IPv4 default route leaves through, as Windows classifies it.</summary>
-    private static NetworkProfiles? DefaultRouteNetwork()
+    internal static NetworkProfiles? DefaultRouteNetwork()
     {
         var script = "(Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Sort-Object RouteMetric | Select-Object -First 1 | Get-NetConnectionProfile).NetworkCategory";
         using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell.exe", $"-NoProfile -NonInteractive -Command \"{script}\"")

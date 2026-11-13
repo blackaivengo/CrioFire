@@ -315,16 +315,31 @@ public sealed class AutoRulePolicy
     /// <summary>The Windows kernel ("System": file sharing, NetBIOS...).</summary>
     public const string WindowsKernel = "system";
 
-    public static IReadOnlyList<string> Names { get; } = [WindowsServices, WindowsKernel];
+    /// <summary>Every program may reach the local network (home and work networks only). Off until turned on.</summary>
+    public const string LocalNetwork = "lan";
+
+    public static IReadOnlyList<string> Names { get; } = [WindowsServices, WindowsKernel, LocalNetwork];
+
+    /// <summary>Automatic rules that are off until someone turns them on.</summary>
+    private static readonly string[] OptIn = [LocalNetwork];
 
     private readonly HashSet<string> _disabled = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _enabled = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>"Windows services (svchost.exe)", "Windows kernel (System)", "Local network".</summary>
+    public static string Label(string? name) => name?.ToLowerInvariant() switch
+    {
+        WindowsKernel => "Windows kernel (System)",
+        LocalNetwork => "Local network (home and work networks)",
+        _ => "Windows services (svchost.exe)",
+    };
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "criofire", "auto-rules.txt");
 
     public static bool IsKnown(string? name) => name is not null && Names.Contains(name, StringComparer.OrdinalIgnoreCase);
 
-    public bool IsEnabled(string name) => !_disabled.Contains(name);
+    public bool IsEnabled(string name) => OptIn.Contains(name, StringComparer.OrdinalIgnoreCase) ? _enabled.Contains(name) : !_disabled.Contains(name);
 
     public void Set(string name, bool enabled)
     {
@@ -336,10 +351,12 @@ public sealed class AutoRulePolicy
         if (enabled)
         {
             _disabled.Remove(name);
+            _enabled.Add(name.ToLowerInvariant());
         }
         else
         {
             _disabled.Add(name.ToLowerInvariant());
+            _enabled.Remove(name);
         }
     }
 
@@ -356,9 +373,14 @@ public sealed class AutoRulePolicy
             }
 
             var name = line[..eq].Trim();
-            if (IsKnown(name) && line[(eq + 1)..].Trim().Equals("off", StringComparison.OrdinalIgnoreCase))
+            var value = line[(eq + 1)..].Trim();
+            if (IsKnown(name) && value.Equals("off", StringComparison.OrdinalIgnoreCase))
             {
                 policy._disabled.Add(name.ToLowerInvariant());
+            }
+            else if (IsKnown(name) && value.Equals("on", StringComparison.OrdinalIgnoreCase))
+            {
+                policy._enabled.Add(name.ToLowerInvariant());
             }
         }
 
@@ -394,5 +416,39 @@ public sealed class AutoRulePolicy
         var temp = path + ".tmp";
         File.WriteAllText(temp, Format());
         File.Move(temp, path, overwrite: true);
+    }
+}
+
+/// <summary>The addresses the "local network" automatic rule allows: private, link-local, multicast and broadcast.</summary>
+public static class LocalNetwork
+{
+    /// <summary>
+    /// 10/8, 172.16/12 and 192.168/16 (private), 169.254/16 (link-local), 224/4 (multicast: mDNS,
+    /// SSDP, casting discovery), the broadcast address; for IPv6 link-local, unique local and
+    /// multicast. Not 100.64/10: carrier-grade NAT and VPN overlays are not "your" network.
+    /// </summary>
+    public const string Ranges = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,224.0.0.0/4,255.255.255.255,fe80::/10,fc00::/7,ff00::/8";
+
+    /// <summary>The kinds of network it applies on: never public ones, where the other devices are strangers.</summary>
+    public const NetworkProfiles Networks = NetworkProfiles.Domain | NetworkProfiles.Private;
+
+    private static readonly NetRule Rule = NetRule.Create(RuleAction.Allow, TrafficDirection.Outbound, NetProtocol.Any, null, Ranges, null, out _, Networks)!;
+
+    /// <summary>The rule the filters are built from.</summary>
+    public static NetRule AsRule() => Rule;
+
+    public static bool Covers(IPAddress? address)
+    {
+        if (address is null)
+        {
+            return false;
+        }
+
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        return Rule.AddressList.Any(r => r.Contains(address));
     }
 }

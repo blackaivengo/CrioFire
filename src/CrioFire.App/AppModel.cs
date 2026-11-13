@@ -239,8 +239,12 @@ internal sealed class AppModel
         return result is not null;
     }
 
-    public static string AutoRuleName(string name) =>
-        name == AutoRulePolicy.WindowsKernel ? "Windows kernel connections" : "Windows services";
+    public static string AutoRuleName(string name) => name switch
+    {
+        AutoRulePolicy.WindowsKernel => "Windows kernel connections",
+        AutoRulePolicy.LocalNetwork => "Local network connections",
+        _ => "Windows services",
+    };
 
     /// <summary>
     /// Allows or blocks whatever made a connection: a program, the Windows kernel, or one service in

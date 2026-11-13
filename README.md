@@ -145,6 +145,10 @@ Nothing that reaches the network is hidden, including what CrioFire or Windows a
 - **Automatic rules** are listed under Rules and can be switched off (`criofire auto svchost off`);
   the choice is kept in `%ProgramData%\criofire\auto-rules.txt`. Loopback and inbound handling are
   shown there too.
+- **Local network shortcut**: one switch (Rules → Automatic rules, or `criofire auto lan on`) lets every
+  program reach your own network in Ask and Allow-list modes: printers, file shares, casting, smart-home
+  devices (private, link-local, multicast and broadcast addresses). It applies on home and work
+  networks only, never on public ones, and a program you blocked stays blocked. Off until you turn it on.
 - **Dashboard and Reports** show allowed traffic next to blocked traffic: totals, how much was
   allowed automatically, the programs and services allowed most, the reasons and destinations, and
   the same in the CSV export.
@@ -228,7 +232,8 @@ commands such as `criofire panic` work even when the service is stopped.
 
 In `ask` and `allowlist` CrioFire lets through loopback (connections that stay on this PC) and, by
 default, Windows services hosted in `svchost.exe` (DNS, DHCP, Windows Update) and the Windows kernel.
-Both automatic rules can be switched off, and everything they allow is listed under Activity → Allowed.
+Both can be switched off, a third one (the local network, on home and work networks) can be switched
+on, and everything they allow is listed under Activity → Allowed.
 Inbound traffic stays under Windows Firewall plus any per-app inbound rules you add.
 `--allow-running` first gives every program running now an allow rule, a quick way to start.
 

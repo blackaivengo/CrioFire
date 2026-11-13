@@ -130,10 +130,12 @@ internal static class CommandLine
                                                Show what was allowed to connect and why (default: last
                                                60 minutes; --local also shows loopback traffic)
           criofire auto                        Show CrioFire's automatic rules
-          criofire auto <svchost|system> <on|off>
+          criofire auto <svchost|system|lan> <on|off>
                                                Switch an automatic rule of ask/allowlist mode on or off
                                                (svchost: Windows services such as DNS; off breaks name
-                                               lookups for programs without their own rule)
+                                               lookups for programs without their own rule. lan: every
+                                               program may reach the local network, on home and work
+                                               networks only; off unless you turn it on)
           criofire mode                        Show the current mode
           criofire mode <learning|ask|allowlist> [--allow-running] [--yes]
                                                learning: programs without a rule may connect
@@ -297,7 +299,7 @@ internal static class CommandLine
                     return new Command(CommandKind.AutoSet, AutoRule: rest[0].ToLowerInvariant(), Enabled: rest[1].Equals("on", StringComparison.OrdinalIgnoreCase));
                 }
 
-                error = "Usage: criofire auto [svchost|system on|off]";
+                error = "Usage: criofire auto [svchost|system|lan on|off]";
                 return new Command(CommandKind.Help);
             case "export":
                 if (rest.Length != 1)

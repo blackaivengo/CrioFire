@@ -106,6 +106,56 @@ public class VisibilityTests
     }
 
     [Fact]
+    public void TheLocalNetworkRuleIsOffUntilTurnedOn()
+    {
+        Assert.False(new AutoRulePolicy().IsEnabled(AutoRulePolicy.LocalNetwork));
+        Assert.True(AutoRulePolicy.Parse("lan=on\n").IsEnabled("LAN"));
+
+        var policy = new AutoRulePolicy();
+        policy.Set(AutoRulePolicy.LocalNetwork, true);
+        var again = AutoRulePolicy.Parse(policy.Format());
+        Assert.True(again.IsEnabled(AutoRulePolicy.LocalNetwork));
+        Assert.True(again.IsEnabled(AutoRulePolicy.WindowsServices));   // the others keep their default
+        again.Set(AutoRulePolicy.LocalNetwork, false);
+        Assert.False(AutoRulePolicy.Parse(again.Format()).IsEnabled(AutoRulePolicy.LocalNetwork));
+        Assert.Equal("Local network (home and work networks)", AutoRulePolicy.Label("lan"));
+        Assert.Equal("Windows kernel (System)", AutoRulePolicy.Label("system"));
+    }
+
+    [Theory]
+    [InlineData("192.168.1.20", true)]
+    [InlineData("10.4.0.9", true)]
+    [InlineData("172.31.255.1", true)]
+    [InlineData("169.254.10.10", true)]
+    [InlineData("224.0.0.251", true)]      // mDNS
+    [InlineData("239.255.255.250", true)]  // SSDP
+    [InlineData("255.255.255.255", true)]
+    [InlineData("fe80::1", true)]
+    [InlineData("fd12:3456::7", true)]
+    [InlineData("ff02::fb", true)]
+    [InlineData("::ffff:192.168.0.5", true)]
+    [InlineData("172.32.0.1", false)]
+    [InlineData("100.64.0.1", false)]      // carrier-grade NAT, VPN overlays
+    [InlineData("8.8.8.8", false)]
+    [InlineData("2001:4860::8888", false)]
+    public void TheLocalNetworkIsPrivateLinkLocalMulticastAndBroadcast(string address, bool local) =>
+        Assert.Equal(local, LocalNetwork.Covers(IPAddress.Parse(address)));
+
+    [Fact]
+    public void TheLocalNetworkRuleNeverAppliesOnPublicNetworks() =>
+        Assert.Equal(NetworkProfiles.Domain | NetworkProfiles.Private, LocalNetwork.AsRule().Networks);
+
+    [Fact]
+    public void ConnectionsTheLocalNetworkRuleAllowedSayWhy()
+    {
+        var lan = new CrioFireFilter(7, "lan", FilterLayers.ConnectV4, null, FilterKind.BuiltInAllow, BuiltIn: AutoRulePolicy.LocalNetwork);
+
+        Assert.Equal(AllowReason.LocalNetwork, AllowReasons.Classify(lan, isLoopback: false));
+        Assert.True(AllowReasons.IsAutomatic(AllowReason.LocalNetwork));
+        Assert.Equal("Automatic: local network", AllowReasons.Label(nameof(AllowReason.LocalNetwork), "out"));
+    }
+
+    [Fact]
     public void AutoRulePolicySavesAndLoads()
     {
         var path = Path.Combine(Path.GetTempPath(), $"criofire-auto-{Guid.NewGuid():N}", "auto-rules.txt");

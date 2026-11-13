@@ -116,7 +116,12 @@ public partial class DashboardPage : UserControl, IPage
             return "Learning: programs without a rule may connect";
         }
 
-        var on = _model.AutoRules.Where(r => r.Enabled).Select(r => r.Name == AutoRulePolicy.WindowsKernel ? "the Windows kernel" : "Windows services").ToList();
+        var on = _model.AutoRules.Where(r => r.Enabled).Select(r => r.Name switch
+        {
+            AutoRulePolicy.WindowsKernel => "the Windows kernel",
+            AutoRulePolicy.LocalNetwork => "the local network",
+            _ => "Windows services",
+        }).ToList();
         return on.Count == 0 ? "Only loopback is allowed automatically" : $"Loopback and {string.Join(" and ", on)} allowed automatically";
     }
 

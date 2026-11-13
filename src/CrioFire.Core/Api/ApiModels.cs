@@ -281,6 +281,7 @@ public sealed record RuleInfo(
                 ? (f.BuiltIn?.ToLowerInvariant() switch
                 {
                     AutoRulePolicy.WindowsKernel => KnownApps.Kernel,
+                    AutoRulePolicy.LocalNetwork => null,   // every program, to local addresses
                     KnownApps.CrioFireServiceRule => KnownApps.CrioFireService,
                     _ => "svchost.exe",
                 })

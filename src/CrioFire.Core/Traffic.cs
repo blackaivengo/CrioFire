@@ -122,7 +122,7 @@ public static class TrafficQuery
             ("mine", true) => item.Why is nameof(AllowReason.Rule) or nameof(AllowReason.NetRule) or nameof(AllowReason.ServiceRule),
             ("norule", false) => item.Why == nameof(FilterKind.DefaultBlock),
             ("norule", true) => item.Why == nameof(AllowReason.NoRule),
-            ("automatic", true) => item.Why is nameof(AllowReason.WindowsServices) or nameof(AllowReason.WindowsKernel),
+            ("automatic", true) => item.Why is nameof(AllowReason.WindowsServices) or nameof(AllowReason.WindowsKernel) or nameof(AllowReason.LocalNetwork),
             ("loopback", true) => item.Why == nameof(AllowReason.Loopback),
             ("panic", false) => item.Why == nameof(FilterKind.Panic),
             ("panic", true) => item.Why == nameof(AllowReason.Paused),
