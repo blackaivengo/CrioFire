@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private IPage? _current;
     private bool _toldVersion;
     private bool _polling;
+    private int _changedSeen;
     private int _navigation;          // bumped on every page switch, so a slow load cannot show a page you left
     private bool _refreshing;
     private bool _refreshAgain;
@@ -568,6 +569,18 @@ public partial class MainWindow : Window
             ? "Panic: all network traffic is blocked. Your rules are kept."
             : "Panic: everything is allowed. Your rules are paused, not deleted.";
         PanicButton.Content = panic == "off" ? "Panic..." : "Panic options...";
+
+        var changed = status?.ChangedPrograms ?? 0;
+        ChangedBanner.Visibility = changed > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ChangedBannerText.Text = changed == 1
+            ? "An allowed program changed since you allowed it (another publisher, or different contents). Check it before it connects again."
+            : $"{changed} allowed programs changed since you allowed them (another publisher, or different contents). Check them before they connect again.";
+        if (changed > _changedSeen)
+        {
+            _tray?.ShowHint("A program changed", "An allowed program is no longer the file you allowed. Open CrioFire to review it.");
+        }
+
+        _changedSeen = changed;
         if (status is null)
         {
             ServiceText.Text = "Not running";
@@ -616,6 +629,8 @@ public partial class MainWindow : Window
     private void OnPanic(object sender, RoutedEventArgs e) => _model.ShowPanic(this);
 
     private void OnResume(object sender, RoutedEventArgs e) => _model.Resume();
+
+    private void OnReviewChanged(object sender, RoutedEventArgs e) => ChangedProgramsDialog.Review(this, _model);
 
     private void OnToggleTheme(object sender, RoutedEventArgs e) => ThemeManager.Toggle();
 

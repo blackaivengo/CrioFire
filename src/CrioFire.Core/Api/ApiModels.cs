@@ -24,10 +24,12 @@ public static class ApiOps
     public const string SetServiceRule = "setServiceRule";
     public const string RemoveServiceRules = "removeServiceRules";
     public const string SetAutoRule = "setAutoRule";
+    public const string Changed = "changed";
+    public const string Trust = "trust";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
-        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule;
+        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust;
 }
 
 public sealed record ApiRequest
@@ -135,11 +137,15 @@ public sealed record ApiResponse
     /// <summary>list: CrioFire's automatic permits and whether they are on.</summary>
     public List<AutoRuleInfo>? AutoRules { get; init; }
 
+    /// <summary>changed: programs whose file changed since they were allowed.</summary>
+    public List<ChangedProgram>? Changed { get; init; }
+
     public static ApiResponse Failure(string error) => new() { Ok = false, Error = error };
 }
 
 /// <param name="Panic">The panic switch: off, allow (everything allowed, rules paused) or block (all network traffic blocked).</param>
-public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off");
+/// <param name="ChangedPrograms">How many allowed programs changed since they were allowed (see the changed operation).</param>
+public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off", int ChangedPrograms = 0);
 
 /// <param name="Name">svchost or system.</param>
 /// <param name="Enabled">Switched on (the saved choice).</param>

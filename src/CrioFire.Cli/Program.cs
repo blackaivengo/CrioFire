@@ -93,6 +93,11 @@ static int Run(Backend api, Command command)
             }
 
             Console.WriteLine($"CrioFire is installed ({api.Description}). Mode: {status.Mode}. Active filters: {status.FilterCount}");
+            if (status.ChangedPrograms > 0)
+            {
+                Console.WriteLine($"{status.ChangedPrograms} allowed program(s) changed since you allowed them. See: criofire changed");
+            }
+
             if (status.Panic != "off")
             {
                 Console.WriteLine(status.Panic == "block"
@@ -156,6 +161,36 @@ static int Run(Backend api, Command command)
                 Console.WriteLine($"{g.LastUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} {g.Count,6} {g.Direction ?? "?",-4} {g.Protocol ?? "?",-6} {remote,-40} {AllowReasons.Label(g.Reason, g.Direction),-34} {who}");
             }
 
+            return 0;
+        }
+
+        case CommandKind.Changed:
+        {
+            var changed = api.Call(new ApiRequest { Op = ApiOps.Changed }).Changed ?? [];
+            if (changed.Count == 0)
+            {
+                Console.WriteLine("Every allowed program is still the file you allowed.");
+                return 0;
+            }
+
+            foreach (var c in changed.OrderByDescending(c => c.DetectedUtc))
+            {
+                Console.WriteLine(c.App);
+                Console.WriteLine($"  publisher: {c.WasPublisher ?? "unsigned"} -> {c.NowPublisher ?? "unsigned"}; noticed {c.DetectedUtc.ToLocalTime():g}");
+                Console.WriteLine(c.Blocked
+                    ? "  blocked until you allow it again"
+                    : "  not blocked (learning mode lets programs without a rule connect)");
+            }
+
+            Console.WriteLine("If you trust the new file: criofire trust <app.exe>. To keep it blocked: criofire block <app.exe>");
+            return 0;
+        }
+
+        case CommandKind.Trust:
+        {
+            var path = KnownApps.Normalize(command.AppPath!);
+            var result = api.Call(new ApiRequest { Op = ApiOps.Trust, App = path });
+            Console.WriteLine($"Allowed {path} again as it is now ({result.Count} filters).");
             return 0;
         }
 
@@ -334,7 +369,12 @@ internal sealed class Backend : IDisposable
     {
         _engine = engine;
         // Same store as the service, which removes the rules when they expire.
-        _handler = new ApiHandler(engine, new TemporaryRuleStore(TemporaryRuleStore.DefaultPath), new TrafficLog(TrafficLog.DefaultPath), new TrafficLog(TrafficLog.AllowedPath));
+        _handler = new ApiHandler(
+            engine,
+            new TemporaryRuleStore(TemporaryRuleStore.DefaultPath),
+            new TrafficLog(TrafficLog.DefaultPath),
+            new TrafficLog(TrafficLog.AllowedPath),
+            new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()));
         Description = "direct, administrator";
     }
 

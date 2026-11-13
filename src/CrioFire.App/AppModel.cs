@@ -528,6 +528,41 @@ internal sealed class AppModel
         SetPanic(action);
     }
 
+    /// <summary>Allowed programs whose file changed since they were allowed.</summary>
+    public IReadOnlyList<ChangedProgram> ChangedPrograms() =>
+        Service.Call(new ApiRequest { Op = ApiOps.Changed }, out _)?.Changed ?? [];
+
+    /// <summary>The user checked the changed program: allow it again as it is now.</summary>
+    public bool TrustChanged(ChangedProgram program)
+    {
+        ArgumentNullException.ThrowIfNull(program);
+        var ok = Call(new ApiRequest { Op = ApiOps.Trust, App = program.App, Direction = program.Direction }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, $"Allowed {KnownApps.DisplayName(program.App)} again as it is now.");
+            RefreshCore();
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
+    /// <summary>The user does not trust the changed program: block it (in the direction it was allowed).</summary>
+    public bool BlockChanged(ChangedProgram program)
+    {
+        ArgumentNullException.ThrowIfNull(program);
+        var ok = Call(new ApiRequest { Op = ApiOps.SetRule, App = program.App, Action = "block", Direction = program.Direction }) is not null;
+        if (ok)
+        {
+            Resolve(program.App);
+            Message?.Invoke(this, $"Blocked {KnownApps.DisplayName(program.App)}.");
+            RefreshCore();
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
     /// <summary>Ends panic: rules and mode apply again.</summary>
     public void Resume() => SetPanic("off");
 

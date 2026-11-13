@@ -22,6 +22,8 @@ public enum CommandKind
     Allowed,
     AutoShow,
     AutoSet,
+    Changed,
+    Trust,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -101,6 +103,11 @@ internal static class CommandLine
                                                --allow-running: first allow every program running now
                                                Asks you to confirm the network still works within 60 s,
                                                otherwise switches back (--yes skips the check)
+          criofire changed                     Show allowed programs whose file changed since you allowed
+                                               them (another publisher, a lost signature, or different
+                                               contents of an unsigned program). In ask/allowlist mode
+                                               they are blocked until you allow them again
+          criofire trust <app.exe>             You checked the changed program: allow it again as it is now
           criofire remove <filter-id>          Remove one CrioFire filter by ID
           criofire events [--minutes N] [--all]
                                                Show connections CrioFire blocked (default: last 10 minutes;
@@ -189,6 +196,22 @@ internal static class CommandLine
 
                 error = "Usage: criofire auto [svchost|system on|off]";
                 return new Command(CommandKind.Help);
+            case "changed":
+                if (rest.Length != 0)
+                {
+                    error = "'changed' takes no arguments.";
+                    return new Command(CommandKind.Help);
+                }
+
+                return new Command(CommandKind.Changed);
+            case "trust":
+                if (rest.Length != 1 || rest[0].StartsWith("--", StringComparison.Ordinal))
+                {
+                    error = "Usage: criofire trust <app.exe> (a program from 'criofire changed').";
+                    return new Command(CommandKind.Help);
+                }
+
+                return new Command(CommandKind.Trust, AppPath: rest[0]);
             case "remove":
                 if (rest.Length != 1 || !ulong.TryParse(rest[0], out var id))
                 {

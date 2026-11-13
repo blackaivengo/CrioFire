@@ -1,0 +1,28 @@
+<Window x:Class="CrioFire.App.ChangedProgramsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Changed programs" Width="680" SizeToContent="Height" MaxHeight="760" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource BodyFont}" Foreground="{DynamicResource TextBrush}">
+  <Grid Margin="28">
+    <Border Margin="40,50,40,-10" CornerRadius="20" Background="{DynamicResource FireGlowBrush}" IsHitTestVisible="False">
+      <Border.Effect>
+        <BlurEffect Radius="44" />
+      </Border.Effect>
+    </Border>
+    <Border CornerRadius="16" Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="28,24">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock Text="Programs that changed" Style="{StaticResource H2}" FontSize="20" />
+          <TextBlock x:Name="IntroText" Style="{StaticResource Muted}" Margin="0,6,0,16" TextWrapping="Wrap" LineHeight="20"
+                     Text="You allowed these programs, but the file is no longer the same: another publisher signed it, its signature is gone, or an unsigned program's contents changed. That happens when a program is replaced or tampered with. Allow it again only if you know why it changed." />
+        </StackPanel>
+        <Button DockPanel.Dock="Bottom" Content="Close" Style="{StaticResource GhostButton}" HorizontalAlignment="Right" IsCancel="True" Margin="0,6,0,0" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+          <StackPanel x:Name="ProgramList" />
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+    <Border Height="2" VerticalAlignment="Top" Margin="16,1,16,0" CornerRadius="1" Background="{StaticResource BrandBrush}" />
+  </Grid>
+</Window>

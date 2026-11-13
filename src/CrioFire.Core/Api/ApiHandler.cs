@@ -8,7 +8,8 @@ namespace CrioFire.Core.Api;
 /// Thread-safe: requests are handled one at a time.
 /// </summary>
 /// <param name="allowedLog">The service's log of allowed connections (allowed.log), for reports and the allowed list.</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null)
+/// <param name="identities">Checks that allowed programs stay the files the user allowed; null where not used (tests).</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -59,6 +60,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.SetServiceRule => SetServiceRule(request),
                     ApiOps.RemoveServiceRules => RemoveServiceRules(request),
                     ApiOps.SetAutoRule => SetAutoRule(request),
+                    ApiOps.Changed => new ApiResponse { Ok = true, Changed = identities?.Store.Changed().ToList() ?? [] },
+                    ApiOps.Trust => Trust(request),
                     _ => ApiResponse.Failure($"Unknown operation '{request.Op}'."),
                 };
             }
@@ -80,7 +83,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 FilterDescriptions.ModeText(installed ? engine.GetMode() : FirewallMode.Learning),
                 installed ? engine.ListFilters().Count : 0,
                 Version,
-                FilterDescriptions.PanicText(installed ? engine.GetPanic() : PanicState.Off)),
+                FilterDescriptions.PanicText(installed ? engine.GetPanic() : PanicState.Off),
+                identities?.Store.Changed().Count ?? 0),
         };
     }
 
@@ -114,6 +118,14 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         EnsureInstalled();
         var ids = engine.SetAppRule(app, action, direction);
         temporaryRules?.Remove(app);
+        if (action == RuleAction.Allow)
+        {
+            identities?.Record(app, DateTime.UtcNow);   // what the user allowed, so a changed file is noticed
+        }
+        else
+        {
+            identities?.Store.Forget(app);
+        }
         if (request.ExpiresMinutes is int minutes)
         {
             temporaryRules!.Add(new TemporaryRule(app, RuleDescription.DirectionText(direction), DateTime.UtcNow.AddMinutes(minutes)));
@@ -223,6 +235,26 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         return new ApiResponse { Ok = true, AutoRules = AutoRules() };
     }
 
+    /// <summary>
+    /// trust: the user checked a changed program and allows it again as it is now, in the
+    /// direction its allow rule had.
+    /// </summary>
+    private ApiResponse Trust(ApiRequest request)
+    {
+        if (identities is null)
+        {
+            throw new InvalidOperationException("Checking programs needs the criofire service.");
+        }
+
+        var app = KnownApps.Normalize(Required(request.App, "app"));
+        var changed = identities.Store.Changed(app);
+        var direction = ParseDirection(request.Direction ?? changed?.Direction, TrafficDirection.Outbound);
+        EnsureInstalled();
+        var ids = engine.SetAppRule(app, RuleAction.Allow, direction);
+        identities.Record(app, DateTime.UtcNow);
+        return new ApiResponse { Ok = true, Count = ids.Count };
+    }
+
     private List<AutoRuleInfo> AutoRules() =>
         engine.GetAutoRules().Select(r => new AutoRuleInfo(r.Name, r.Enabled, r.Active)).ToList();
 
@@ -237,6 +269,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         {
             var count = engine.RemoveAllFilters();
             temporaryRules?.Clear();
+            identities?.Store.Clear();
             return new ApiResponse { Ok = true, Count = count, Panic = FilterDescriptions.PanicText(PanicState.Off) };
         }
 
@@ -276,6 +309,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         var app = Required(request.App, "app");
         var count = engine.RemoveAppRules(app, ParseDirection(request.Direction, TrafficDirection.Both));
         temporaryRules?.Remove(KnownApps.Normalize(app));
+        identities?.Store.Forget(KnownApps.Normalize(app));
         return new ApiResponse { Ok = true, Count = count };
     }
 

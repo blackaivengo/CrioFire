@@ -14,6 +14,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan Overlap = TimeSpan.FromSeconds(10);
 
+    /// <summary>How often allowed programs are checked against the files the user allowed.</summary>
+    private static readonly TimeSpan IdentityInterval = TimeSpan.FromSeconds(30);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         WfpEngine engine;
@@ -50,6 +53,8 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var recentAllowed = new RecentEvents(Overlap);
             var allowedWorks = true;
             var temporaryRules = new TemporaryRuleStore(TemporaryRuleStore.DefaultPath);
+            var identities = new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures());
+            var nextIdentityCheck = DateTime.UtcNow;
 
             using var timer = new PeriodicTimer(PollInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -90,6 +95,16 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     if (expired > 0)
                     {
                         LogExpired(logger, expired);
+                    }
+
+                    // A program put in place of an allowed one, or a tampered copy, loses the permission.
+                    if (now >= nextIdentityCheck)
+                    {
+                        nextIdentityCheck = now + IdentityInterval;
+                        foreach (var changed in identities.Enforce(engine, now, temporaryRules))
+                        {
+                            LogProgramChanged(logger, changed.App, changed.WasPublisher ?? "unsigned", changed.NowPublisher ?? "unsigned", changed.Blocked);
+                        }
                     }
                 }
                 catch (Exception ex) when (ex is WfpException or IOException or UnauthorizedAccessException)
@@ -146,6 +161,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} expired temporary rules.")]
     private static partial void LogExpired(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{App} changed since it was allowed (publisher {Was} -> {Now}); blocked: {Blocked}.")]
+    private static partial void LogProgramChanged(ILogger logger, string app, string was, string now, bool blocked);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reading blocked connections failed; will retry.")]
     private static partial void LogPollError(ILogger logger, Exception exception);

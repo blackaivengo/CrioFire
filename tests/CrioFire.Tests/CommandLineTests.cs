@@ -79,4 +79,20 @@ public class CommandLineTests
         Assert.Null(error);
         Assert.Equal(68213UL, command.FilterId);
     }
+    [Fact]
+    public void ChangedAndTrustParse()
+    {
+        Assert.Equal(CommandKind.Changed, CommandLine.Parse(["changed"], out var e1).Kind);
+        Assert.Null(e1);
+
+        var trust = CommandLine.Parse(["trust", @"C:\Apps\chat.exe"], out var e2);
+        Assert.Null(e2);
+        Assert.Equal(CommandKind.Trust, trust.Kind);
+        Assert.Equal(@"C:\Apps\chat.exe", trust.AppPath);
+
+        CommandLine.Parse(["trust"], out var e3);
+        Assert.NotNull(e3);
+        CommandLine.Parse(["changed", "x"], out var e4);
+        Assert.NotNull(e4);
+    }
 }

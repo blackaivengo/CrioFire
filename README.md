@@ -59,6 +59,8 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe block --service DiagTrack                 # block one Windows service, even inside svchost.exe
 .\criofire.exe block System --in                         # rules for the Windows kernel use the name "System"
 .\criofire.exe auto                                      # the automatic rules; "auto svchost off" turns one off
+.\criofire.exe changed                                   # allowed programs whose file changed since you allowed them
+.\criofire.exe trust "C:\Path\To\Chat.exe"              # you checked it: allow the changed program again
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
 .\criofire.exe mode learning                             # back to allowing programs without a rule
 .\criofire.exe panic                                     # allow everything; your rules are paused, not deleted
@@ -67,6 +69,14 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe panic remove                              # last resort: delete every CrioFire rule
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
+
+**Program identity.** When you allow a program, CrioFire records who signed it (its Authenticode
+publisher) and a SHA-256 fingerprint of the file. The service checks allowed programs every 30
+seconds: a new version from the same publisher is accepted, as that is how programs update; another
+publisher, a lost signature, or new contents of an unsigned program count as a change. In Ask and
+Allow-list mode the program is then blocked until you allow it again (`criofire trust`, or Review in
+the app); in Learning mode it is reported only. Files in the Windows folder and the kernel are not
+checked.
 
 **Network rules** (`--port`, `--addr`, `--tcp`, `--udp`, optionally with a program) match by
 port and remote address. Ports are the remote port for outbound connections and the local port for
