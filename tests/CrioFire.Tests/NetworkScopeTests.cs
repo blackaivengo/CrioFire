@@ -7,6 +7,8 @@ namespace CrioFire.Tests;
 /// <summary>Rules for some kinds of network only (domain, private, public).</summary>
 public class NetworkScopeTests
 {
+    private static readonly int[] Categories = [0, 1, 2];
+
     private static readonly DateTime Now = new(2026, 11, 13, 4, 0, 0, DateTimeKind.Utc);
 
     [Theory]
@@ -42,13 +44,13 @@ public class NetworkScopeTests
     [Fact]
     public void ProfileIdsAreWhatTheFilteringPlatformUses()
     {
-        // FWPM_CONDITION_CURRENT_PROFILE_ID uses Windows' network categories: public 0, private 1, domain 2
-        // (Windows Firewall's own "PrivateNetwork" filters match 1); the same numbers the Network List Manager reports.
-        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Public).SequenceEqual([0u]));
-        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Domain | NetworkProfiles.Private).SequenceEqual([2u, 1u]));
-        foreach (var category in new[] { 0, 1, 2 })
+        // FWPM_CONDITION_CURRENT_PROFILE_ID: public 1, private 2, domain 3 (measured on a real public
+        // network by the integration tests), one more than the Network List Manager's categories (0, 1, 2).
+        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Public).SequenceEqual([1u]));
+        Assert.True(NetworkScope.ProfileIds(NetworkProfiles.Domain | NetworkProfiles.Private).SequenceEqual([3u, 2u]));
+        foreach (var category in Categories)
         {
-            Assert.True(NetworkScope.ProfileIds(ConnectedNetworks.FromCategory(category)).SequenceEqual([(uint)category]));
+            Assert.True(NetworkScope.ProfileIds(ConnectedNetworks.FromCategory(category)).SequenceEqual([(uint)category + 1]));
         }
         Assert.Empty(NetworkScope.ProfileIds(NetworkProfiles.Any));
         Assert.Empty(NetworkScope.ProfileIds(NetworkScope.All));

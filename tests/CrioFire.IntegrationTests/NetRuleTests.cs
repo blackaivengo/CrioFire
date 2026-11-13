@@ -134,7 +134,8 @@ public sealed class NetRuleTests : IDisposable
     /// loopback): connections to a documentation address (203.0.113.9, which goes nowhere) leave
     /// through the network the default route uses. A block rule for that address on that kind of
     /// network stops them; the same rule for the other kinds does not. When it fails, the message
-    /// lists what every variant did, so the cause can be read from the run page.
+    /// lists what every variant did, so the cause can be read from the run page. (TCP, because a
+    /// blocked TCP connect fails at once with "access denied"; a blocked UDP send does not report it.)
     /// </summary>
     [Fact]
     public async Task NetworkScopedRulesApplyOnlyOnThoseNetworks()
@@ -152,7 +153,7 @@ public sealed class NetRuleTests : IDisposable
 
             try
             {
-                return $"tcp {(await TcpBlocked() ? "blocked" : "open")}, udp {(UdpBlocked() ? "blocked" : "open")}";
+                return await TcpBlocked() ? "blocked" : "open";
             }
             finally
             {
@@ -171,14 +172,16 @@ public sealed class NetRuleTests : IDisposable
         var report = $"Default route network: {NetworkScope.Text(current!.Value)}. " + string.Join("; ", results.Select(r => $"{r.Name}: {r.Result}"));
         string Of(string name) => results.Single(r => r.Name == name).Result;
 
-        Assert.True(Of("no rule").Contains("tcp open", StringComparison.Ordinal), "Baseline failed. " + report);
-        Assert.True(Of("every network").Contains("tcp blocked", StringComparison.Ordinal), "A rule for every network did not block. " + report);
-        Assert.True(Of(NetworkScope.Text(current.Value)).Contains("tcp blocked", StringComparison.Ordinal), "The rule for this kind of network did not block. " + report);
-        foreach (var other in new[] { "public", "private", "domain" }.Where(o => o != NetworkScope.Text(current.Value)))
+        Assert.True(Of("no rule") == "open", "Baseline failed. " + report);
+        Assert.True(Of("every network") == "blocked", "A rule for every network did not block. " + report);
+        Assert.True(Of(NetworkScope.Text(current.Value)) == "blocked", "The rule for this kind of network did not block. " + report);
+        foreach (var other in Kinds.Where(o => o != NetworkScope.Text(current.Value)))
         {
-            Assert.True(Of(other).Contains("tcp open", StringComparison.Ordinal), $"The rule for {other} networks blocked on a {NetworkScope.Text(current.Value)} network. " + report);
+            Assert.True(Of(other) == "open", $"The rule for {other} networks blocked on a {NetworkScope.Text(current.Value)} network. " + report);
         }
     }
+
+    private static readonly string[] Kinds = ["public", "private", "domain"];
 
     /// <summary>A blocked TCP connect fails at once with "access denied"; an allowed one to nowhere just times out.</summary>
     private static async Task<bool> TcpBlocked()
@@ -197,20 +200,6 @@ public sealed class NetRuleTests : IDisposable
         catch (Exception ex) when (ex is OperationCanceledException or SocketException)
         {
             return false;
-        }
-    }
-
-    private static bool UdpBlocked()
-    {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        try
-        {
-            socket.SendTo([1, 2, 3], new IPEndPoint(IPAddress.Parse("203.0.113.9"), 9));
-            return false;
-        }
-        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AccessDenied)
-        {
-            return true;
         }
     }
 

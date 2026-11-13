@@ -48,7 +48,7 @@ public static class WfpIds
     /// <summary>FWPM_CONDITION_ALE_APP_ID: the application's NT device path.</summary>
     public static readonly Guid ConditionAleAppId = new("d78e1e87-8644-4ea5-9437-d809ecefc971");
 
-    /// <summary>FWPM_CONDITION_CURRENT_PROFILE_ID: the network category (public 0, private 1, domain 2) of the interface the traffic uses.</summary>
+    /// <summary>FWPM_CONDITION_CURRENT_PROFILE_ID: the network category (public 1, private 2, domain 3) of the interface the traffic uses.</summary>
     public static readonly Guid ConditionCurrentProfileId = new("ab3033c9-c0e3-4759-937d-5758c65d4ae3");
 
     /// <summary>FWPM_CONDITION_ALE_PACKAGE_ID: the package SID of a Store app (AppContainer) process.</summary>

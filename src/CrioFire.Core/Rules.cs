@@ -219,9 +219,9 @@ public static class NetworkScope
 
     private static readonly (NetworkProfiles Profile, string Text, uint Id)[] Known =
     [
-        (NetworkProfiles.Domain, "domain", 2),
-        (NetworkProfiles.Private, "private", 1),
-        (NetworkProfiles.Public, "public", 0),
+        (NetworkProfiles.Domain, "domain", 3),
+        (NetworkProfiles.Private, "private", 2),
+        (NetworkProfiles.Public, "public", 1),
     ];
 
     /// <summary>All three is the same as every network.</summary>
@@ -278,8 +278,9 @@ public static class NetworkScope
     }
 
     /// <summary>
-    /// The values of the WFP condition FWPM_CONDITION_CURRENT_PROFILE_ID: Windows' network categories
-    /// (NL_NETWORK_CATEGORY), public 0, private 1, domain 2, as Windows Firewall's own filters use them.
+    /// The values of the WFP condition FWPM_CONDITION_CURRENT_PROFILE_ID: public 1, private 2, domain 3,
+    /// one more than Windows' network categories (NLM_NETWORK_CATEGORY public 0, private 1, domain 2).
+    /// Measured on a real network by NetRuleTests.NetworkScopedRulesApplyOnlyOnThoseNetworks.
     /// </summary>
     public static IReadOnlyList<uint> ProfileIds(NetworkProfiles profiles)
     {
