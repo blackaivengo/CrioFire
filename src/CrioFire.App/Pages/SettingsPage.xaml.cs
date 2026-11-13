@@ -45,6 +45,8 @@ public partial class SettingsPage : UserControl, IPage
             $"App {app} · Service {service}\n" +
             $"Blocked-connection log: {TrafficLog.DefaultPath}";
 
+        ProtectionSwitch.IsChecked = _model.Status?.RequireAdmin == true;
+        ProtectionSwitch.IsEnabled = _model.Status is not null;
         ShowBackups(_backups ?? AppModel.Backups());
         _backups = null;
 
@@ -137,6 +139,15 @@ public partial class SettingsPage : UserControl, IPage
         if (ChoiceDialog.Ask(owner, "Restore this backup?", message, ["Restore", "Cancel"], defaultIndex: 1) == 0)
         {
             _model.RestoreBackup(backup.Name);
+        }
+    }
+
+    private void OnProtection(object sender, RoutedEventArgs e)
+    {
+        var on = ProtectionSwitch.IsChecked == true;
+        if (!_model.SetProtection(on))
+        {
+            ProtectionSwitch.IsChecked = !on;   // not approved, or it failed: show what is really in force
         }
     }
 

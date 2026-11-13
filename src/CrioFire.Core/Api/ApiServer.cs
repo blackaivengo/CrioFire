@@ -8,9 +8,27 @@ using Microsoft.Win32.SafeHandles;
 
 namespace CrioFire.Core.Api;
 
+/// <summary>What a client of the API may do.</summary>
+public enum ClientRights
+{
+    /// <summary>Read only.</summary>
+    ReadOnly,
+
+    /// <summary>CrioFire's own app or command line from the install folder: may change rules unless tamper protection is on.</summary>
+    CrioFireApp,
+
+    /// <summary>An elevated administrator: may change anything, including tamper protection.</summary>
+    Administrator,
+}
+
 /// <summary>Who may change rules through the API. Pure logic, unit-tested.</summary>
 public static class ApiAuthorization
 {
+    public static ClientRights Rights(bool clientIsElevatedAdmin, string? clientPath, string trustedDirectory) =>
+        clientIsElevatedAdmin ? ClientRights.Administrator
+        : CanWrite(false, clientPath, trustedDirectory) ? ClientRights.CrioFireApp
+        : ClientRights.ReadOnly;
+
     /// <summary>CrioFire's own client programs.</summary>
     public static IReadOnlyList<string> TrustedClientNames { get; } = ["criofire.exe", "criofire-ui.exe"];
 
@@ -102,7 +120,7 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
         {
             try
             {
-                var canWrite = ApiAuthorization.CanWrite(ClientIsElevatedAdmin(pipe), ClientPath(pipe), _trustedDirectory);
+                var rights = ApiAuthorization.Rights(ClientIsElevatedAdmin(pipe), ClientPath(pipe), _trustedDirectory);
                 using var reader = new StreamReader(pipe, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
                 await using var writer = new StreamWriter(pipe, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true, NewLine = "\n" };
 
@@ -130,7 +148,7 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
                         {
                         }
 
-                        response = request is null ? ApiResponse.Failure("Malformed request.") : handler.Handle(request, canWrite);
+                        response = request is null ? ApiResponse.Failure("Malformed request.") : handler.Handle(request, rights);
                     }
 
                     await writer.WriteLineAsync(ApiJson.Serialize(response).AsMemory(), cancellationToken).ConfigureAwait(false);

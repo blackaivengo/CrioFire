@@ -23,6 +23,11 @@ internal static class Service
             }
 
             var response = client.Send(request);
+            if (!response.Ok && response.Code == ApiOps.ApprovalRequired)
+            {
+                return Elevated.Call(request, out error);   // tamper protection: ask Windows for approval
+            }
+
             error = response.Ok ? null : Explain(request.Op, response.Error);
             return response.Ok ? response : null;
         }
@@ -38,6 +43,75 @@ internal static class Service
         error is not null && error.StartsWith("Unknown operation", StringComparison.Ordinal)
             ? $"The CrioFire service on this PC is older than this app and can't answer '{op}' yet. Install the latest CrioFire (it updates the service too), then open this view again."
             : error;
+}
+
+/// <summary>
+/// Tamper protection is on, so a change needs administrator approval: runs CrioFire's own
+/// command line elevated (Windows shows its approval prompt) with the one request on its command
+/// line, and reads the answer it writes back.
+/// </summary>
+internal static class Elevated
+{
+    /// <summary>Command lines are limited to 32,767 characters; larger requests (big imports) need an administrator prompt.</summary>
+    private const int MaxArgument = 30_000;
+
+    public static ApiResponse? Call(ApiRequest request, out string? error)
+    {
+        var cli = Path.Combine(AppContext.BaseDirectory, "criofire.exe");
+        if (!File.Exists(cli))
+        {
+            error = "Tamper protection is on, and CrioFire's command line was not found next to the app to ask for approval.";
+            return null;
+        }
+
+        var argument = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(ApiJson.Serialize(request)));
+        if (argument.Length > MaxArgument)
+        {
+            error = "Tamper protection is on and this change is too large to approve from the app. Use 'criofire import' from an administrator prompt.";
+            return null;
+        }
+
+        var result = Path.Combine(Path.GetTempPath(), $"criofire-approval-{Guid.NewGuid():N}.json");
+        try
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(cli, $"request {argument} \"{result}\"")
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+            };
+            using var process = System.Diagnostics.Process.Start(start);
+            if (process is null || !process.WaitForExit(TimeSpan.FromMinutes(2)) || !File.Exists(result))
+            {
+                error = "The change was not made: approval did not finish.";
+                return null;
+            }
+
+            var response = ApiJson.DeserializeResponse(File.ReadAllText(result));
+            error = response is { Ok: true } ? null : response?.Error ?? "The change failed.";
+            return response is { Ok: true } ? response : null;
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            error = "The change was not made: it was not approved.";
+            return null;
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or System.Text.Json.JsonException)
+        {
+            error = $"The change was not made: {ex.Message}";
+            return null;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(result);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
 }
 
 /// <summary>A program the Ask mode stopped, waiting for the user's decision.</summary>
@@ -526,6 +600,22 @@ internal sealed class AppModel
         }
 
         SetPanic(action);
+    }
+
+    /// <summary>Turns tamper protection on or off (Windows asks for administrator approval).</summary>
+    public bool SetProtection(bool on)
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.SetProtection, Enabled = on }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, on
+                ? "Tamper protection is on: rule changes ask for administrator approval."
+                : "Tamper protection is off.");
+            RefreshCore();
+            NotifyChanged();
+        }
+
+        return ok;
     }
 
     /// <summary>Every rule in force, for saving to a file; null (with a message) when the service cannot answer.</summary>

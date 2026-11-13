@@ -10,19 +10,36 @@ namespace CrioFire.Core.Api;
 /// <param name="allowedLog">The service's log of allowed connections (allowed.log), for reports and the allowed list.</param>
 /// <param name="identities">Checks that allowed programs stay the files the user allowed; null where not used (tests).</param>
 /// <param name="backups">Where rule backups are kept (automatic, and before imports and "remove all"); null in tests.</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null)
+/// <param name="protection">Tamper protection; null means off (tests).</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
 
     private readonly Lock _gate = new();
 
-    public ApiResponse Handle(ApiRequest request, bool canWrite)
+    /// <summary>For callers that are either fully trusted (an elevated command line) or read-only.</summary>
+    public ApiResponse Handle(ApiRequest request, bool canWrite) =>
+        Handle(request, canWrite ? ClientRights.Administrator : ClientRights.ReadOnly);
+
+    public ApiResponse Handle(ApiRequest request, ClientRights rights)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (ApiOps.IsWrite(request.Op) && !canWrite)
+        if (ApiOps.IsWrite(request.Op))
         {
-            return ApiResponse.Failure("Not allowed: changing rules needs an administrator, or CrioFire's own app or command line.");
+            if (rights == ClientRights.ReadOnly)
+            {
+                return ApiResponse.Failure("Not allowed: changing rules needs an administrator, or CrioFire's own app or command line.");
+            }
+
+            if (rights == ClientRights.CrioFireApp && (request.Op == ApiOps.SetProtection || protection?.RequireAdmin == true))
+            {
+                return ApiResponse.Failure(
+                    request.Op == ApiOps.SetProtection
+                        ? "Changing tamper protection needs administrator approval."
+                        : "Tamper protection is on: changing rules needs administrator approval (approve the prompt in the app, or use an administrator prompt).",
+                    ApiOps.ApprovalRequired);
+            }
         }
 
         if (request.Op is ApiOps.Report or ApiOps.Allowed or ApiOps.Traffic)
@@ -65,6 +82,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.Trust => Trust(request),
                     ApiOps.ExportRules => new ApiResponse { Ok = true, RuleSet = RuleBackup.Export(engine, temporaryRules, DateTime.UtcNow) },
                     ApiOps.ImportRules => Import(request.RuleSet ?? throw new ArgumentException("ruleSet is required."), request),
+                    ApiOps.SetProtection => SetProtection(request),
                     ApiOps.Backups => new ApiResponse { Ok = true, Backups = backups?.List().ToList() ?? [] },
                     ApiOps.RestoreBackup => Import(
                         (backups ?? throw new InvalidOperationException("Backups need the criofire service.")).Load(Required(request.Name, "name")),
@@ -91,7 +109,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 installed ? engine.ListFilters().Count : 0,
                 Version,
                 FilterDescriptions.PanicText(installed ? engine.GetPanic() : PanicState.Off),
-                identities?.Store.Changed().Count ?? 0),
+                identities?.Store.Changed().Count ?? 0,
+                protection?.RequireAdmin ?? false),
         };
     }
 
@@ -290,6 +309,17 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         Backup("before-import");
         var plan = RuleBackup.Apply(engine, set, mode, temporaryRules, withMode, now);
         return new ApiResponse { Ok = true, Plan = plan };
+    }
+
+    private ApiResponse SetProtection(ApiRequest request)
+    {
+        if (protection is null)
+        {
+            throw new InvalidOperationException("Tamper protection needs the criofire service.");
+        }
+
+        protection.SetRequireAdmin(request.Enabled ?? throw new ArgumentException("enabled is required."));
+        return new ApiResponse { Ok = true };
     }
 
     private void Backup(string reason)

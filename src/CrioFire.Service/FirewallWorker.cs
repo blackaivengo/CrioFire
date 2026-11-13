@@ -134,7 +134,8 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         var fingerprint = RuleBackup.Fingerprint(rules);
                         if (rules.Count > 0 && fingerprint != lastBackup)
                         {
-                            LogBackedUp(logger, backups.Save(rules, "auto"));
+                            var saved = backups.Save(rules, "auto");
+                            LogBackedUp(logger, saved);
                             lastBackup = fingerprint;
                         }
                     }

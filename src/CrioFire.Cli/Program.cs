@@ -164,6 +164,41 @@ static int Run(Backend api, Command command)
             return 0;
         }
 
+        case CommandKind.Protection:
+        {
+            if (command.All)
+            {
+                api.Call(new ApiRequest { Op = ApiOps.SetProtection, Enabled = command.Enabled });
+            }
+
+            var on = api.Call(new ApiRequest { Op = ApiOps.Status }).Status!.RequireAdmin;
+            Console.WriteLine(on
+                ? "Tamper protection is on: changing rules needs administrator approval."
+                : "Tamper protection is off: CrioFire's app and command line may change rules for any signed-in user.");
+            return 0;
+        }
+
+        case CommandKind.Request:
+        {
+            // The app could not change something because it needs approval; the user approved this
+            // elevated copy. The request comes on the command line (fixed once approved), the answer
+            // goes to the file the app named.
+            ApiResponse response;
+            try
+            {
+                var request = ApiJson.DeserializeRequest(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(command.AppPath!)))
+                    ?? throw new ArgumentException("Malformed request.");
+                response = api.Handle(request);
+            }
+            catch (FormatException)
+            {
+                response = ApiResponse.Failure("Malformed request.");
+            }
+
+            File.WriteAllText(command.FilePath!, ApiJson.Serialize(response));
+            return response.Ok ? 0 : 1;
+        }
+
         case CommandKind.Export:
         {
             var set = api.Call(new ApiRequest { Op = ApiOps.ExportRules }).RuleSet!;
@@ -434,7 +469,8 @@ internal sealed class Backend : IDisposable
             new TrafficLog(TrafficLog.DefaultPath),
             new TrafficLog(TrafficLog.AllowedPath),
             new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures()),
-            new RuleBackupStore(RuleBackupStore.DefaultFolder));
+            new RuleBackupStore(RuleBackupStore.DefaultFolder),
+            new TamperProtection(TamperProtection.DefaultPath));
         Description = "direct, administrator";
     }
 
@@ -458,6 +494,10 @@ internal sealed class Backend : IDisposable
     }
 
     /// <summary>Sends a request; throws <see cref="InvalidOperationException"/> with the service's message on failure.</summary>
+    /// <summary>Sends a request and returns the response as it is, failures included.</summary>
+    public ApiResponse Handle(ApiRequest request) =>
+        _handler is not null ? _handler.Handle(request, canWrite: true) : _client!.Send(request);
+
     public ApiResponse Call(ApiRequest request)
     {
         var response = _handler is not null ? _handler.Handle(request, canWrite: true) : _client!.Send(request);

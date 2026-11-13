@@ -62,6 +62,7 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe export my-rules.json                       # save every rule to a file
 .\criofire.exe import my-rules.json --dry-run             # what an import would change (--replace removes others)
 .\criofire.exe backups                                   # automatic backups; "restore <name>" puts one back
+.\criofire.exe protection on                             # tamper protection: rule changes need administrator approval
 .\criofire.exe changed                                   # allowed programs whose file changed since you allowed them
 .\criofire.exe trust "C:\Path\To\Chat.exe"              # you checked it: allow the changed program again
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
@@ -72,6 +73,13 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe panic remove                              # last resort: delete every CrioFire rule
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
+
+**Tamper protection.** By default CrioFire's own app and command line (from the install folder) may
+change rules for any signed-in user, so a harmful program running as that user could start
+`criofire.exe` to allow itself. With tamper protection on (Settings, or `criofire protection on`
+from an administrator prompt), every change needs an elevated CrioFire: the app asks Windows for
+approval (UAC) for each change, and the command line needs an administrator prompt. Turning it off
+needs approval too. The service's data folder is writable only by administrators and the service.
 
 **Backups.** The service saves the rules to `%ProgramData%\criofire\backups` whenever they change
 (checked every 5 minutes), and before every import or "remove all rules"; the newest 30 are kept.

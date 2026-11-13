@@ -28,6 +28,8 @@ public enum CommandKind
     Import,
     Backups,
     Restore,
+    Request,
+    Protection,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -131,6 +133,10 @@ internal static class CommandLine
                                                change, and before every import or "remove all")
           criofire restore <backup> [--dry-run]
                                                Put the rules back exactly as in a backup
+          criofire protection [on|off]         Tamper protection: when on, changing rules needs
+                                               administrator approval, so a program running as you
+                                               cannot use CrioFire to allow itself (changing it needs an
+                                               administrator prompt)
           criofire remove <filter-id>          Remove one CrioFire filter by ID
           criofire events [--minutes N] [--all]
                                                Show connections CrioFire blocked (default: last 10 minutes;
@@ -271,6 +277,22 @@ internal static class CommandLine
             case "import":
             case "restore":
                 return ParseImport(verb, rest, out error);
+            case "protection":
+                if (rest.Length == 0)
+                {
+                    return new Command(CommandKind.Protection);
+                }
+
+                if (rest.Length == 1 && rest[0].ToLowerInvariant() is "on" or "off")
+                {
+                    return new Command(CommandKind.Protection, Enabled: rest[0].Equals("on", StringComparison.OrdinalIgnoreCase), All: true);
+                }
+
+                error = "Usage: criofire protection [on|off]";
+                return new Command(CommandKind.Help);
+            case "request" when rest.Length == 2:
+                // Used by the app: one API request, approved by the user (UAC). Not in the usage text.
+                return new Command(CommandKind.Request, AppPath: rest[0], FilePath: rest[1]);
             case "backups":
                 if (rest.Length != 0)
                 {

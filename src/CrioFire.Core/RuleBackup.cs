@@ -513,8 +513,8 @@ public sealed class RuleBackupStore(string folder)
     /// <summary>The newest backup's fingerprint, to save an automatic backup only when the rules changed.</summary>
     public string? LatestFingerprint()
     {
-        var latest = List().FirstOrDefault();
-        return latest is null ? null : RuleBackup.Fingerprint(Load(latest.Name));
+        var list = List();
+        return list.Count == 0 ? null : RuleBackup.Fingerprint(Load(list[0].Name));
     }
 
     private static string ReasonOf(string name)

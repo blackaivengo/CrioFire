@@ -30,10 +30,14 @@ public static class ApiOps
     public const string ImportRules = "importRules";
     public const string Backups = "backups";
     public const string RestoreBackup = "restoreBackup";
+    public const string SetProtection = "setProtection";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
-        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup;
+        op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection;
+
+    /// <summary>The error code when a change needs administrator approval (tamper protection, or the setting itself).</summary>
+    public const string ApprovalRequired = "approval-required";
 }
 
 public sealed record ApiRequest
@@ -168,12 +172,16 @@ public sealed record ApiResponse
     /// <summary>changed: programs whose file changed since they were allowed.</summary>
     public List<ChangedProgram>? Changed { get; init; }
 
-    public static ApiResponse Failure(string error) => new() { Ok = false, Error = error };
+    /// <summary>A machine-readable reason for a failure, e.g. <see cref="ApiOps.ApprovalRequired"/>.</summary>
+    public string? Code { get; init; }
+
+    public static ApiResponse Failure(string error, string? code = null) => new() { Ok = false, Error = error, Code = code };
 }
 
 /// <param name="Panic">The panic switch: off, allow (everything allowed, rules paused) or block (all network traffic blocked).</param>
 /// <param name="ChangedPrograms">How many allowed programs changed since they were allowed (see the changed operation).</param>
-public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off", int ChangedPrograms = 0);
+/// <param name="RequireAdmin">Tamper protection: changes need administrator approval.</param>
+public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off", int ChangedPrograms = 0, bool RequireAdmin = false);
 
 /// <param name="Name">svchost or system.</param>
 /// <param name="Enabled">Switched on (the saved choice).</param>
