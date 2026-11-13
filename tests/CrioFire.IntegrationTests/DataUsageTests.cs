@@ -32,29 +32,50 @@ public sealed class DataUsageTests
         });
         events.Start();
 
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("CrioFire-IntegrationTests/1.0");
+        string[] pages = ["https://github.com/", "https://www.microsoft.com/", "https://example.com/"];
         var downloaded = 0L;
-        for (var i = 0; i < 10 && Interlocked.Read(ref received) < 10_000; i++)
+        var problems = new List<string>();
+        for (var i = 0; i < 9 && Interlocked.Read(ref received) < 10_000; i++)
         {
+            var page = pages[i % pages.Length];
             try
             {
-                downloaded += (await http.GetByteArrayAsync(new Uri("https://www.microsoft.com/"), TestContext.Current.CancellationToken)).Length;
+                // Any answer counts, an error page too: only the bytes matter here.
+                using var response = await http.GetAsync(new Uri(page), TestContext.Current.CancellationToken);
+                downloaded += (await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken)).Length;
             }
-            catch (HttpRequestException)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !TestContext.Current.CancellationToken.IsCancellationRequested)
             {
-                // try again
+                problems.Add($"{page}: {ex.GetBaseException().Message}");
             }
 
             await Task.Delay(1000, TestContext.Current.CancellationToken);   // events arrive within about a second
         }
 
-        Assert.True(downloaded > 0, "The download failed: the runner needs an internet connection.");
+        Assert.True(downloaded > 0, "Every download failed: " + string.Join(" | ", problems) + " | " + InstalledFilters());
         Assert.True(Interlocked.Read(ref received) >= 10_000, $"Only {Interlocked.Read(ref received)} bytes received were counted for this process ({downloaded} downloaded, {Interlocked.Read(ref seen)} send/receive events from all processes).");
 
         var mine = counter.Take().SingleOrDefault(a => string.Equals(a.App, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(mine);   // counted under this process's program
         Assert.True(mine.Received >= 10_000, $"Only {mine.Received} bytes were counted for {mine.App}.");
         Assert.True(mine.Sent > 0, "Nothing sent was counted (the request itself).");
+    }
+
+    /// <summary>For a failure message: CrioFire filters left behind could explain a blocked download.</summary>
+    private static string InstalledFilters()
+    {
+        try
+        {
+            using var engine = WfpEngine.Open();
+            var filters = engine.ListFilters();
+            return $"{filters.Count} CrioFire filters installed" + (filters.Count == 0 ? "" : ": " + string.Join(", ", filters.Take(10).Select(f => f.Name)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return "filters could not be listed: " + ex.Message;
+        }
     }
 
     private static bool IsAdministrator()
