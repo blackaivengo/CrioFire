@@ -81,7 +81,7 @@ public sealed class DomainRuleTests : IDisposable
         for (var i = 0; i < 10 && !seen.Task.IsCompleted; i++)
         {
             Resolve(i % 2 == 0 ? "example.com" : "www.example.com");
-            await Task.WhenAny(seen.Task, Task.Delay(1000));
+            await Task.WhenAny(seen.Task, Task.Delay(1000, TestContext.Current.CancellationToken));
         }
 
         Assert.True(seen.Task.IsCompleted, "No completed lookup of example.com was seen within 10 seconds.");
