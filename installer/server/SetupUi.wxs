@@ -25,6 +25,9 @@
       <DialogRef Id="ResumeDlg" />
       <DialogRef Id="UserExit" />
 
+      <!-- The console's address is made when Finish is clicked, with the port chosen on the Server options page. -->
+      <Publish Dialog="ExitDialog" Control="Finish" Property="WixShellExecTarget" Value="https://localhost:[CRIOFIRE_SERVER_PORT]/" Order="997"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
       <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="OpenConsole" Order="998"
                Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />

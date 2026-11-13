@@ -53,7 +53,6 @@
     <!-- "Open the console now" on the last page: the browser on this machine, where the first administrator is created. -->
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open the CrioFire Server console now" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
-    <Property Id="WixShellExecTarget" Value="https://localhost:[CRIOFIRE_SERVER_PORT]/" />
     <CustomAction Id="OpenConsole" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixShellExec" Impersonate="yes" Return="ignore" />
 
     <UIRef Id="CrioFireServerUI" />
