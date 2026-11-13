@@ -155,7 +155,13 @@ public partial class SettingsPage : UserControl, IPage
         ? string.Empty
         : $"\nManaged by the CrioFire Server {info.Url}"
             + (info.LastCheckinUtc is { } last ? $", last check-in {last.ToLocalTime():g}" : ", not checked in yet")
-            + (info.LastError is { } error ? $". Last problem: {error}" : ".");
+            + (info.LastError is { } error ? $". Last problem: {error}" : ".")
+            + (info.Policy is { } p
+                ? $"\nOrganization policy: {p.Name}, {p.Rules} rules"
+                    + (p.Mode is null ? string.Empty : $", mode {p.Mode}")
+                    + (p.AllowUserRules ? ", your own rules allowed" : ", your own rules not allowed")
+                    + (p.RequireAdmin ? ", tamper protection required." : ".")
+                : string.Empty);
 
     private void ShowLicense(LicenseStatus? status)
     {

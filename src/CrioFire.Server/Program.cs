@@ -9,6 +9,7 @@ using CrioFire.Server;
 //   criofire-server tokens | revoke <id>                        list or cancel codes
 //   criofire-server devices                                     the enrolled PCs
 //   criofire-server activity <pc> [--hours N] [--kind K] | --show  ask one PC for its connections
+//   criofire-server policy ...                                  organization rules for PCs
 //   criofire-server fingerprint                                 the certificate PCs pin
 
 // CRIOFIRE_SERVER_DATA moves the data folder (tests, or a different disk).
@@ -30,6 +31,8 @@ try
             return Commands.Revoke(folder, args[1]);
         case "devices":
             return Commands.Devices(folder);
+        case "policy" when args.Length >= 2:
+            return Commands.Policy(folder, args[1..]);
         case "activity" when args.Length >= 2:
             return Commands.Activity(folder, args[1], args[2..]);
         case "fingerprint":
@@ -89,6 +92,18 @@ internal static class Commands
                                                   Ask one PC for what it blocked and allowed (default: blocked,
                                                   24 hours, 200 rows); it answers after its next check-in
           criofire-server activity <pc> --show    Show what that PC sent
+
+        Policies (the organization's rules; they win over each PC's own rules):
+          criofire-server policy list
+          criofire-server policy create <name> --rules <file.json> [--mode learning|ask|allowlist] [--lock] [--protect]
+              The rules file is made with 'criofire export' on a PC set up as wanted. --mode sets the mode on
+              every PC (otherwise users choose); --lock removes users' own rules and lets them add none;
+              --protect switches tamper protection on and keeps it on.
+          criofire-server policy update <id> [--rules <file.json>] [--name <name>] [--mode <mode>|--mode any]
+                                             [--lock|--unlock] [--protect|--no-protect]
+          criofire-server policy assign <id|none> <pc>... | --all
+          criofire-server policy default <id|none>    The policy new PCs get when they enroll
+          criofire-server policy delete <id>
           criofire-server fingerprint             Show the server certificate's fingerprint
         """;
 
@@ -170,6 +185,95 @@ internal static class Commands
         return 0;
     }
 
+    public static int Policy(string folder, string[] args)
+    {
+        var store = new ServerStore(folder);
+        var now = DateTime.UtcNow;
+        switch (args[0].ToLowerInvariant())
+        {
+            case "list":
+            {
+                var policies = store.Policies();
+                var byPolicy = store.Devices().GroupBy(d => store.AssignedPolicy(d.DeviceId)?.Id ?? "").ToDictionary(g => g.Key, g => g.Count());
+                if (policies.Count == 0)
+                {
+                    Console.WriteLine("No policies yet. Create one from a PC's exported rules: criofire-server policy create <name> --rules <file.json>");
+                }
+
+                var fallback = store.DefaultPolicyId();
+                foreach (var p in policies)
+                {
+                    Console.WriteLine($"{p.Id,-14} {p.Name}{(p.Id == fallback ? "  (default for new PCs)" : string.Empty)}");
+                    Console.WriteLine($"               version {p.Version}, {p.Rules.Count} rules, mode {p.Mode ?? "users choose"}, "
+                        + $"{(p.AllowUserRules ? "users may add rules" : "locked")}{(p.RequireAdmin ? ", tamper protection" : string.Empty)}, "
+                        + $"{byPolicy.GetValueOrDefault(p.Id)} PC(s)");
+                }
+
+                return 0;
+            }
+
+            case "create" when args.Length >= 2:
+            {
+                var options = PolicyOptions.Parse(args[2..]);
+                var rules = options.Rules ?? throw new ArgumentException("Give the rules: --rules <file.json> (from 'criofire export').");
+                var policy = store.CreatePolicy(args[1], rules, options.Mode, !(options.Lock ?? false), options.Protect ?? false, now);
+                Console.WriteLine($"Created {policy.Id} \"{policy.Name}\" with {policy.Rules.Count} rules. Give it to PCs with: criofire-server policy assign {policy.Id} <pc>... | --all");
+                return 0;
+            }
+
+            case "update" when args.Length >= 2:
+            {
+                var options = PolicyOptions.Parse(args[2..]);
+                var policy = store.UpdatePolicy(args[1], p => p with
+                {
+                    Name = options.Name ?? p.Name,
+                    Rules = options.Rules ?? p.Rules,
+                    Mode = options.ModeGiven ? options.Mode : p.Mode,
+                    AllowUserRules = options.Lock is { } locked ? !locked : p.AllowUserRules,
+                    RequireAdmin = options.Protect ?? p.RequireAdmin,
+                }, now);
+                Console.WriteLine($"Updated {policy.Id} to version {policy.Version}. PCs with it apply the change at their next check-in.");
+                return 0;
+            }
+
+            case "assign" when args.Length >= 3:
+            {
+                var policyId = args[1].Equals("none", StringComparison.OrdinalIgnoreCase) ? null : args[1];
+                var devices = args[2] == "--all"
+                    ? store.Devices()
+                    : args[2..].Select(pc => store.Find(pc) ?? throw new ArgumentException($"No enrolled PC called {pc}.")).ToList();
+                foreach (var d in devices)
+                {
+                    store.Assign(d.DeviceId, policyId);
+                }
+
+                Console.WriteLine(policyId is null
+                    ? $"{devices.Count} PC(s) have no policy now; they remove the organization's rules at their next check-in."
+                    : $"{devices.Count} PC(s) get {policyId} at their next check-in.");
+                return 0;
+            }
+
+            case "default" when args.Length == 2:
+            {
+                var policyId = args[1].Equals("none", StringComparison.OrdinalIgnoreCase) ? null : args[1];
+                store.SetDefaultPolicy(policyId);
+                Console.WriteLine(policyId is null ? "New PCs get no policy." : $"New PCs get {policyId} when they enroll.");
+                return 0;
+            }
+
+            case "delete" when args.Length == 2:
+            {
+                var ok = store.DeletePolicy(args[1]);
+                Console.WriteLine(ok ? $"Deleted {args[1]}. PCs that had it remove its rules at their next check-in." : $"No policy {args[1]}.");
+                return ok ? 0 : 1;
+            }
+
+            default:
+                Console.WriteLine(Usage);
+                return 2;
+        }
+    }
+
     public static int Activity(string folder, string pc, string[] args)
     {
         var store = new ServerStore(folder);
@@ -210,5 +314,38 @@ internal static class Commands
         Console.WriteLine($"Asked {device.Computer} for {request.Kind} connections of the last {request.Hours} hours ({request.RequestId}).");
         Console.WriteLine($"It answers after its next check-in. Then: criofire-server activity {device.Computer} --show");
         return 0;
+    }
+}
+
+/// <summary>The options of policy create and update.</summary>
+internal sealed record PolicyOptions(string? Name, CrioFire.Core.RuleSet? Rules, string? Mode, bool ModeGiven, bool? Lock, bool? Protect)
+{
+    public static PolicyOptions Parse(string[] args)
+    {
+        string? name = null, mode = null;
+        CrioFire.Core.RuleSet? rules = null;
+        bool modeGiven = false;
+        bool? locked = null, protect = null;
+        for (var i = 0; i < args.Length; i++)
+        {
+            string Value() => i + 1 < args.Length ? args[++i] : throw new ArgumentException($"{args[i]} needs a value.");
+            switch (args[i])
+            {
+                case "--name": name = Value(); break;
+                case "--rules": rules = CrioFire.Core.RuleBackup.FromJson(File.ReadAllText(Value())); break;
+                case "--mode":
+                    var m = Value().ToLowerInvariant();
+                    mode = m == "any" ? null : m;
+                    modeGiven = true;
+                    break;
+                case "--lock": locked = true; break;
+                case "--unlock": locked = false; break;
+                case "--protect": protect = true; break;
+                case "--no-protect": protect = false; break;
+                default: throw new ArgumentException($"Unknown option {args[i]}.");
+            }
+        }
+
+        return new PolicyOptions(name, rules, mode, modeGiven, locked, protect);
     }
 }

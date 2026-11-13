@@ -166,19 +166,19 @@ internal sealed class AppModel
     /// <summary>App rules, one entry per program/action/direction rather than per IPv4/IPv6 filter.</summary>
     public IEnumerable<RuleInfo> AppRules => Rules
         .Where(r => r.Kind == nameof(FilterKind.AppRule))
-        .GroupBy(r => (r.App?.ToUpperInvariant(), r.Action, r.Direction))
+        .GroupBy(r => (r.App?.ToUpperInvariant(), r.Action, r.Direction, r.Managed))
         .Select(g => g.First());
 
     /// <summary>Network rules (port/address), one entry per rule rather than per filter.</summary>
     public IEnumerable<RuleInfo> NetRules => Rules
         .Where(r => r.Kind == nameof(FilterKind.NetRule))
-        .GroupBy(r => (r.Action, r.Direction, r.Protocol, r.Ports, r.Addresses, r.App?.ToUpperInvariant()))
+        .GroupBy(r => (r.Action, r.Direction, r.Protocol, r.Ports, r.Addresses, r.App?.ToUpperInvariant(), r.Managed))
         .Select(g => g.First());
 
     /// <summary>Service rules, one entry per service/action/direction.</summary>
     public IEnumerable<RuleInfo> ServiceRules => Rules
         .Where(r => r.Kind == nameof(FilterKind.ServiceRule))
-        .GroupBy(r => (r.Service?.ToUpperInvariant(), r.Action, r.Direction))
+        .GroupBy(r => (r.Service?.ToUpperInvariant(), r.Action, r.Direction, r.Managed))
         .Select(g => g.First());
 
     public bool SetServiceRule(string service, string action, string direction = "out")
@@ -398,6 +398,11 @@ internal sealed class AppModel
     /// </summary>
     public void ChangeRules(IReadOnlyList<RuleInfo> rules, string? action, string? direction)
     {
+        if (OrganizationOnly(ref rules))
+        {
+            return;
+        }
+
         int changed = 0, failed = 0;
         foreach (var r in rules)
         {
@@ -461,6 +466,11 @@ internal sealed class AppModel
     /// <summary>Removes rules of every kind at once.</summary>
     public void RemoveMany(IReadOnlyList<RuleInfo> rules)
     {
+        if (OrganizationOnly(ref rules))
+        {
+            return;
+        }
+
         var removed = 0;
         foreach (var r in rules)
         {
@@ -661,6 +671,24 @@ internal sealed class AppModel
     }
 
     /// <summary>The saved rule backups, newest first.</summary>
+    /// <summary>
+    /// Leaves out rules set by the organization (they cannot be changed on this PC). Returns true,
+    /// after saying so, when nothing is left to change.
+    /// </summary>
+    private bool OrganizationOnly(ref IReadOnlyList<RuleInfo> rules)
+    {
+        var own = rules.Where(r => !r.Managed).ToList();
+        if (own.Count < rules.Count)
+        {
+            Message?.Invoke(this, own.Count == 0
+                ? "Rules set by your organization cannot be changed on this PC."
+                : "Rules set by your organization were left as they are.");
+        }
+
+        rules = own;
+        return own.Count == 0;
+    }
+
     public static IReadOnlyList<BackupInfo> Backups() =>
         Service.Call(new ApiRequest { Op = ApiOps.Backups }, out _)?.Backups ?? [];
 

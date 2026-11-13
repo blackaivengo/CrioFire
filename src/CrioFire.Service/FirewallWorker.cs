@@ -71,7 +71,8 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var links = new ServerLinkStore(ServerLinkStore.DefaultPath);
             var nextCheckin = DateTime.UtcNow + TimeSpan.FromSeconds(10);
             var checkinEvery = ServerDefaults.CheckinInterval(ServerDefaults.CheckinSeconds);
-            Task<TimeSpan?>? checkin = null;
+            Task<CheckinOutcome?>? checkin = null;
+            var policies = new ManagedPolicyStore(ManagedPolicyStore.DefaultPath);
 
             using var timer = new PeriodicTimer(PollInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -93,9 +94,11 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     // minutes (the server sets how often). Connections go only when an administrator
                     // asks for them. The check-in runs beside this loop, so a slow or unreachable
                     // server never delays the firewall's work.
-                    if (checkin is { IsCompletedSuccessfully: true } done && done.Result is { } every)
+                    if (checkin is { IsCompletedSuccessfully: true } done && done.Result is { } outcome)
                     {
-                        checkinEvery = every;
+                        checkin = null;
+                        checkinEvery = outcome.Interval;
+                        ApplyPolicy(engine, links, policies, outcome, backups, temporaryRules, now);
                     }
 
                     if (now >= nextCheckin && checkin is null or { IsCompleted: true })
@@ -107,6 +110,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                             var report = CheckinReports.Build(engine, identities.Store.Changed().Count,
                                 new TamperProtection(TamperProtection.DefaultPath).RequireAdmin,
                                 LicenseKeys.Check(new LicenseStore(LicenseStore.DefaultPath).Key, now, licenseKey).State,
+                                link.PolicyId,
                                 link.PolicyVersion);
                             checkin = CheckinAsync(links, link, report, log, allowedLog, stoppingToken);
                         }
@@ -192,7 +196,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
     /// them. The result is kept in server.json for the app and the command line. Returns the
     /// interval the server wants until the next check-in, or null after a failure.
     /// </summary>
-    private async Task<TimeSpan?> CheckinAsync(ServerLinkStore links, ServerLink link, CheckinReport report, TrafficLog blockedLog, TrafficLog allowedLog, CancellationToken stoppingToken)
+    private async Task<CheckinOutcome?> CheckinAsync(ServerLinkStore links, ServerLink link, CheckinReport report, TrafficLog blockedLog, TrafficLog allowedLog, CancellationToken stoppingToken)
     {
         try
         {
@@ -206,7 +210,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             }
 
             SaveIfStillEnrolled(links, link with { LastCheckinUtc = DateTime.UtcNow, LastError = null });
-            return ServerDefaults.CheckinInterval(answer.NextCheckinSeconds);
+            return new CheckinOutcome(link.DeviceId, ServerDefaults.CheckinInterval(answer.NextCheckinSeconds), answer.PolicyId, answer.PolicyVersion, answer.Policy);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -219,6 +223,45 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             return null;
         }
     }
+
+    /// <summary>
+    /// Puts the organization's policy in force when the server sent a new one, or removes the
+    /// organization's rules when the PC no longer has a policy. Runs on the main loop, which owns
+    /// the filtering-engine session.
+    /// </summary>
+    private void ApplyPolicy(WfpEngine engine, ServerLinkStore links, ManagedPolicyStore policies, CheckinOutcome outcome,
+        RuleBackupStore backups, TemporaryRuleStore temporaryRules, DateTime now)
+    {
+        if (links.Load() is not { } link || link.DeviceId != outcome.DeviceId)
+        {
+            return;
+        }
+
+        try
+        {
+            if (outcome.Policy is { } policy)
+            {
+                var rules = ManagedPolicies.Apply(engine, policy, backups, temporaryRules, new TamperProtection(TamperProtection.DefaultPath), now);
+                policies.Save(policy);
+                links.Save(link with { PolicyId = policy.Id, PolicyVersion = policy.Version });
+                LogPolicyApplied(logger, policy.Name, policy.Version, rules);
+            }
+            else if (outcome.PolicyId is null && link.PolicyId is not null)
+            {
+                ManagedPolicies.Clear(engine, policies);
+                links.Save(link with { PolicyId = null, PolicyVersion = 0 });
+                LogPolicyRemoved(logger);
+            }
+        }
+        catch (Exception ex) when (ex is WfpException or ArgumentException or IOException or InvalidOperationException)
+        {
+            links.Save(link with { LastError = $"Could not apply the organization's policy: {ex.Message}" });
+            LogPollError(logger, ex);
+        }
+    }
+
+    /// <summary>What one check-in brought back.</summary>
+    private sealed record CheckinOutcome(string DeviceId, TimeSpan Interval, string? PolicyId, int PolicyVersion, ManagedPolicy? Policy);
 
     /// <summary>Records a check-in result, unless the PC was unenrolled or enrolled elsewhere meanwhile.</summary>
     private static void SaveIfStillEnrolled(ServerLinkStore links, ServerLink link)
@@ -275,6 +318,12 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} expired temporary rules.")]
     private static partial void LogExpired(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Applied the organization's policy {Name} (version {Version}, {Rules} rules).")]
+    private static partial void LogPolicyApplied(ILogger logger, string name, int version, int rules);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "This PC no longer has an organization policy; its rules were removed.")]
+    private static partial void LogPolicyRemoved(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Sent {Rows} rows of connections to the CrioFire Server {Url}, as an administrator asked.")]
     private static partial void LogActivitySent(ILogger logger, int rows, string url);

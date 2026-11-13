@@ -73,13 +73,15 @@ public sealed record ActivityRow(string Time, string Why, string Direction, stri
 public sealed record RuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Program, string App, string Until,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
 {
-    public string FlipHint => Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+    public string FlipHint => Info.Managed ? "Set by your organization; it cannot be changed on this PC."
+        : Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
 }
 
 public sealed record NetRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Rule, string Program, string? App, ulong FilterId,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
 {
-    public string FlipHint => Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+    public string FlipHint => Info.Managed ? "Set by your organization; it cannot be changed on this PC."
+        : Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
 }
 
 /// <summary>A program or a single Windows service that was allowed to connect.</summary>
@@ -99,7 +101,8 @@ public sealed record AllowedActivityRow(string Time, string Why, string Directio
 public sealed record ServiceRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Service, string DisplayName,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
 {
-    public string FlipHint => Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+    public string FlipHint => Info.Managed ? "Set by your organization; it cannot be changed on this PC."
+        : Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
 }
 
 /// <summary>One of CrioFire's automatic permits or always-on behaviours, shown on the Rules page.</summary>

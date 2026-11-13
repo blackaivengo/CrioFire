@@ -192,6 +192,13 @@ static int Run(Backend api, Command command)
                 Console.WriteLine($"Last problem: {error}");
             }
 
+            if (info.Policy is { } p)
+            {
+                Console.WriteLine($"Policy: {p.Name} ({p.Rules} rules; mode {p.Mode ?? "your choice"}; "
+                    + $"{(p.AllowUserRules ? "you may add your own rules" : "your own rules are not allowed")}"
+                    + $"{(p.RequireAdmin ? "; tamper protection required" : string.Empty)})");
+            }
+
             return 0;
         }
 
@@ -491,7 +498,16 @@ static int Unenroll()
     }
 
     store.Delete();
-    Console.WriteLine("This PC no longer reports to the CrioFire Server. Its rules stay as they are.");
+    using (var engine = WfpEngine.Open())
+    {
+        var removed = ManagedPolicies.Clear(engine, new ManagedPolicyStore(ManagedPolicyStore.DefaultPath));
+        if (removed > 0)
+        {
+            Console.WriteLine($"Removed the organization's rules ({removed} filters).");
+        }
+    }
+
+    Console.WriteLine("This PC no longer reports to the CrioFire Server. Your own rules stay as they are.");
     return 0;
 }
 
@@ -572,7 +588,8 @@ internal sealed class Backend : IDisposable
             new RuleBackupStore(RuleBackupStore.DefaultFolder),
             new TamperProtection(TamperProtection.DefaultPath),
             new LicenseStore(LicenseStore.DefaultPath),
-            new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath));
+            new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath),
+            new ManagedPolicyStore(ManagedPolicyStore.DefaultPath));
         Description = "direct, administrator";
     }
 

@@ -46,13 +46,23 @@ public sealed record CheckinReport
 
     public string License { get; init; } = "none";
 
-    /// <summary>The version of the policy this PC has applied (0: none).</summary>
+    /// <summary>The policy this PC has applied (null: none) and its version.</summary>
+    public string? PolicyId { get; init; }
+
     public int PolicyVersion { get; init; }
 }
 
 /// <param name="NextCheckinSeconds">When to check in next; the server decides (default 300).</param>
 /// <param name="Activity">An administrator asked for this PC's connections: send them (POST api/v1/activity).</param>
-public sealed record CheckinResponse(int PolicyVersion, DateTime ServerTimeUtc, int NextCheckinSeconds = ServerDefaults.CheckinSeconds, ActivityRequest? Activity = null);
+/// <param name="PolicyId">The policy assigned to this PC, or null for none (the PC then removes organization rules).</param>
+/// <param name="Policy">The whole policy, sent only when the PC reported another policy or version.</param>
+public sealed record CheckinResponse(
+    int PolicyVersion,
+    DateTime ServerTimeUtc,
+    int NextCheckinSeconds = ServerDefaults.CheckinSeconds,
+    ActivityRequest? Activity = null,
+    string? PolicyId = null,
+    ManagedPolicy? Policy = null);
 
 /// <summary>An administrator's request for one PC's connections.</summary>
 /// <param name="Kind">blocked, allowed or all.</param>
@@ -71,18 +81,24 @@ public sealed record ServerLink(string Url, string DeviceId, string Secret, stri
 
     public string? LastError { get; init; }
 
+    public string? PolicyId { get; init; }
+
     public int PolicyVersion { get; init; }
 }
 
 /// <summary>What the app and the command line may know about the link: everything but the secret.</summary>
-public sealed record ManagementInfo(string Url, string DeviceId, DateTime EnrolledUtc, DateTime? LastCheckinUtc, string? LastError, int PolicyVersion)
+/// <param name="Policy">The organization's policy in force, if any (name, mode, whether the user may add rules).</param>
+public sealed record ManagementInfo(string Url, string DeviceId, DateTime EnrolledUtc, DateTime? LastCheckinUtc, string? LastError, int PolicyVersion, PolicySummary? Policy = null)
 {
-    public static ManagementInfo From(ServerLink link)
+    public static ManagementInfo From(ServerLink link, ManagedPolicy? policy = null)
     {
         ArgumentNullException.ThrowIfNull(link);
-        return new(link.Url, link.DeviceId, link.EnrolledUtc, link.LastCheckinUtc, link.LastError, link.PolicyVersion);
+        return new(link.Url, link.DeviceId, link.EnrolledUtc, link.LastCheckinUtc, link.LastError, link.PolicyVersion,
+            policy is null ? null : new PolicySummary(policy.Name, policy.Mode, policy.AllowUserRules, policy.RequireAdmin, policy.Rules.Count, policy.UpdatedUtc));
     }
 }
+
+public sealed record PolicySummary(string Name, string? Mode, bool AllowUserRules, bool RequireAdmin, int Rules, DateTime UpdatedUtc);
 
 public sealed class ServerLinkStore(string path)
 {
@@ -284,6 +300,7 @@ public static class CheckinReports
         int changedPrograms,
         bool requireAdmin,
         string license,
+        string? policyId,
         int policyVersion)
     {
         ArgumentNullException.ThrowIfNull(engine);
@@ -303,6 +320,7 @@ public static class CheckinReports
             ChangedPrograms = changedPrograms,
             RequireAdmin = requireAdmin,
             License = license,
+            PolicyId = policyId,
             PolicyVersion = policyVersion,
         };
     }
@@ -335,6 +353,7 @@ public static class CheckinReports
 [JsonSerializable(typeof(CheckinReport))]
 [JsonSerializable(typeof(CheckinResponse))]
 [JsonSerializable(typeof(ActivityUpload))]
+[JsonSerializable(typeof(ManagedPolicy))]
 [JsonSerializable(typeof(ServerLink))]
 public sealed partial class ManagementJson : JsonSerializerContext
 {

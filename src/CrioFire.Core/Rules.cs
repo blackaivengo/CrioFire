@@ -290,4 +290,5 @@ public sealed record CrioFireFilter(
     NetRule? Net = null,
     string? BuiltIn = null,
     ServiceRule? Service = null,
-    PanicState? Panic = null);
+    PanicState? Panic = null,
+    bool Managed = false);

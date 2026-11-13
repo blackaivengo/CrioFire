@@ -2,12 +2,22 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CrioFire.Core;
 using CrioFire.Core.Management;
 
 namespace CrioFire.Server;
 
 /// <summary>A one-time or multi-use code the admin gives out so PCs can enroll. Only its hash is kept.</summary>
 public sealed record EnrollmentToken(string Id, string Hash, DateTime CreatedUtc, DateTime ExpiresUtc, int UsesLeft, string? Note);
+
+/// <summary>
+/// A policy: the organization's rules for the PCs it is assigned to, and what their users may
+/// still change. Every edit raises the version; PCs pick it up at their next check-in.
+/// </summary>
+public sealed record ServerPolicy(string Id, string Name, int Version, string? Mode, bool AllowUserRules, bool RequireAdmin, RuleSet Rules, DateTime UpdatedUtc)
+{
+    public ManagedPolicy ToManaged() => new(Id, Version, Name, Mode, AllowUserRules, RequireAdmin, Rules, UpdatedUtc);
+}
 
 /// <summary>An enrolled PC. The secret it authenticates with is kept only as a hash.</summary>
 public sealed record DeviceRecord(string DeviceId, string SecretHash, string Computer, DateTime EnrolledUtc)
@@ -55,6 +65,172 @@ public sealed class ServerStore
 
     /// <summary>Requests for connections, one file per PC, so the command line can ask while the server runs.</summary>
     private string RequestFolder => Path.Combine(Folder, "requests");
+
+    /// <summary>One file per policy, and default.txt naming the policy new PCs get.</summary>
+    private string PolicyFolder => Path.Combine(Folder, "policies");
+
+    /// <summary>One file per PC naming its policy.</summary>
+    private string AssignmentFolder => Path.Combine(Folder, "assignments");
+
+    public ServerPolicy CreatePolicy(string name, RuleSet rules, string? mode, bool allowUserRules, bool requireAdmin, DateTime nowUtc)
+    {
+        var policy = new ServerPolicy(
+            "pol_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant(),
+            CheckName(name),
+            1,
+            CheckMode(mode),
+            allowUserRules,
+            requireAdmin,
+            CheckRules(rules),
+            nowUtc);
+        WritePolicy(policy);
+        return policy;
+    }
+
+    /// <summary>Changes a policy; its version goes up, so every PC with it applies the change at its next check-in.</summary>
+    public ServerPolicy UpdatePolicy(string id, Func<ServerPolicy, ServerPolicy> change, DateTime nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        lock (_gate)
+        {
+            var old = Policy(id) ?? throw new ArgumentException($"No policy {id}.");
+            var changed = change(old);
+            var policy = changed with
+            {
+                Id = old.Id,
+                Name = CheckName(changed.Name),
+                Mode = CheckMode(changed.Mode),
+                Rules = CheckRules(changed.Rules),
+                Version = old.Version + 1,
+                UpdatedUtc = nowUtc,
+            };
+            WritePolicy(policy);
+            return policy;
+        }
+    }
+
+    public IReadOnlyList<ServerPolicy> Policies()
+    {
+        Directory.CreateDirectory(PolicyFolder);
+        return Directory.EnumerateFiles(PolicyFolder, "pol_*.json")
+            .Select(p => Policy(Path.GetFileNameWithoutExtension(p)))
+            .OfType<ServerPolicy>()
+            .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public ServerPolicy? Policy(string id)
+    {
+        var path = Path.Combine(PolicyFolder, id + ".json");
+        if (!IsId(id) || !id.StartsWith("pol_", StringComparison.Ordinal) || !File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(File.ReadAllText(path), ServerJson.Default.ServerPolicy);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Deletes a policy. PCs that had it remove its rules at their next check-in.</summary>
+    public bool DeletePolicy(string id)
+    {
+        lock (_gate)
+        {
+            if (Policy(id) is null)
+            {
+                return false;
+            }
+
+            File.Delete(Path.Combine(PolicyFolder, id + ".json"));
+            if (DefaultPolicyId() == id)
+            {
+                SetDefaultPolicy(null);
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>Gives a PC a policy, or none (null).</summary>
+    public void Assign(string deviceId, string? policyId)
+    {
+        if (!IsId(deviceId))
+        {
+            throw new ArgumentException("No such PC.");
+        }
+
+        if (policyId is not null && Policy(policyId) is null)
+        {
+            throw new ArgumentException($"No policy {policyId}.");
+        }
+
+        Directory.CreateDirectory(AssignmentFolder);
+        var path = Path.Combine(AssignmentFolder, deviceId + ".txt");
+        if (policyId is null)
+        {
+            DeleteIfExists(path);
+        }
+        else
+        {
+            File.WriteAllText(path, policyId);
+        }
+    }
+
+    /// <summary>The policy a PC has, or null.</summary>
+    public ServerPolicy? AssignedPolicy(string deviceId)
+    {
+        var path = Path.Combine(AssignmentFolder, deviceId + ".txt");
+        return IsId(deviceId) && File.Exists(path) ? Policy(File.ReadAllText(path).Trim()) : null;
+    }
+
+    /// <summary>The policy PCs get when they enroll, or null.</summary>
+    public string? DefaultPolicyId()
+    {
+        var path = Path.Combine(PolicyFolder, "default.txt");
+        return File.Exists(path) && File.ReadAllText(path).Trim() is { Length: > 0 } id && Policy(id) is not null ? id : null;
+    }
+
+    public void SetDefaultPolicy(string? policyId)
+    {
+        if (policyId is not null && Policy(policyId) is null)
+        {
+            throw new ArgumentException($"No policy {policyId}.");
+        }
+
+        Directory.CreateDirectory(PolicyFolder);
+        var path = Path.Combine(PolicyFolder, "default.txt");
+        if (policyId is null)
+        {
+            DeleteIfExists(path);
+        }
+        else
+        {
+            File.WriteAllText(path, policyId);
+        }
+    }
+
+    private void WritePolicy(ServerPolicy policy)
+    {
+        Directory.CreateDirectory(PolicyFolder);
+        var path = Path.Combine(PolicyFolder, policy.Id + ".json");
+        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(policy, ServerJson.Default.ServerPolicy));
+        File.Move(path + ".tmp", path, overwrite: true);
+    }
+
+    private static string CheckName(string name) =>
+        string.IsNullOrWhiteSpace(name) || name.Trim().Length > 80 ? throw new ArgumentException("A policy needs a name of up to 80 characters.") : name.Trim();
+
+    private static string? CheckMode(string? mode) =>
+        mode is null || FilterDescriptions.TryParseMode(mode, out _) ? mode?.ToLowerInvariant() : throw new ArgumentException("mode must be learning, ask or allowlist.");
+
+    private static RuleSet CheckRules(RuleSet rules) =>
+        RuleBackup.Validate(rules ?? throw new ArgumentException("A policy needs rules (they may be empty).")) is { } error ? throw new ArgumentException(error) : rules;
 
     /// <summary>Creates an enrollment token. The token text is returned once and never stored.</summary>
     public (string Token, EnrollmentToken Record) CreateToken(TimeSpan validFor, int uses, string? note, DateTime nowUtc)
@@ -154,6 +330,7 @@ public sealed class ServerStore
             _devices.RemoveAll(d => string.Equals(d.Computer, device.Computer, StringComparison.OrdinalIgnoreCase));
             _devices.Add(device);
             SaveDevicesLocked();
+            Assign(device.DeviceId, DefaultPolicyId());
             return new EnrollResponse(device.DeviceId, secret, serverName);
         }
     }
@@ -321,6 +498,7 @@ public sealed class ServerStore
                 SaveDevicesLocked();
                 DeleteIfExists(Path.Combine(ActivityFolder, deviceId + ".json"));
                 DeleteIfExists(Path.Combine(RequestFolder, deviceId + ".json"));
+                DeleteIfExists(Path.Combine(AssignmentFolder, deviceId + ".txt"));
             }
 
             return removed;
@@ -413,6 +591,7 @@ public sealed class ServerStore
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(EnrollmentToken))]
 [JsonSerializable(typeof(ActivityRequest))]
+[JsonSerializable(typeof(ServerPolicy))]
 [JsonSerializable(typeof(List<DeviceRecord>))]
 internal sealed partial class ServerJson : JsonSerializerContext
 {

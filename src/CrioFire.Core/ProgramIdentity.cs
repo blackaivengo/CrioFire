@@ -354,7 +354,7 @@ public sealed class IdentityGuard(ProgramIdentityStore store, ISignatureReader s
         ArgumentNullException.ThrowIfNull(engine);
         var filters = engine.ListFilters();
         var allows = filters
-            .Where(f => f.Kind == FilterKind.AppRule && f.Rule is { Action: RuleAction.Allow })
+            .Where(f => !f.Managed && f.Kind == FilterKind.AppRule && f.Rule is { Action: RuleAction.Allow })
             .GroupBy(f => f.Rule!.AppPath, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Select(f => f.Rule!.Direction).Aggregate((a, b) => a | b), StringComparer.OrdinalIgnoreCase);
         if (allows.Count == 0)

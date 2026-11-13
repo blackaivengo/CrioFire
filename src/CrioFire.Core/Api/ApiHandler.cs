@@ -13,7 +13,8 @@ namespace CrioFire.Core.Api;
 /// <param name="protection">Tamper protection; null means off (tests).</param>
 /// <param name="license">The license key entered on this PC; null in tests.</param>
 /// <param name="serverLink">The link to a company's CrioFire Server, when this PC is managed; null in tests.</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null)
+/// <param name="policy">The organization's policy in force, which can stop users from changing rules, the mode or tamper protection.</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -42,6 +43,11 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                         ? "Changing tamper protection needs administrator approval."
                         : "Tamper protection is on: changing rules needs administrator approval (approve the prompt in the app, or use an administrator prompt).",
                     ApiOps.ApprovalRequired);
+            }
+
+            if (policy?.Load() is { } managed && ManagedRefusal(request, managed) is { } refusal)
+            {
+                return ApiResponse.Failure(refusal);
             }
         }
 
@@ -88,7 +94,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                     ApiOps.SetProtection => SetProtection(request),
                     ApiOps.License => new ApiResponse { Ok = true, License = LicenseKeys.Check(license?.Key, DateTime.UtcNow, _licenseKey.Value) },
                     ApiOps.SetLicense => SetLicense(request),
-                    ApiOps.Management => new ApiResponse { Ok = true, Management = serverLink?.Load() is { } link ? global::CrioFire.Core.Management.ManagementInfo.From(link) : null },
+                    ApiOps.Management => new ApiResponse { Ok = true, Management = serverLink?.Load() is { } link ? global::CrioFire.Core.Management.ManagementInfo.From(link, policy?.Load()) : null },
                     ApiOps.Backups => new ApiResponse { Ok = true, Backups = backups?.List().ToList() ?? [] },
                     ApiOps.RestoreBackup => Import(
                         (backups ?? throw new InvalidOperationException("Backups need the criofire service.")).Load(Required(request.Name, "name")),
@@ -315,6 +321,25 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         Backup("before-import");
         var plan = RuleBackup.Apply(engine, set, mode, temporaryRules, withMode, now);
         return new ApiResponse { Ok = true, Plan = plan };
+    }
+
+    /// <summary>What the organization's policy does not let users change, whoever asks; null when the request may go ahead.</summary>
+    private static string? ManagedRefusal(ApiRequest request, ManagedPolicy managed)
+    {
+        if (!managed.AllowUserRules && request.Op is ApiOps.SetRule or ApiOps.RemoveRules or ApiOps.RemoveFilter or ApiOps.AddNetRule
+            or ApiOps.SetServiceRule or ApiOps.RemoveServiceRules or ApiOps.ImportRules or ApiOps.RestoreBackup or ApiOps.SetAutoRule or ApiOps.Trust)
+        {
+            return ManagedPolicies.LockedMessage;
+        }
+
+        if (managed.Mode is not null && request.Op == ApiOps.SetMode)
+        {
+            return "The mode on this PC is set by your organization.";
+        }
+
+        return managed.RequireAdmin && request.Op == ApiOps.SetProtection && request.Enabled == false
+            ? "Tamper protection on this PC is required by your organization."
+            : null;
     }
 
     /// <summary>setLicense: stores a license key after checking it; an empty key goes back to free use.</summary>

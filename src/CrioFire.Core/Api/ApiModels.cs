@@ -217,7 +217,8 @@ public sealed record RuleInfo(
     string? Ports = null,
     string? Addresses = null,
     string? Summary = null,
-    string? Service = null)
+    string? Service = null,
+    bool Managed = false)
 {
     public static RuleInfo From(CrioFireFilter f)
     {
@@ -225,7 +226,8 @@ public sealed record RuleInfo(
         {
             return new RuleInfo(
                 f.FilterId, f.Kind.ToString(), RuleDescription.ActionText(s.Action), RuleDescription.DirectionText(s.Direction), null, f.Layer?.Name, f.Name,
-                Service: s.ServiceName);
+                Service: s.ServiceName,
+                Managed: f.Managed);
         }
 
         if (f.Net is { } n)
@@ -235,7 +237,8 @@ public sealed record RuleInfo(
                 Protocol: NetRule.ProtocolText(n.Protocol),
                 Ports: n.Ports.Length == 0 ? null : n.Ports,
                 Addresses: n.Addresses.Length == 0 ? null : n.Addresses,
-                Summary: n.Summary());
+                Summary: n.Summary(),
+                Managed: f.Managed);
         }
 
         return new RuleInfo(
@@ -244,10 +247,16 @@ public sealed record RuleInfo(
             f.Rule is null ? (f.Kind == FilterKind.DefaultBlock ? "block" : f.Kind == FilterKind.BuiltInAllow ? "allow" : null) : RuleDescription.ActionText(f.Rule.Action),
             f.Rule is null ? null : RuleDescription.DirectionText(f.Rule.Direction),
             f.Rule?.AppPath ?? (f.Kind == FilterKind.BuiltInAllow
-                ? (string.Equals(f.BuiltIn, AutoRulePolicy.WindowsKernel, StringComparison.OrdinalIgnoreCase) ? KnownApps.Kernel : "svchost.exe")
+                ? (f.BuiltIn?.ToLowerInvariant() switch
+                {
+                    AutoRulePolicy.WindowsKernel => KnownApps.Kernel,
+                    KnownApps.CrioFireServiceRule => KnownApps.CrioFireService,
+                    _ => "svchost.exe",
+                })
                 : null),
             f.Layer?.Name,
-            f.Name);
+            f.Name,
+            Managed: f.Managed);
     }
 }
 

@@ -12,6 +12,9 @@ public static class WfpIds
     /// <summary>The criofire-sublayer key. All CrioFire filters live in this sublayer.</summary>
     public static readonly Guid SubLayerKey = new("96ba80d3-6072-4fca-8f6e-cb2f06ae8d7f");
 
+    /// <summary>criofire-managed-sublayer: rules pushed by a company's CrioFire Server, above the user's own.</summary>
+    public static readonly Guid ManagedSubLayerKey = new("4c0d7a52-9e1b-4f43-b8a6-2f9d6c3e7a11");
+
     // Windows SDK values (fwpmu.h). Outbound connections are authorized at ALE_AUTH_CONNECT,
     // inbound ones at ALE_AUTH_RECV_ACCEPT; each exists once for IPv4 and once for IPv6.
 

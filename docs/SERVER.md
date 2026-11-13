@@ -6,8 +6,8 @@ protection, license): a few hundred bytes, no connection data. What a PC blocked
 only when an administrator asks for it, for that one PC, so even thousands of PCs do not flood the
 server. It runs on a machine the company controls; nothing goes to CrioSoft.
 
-> **Status:** step 1 of 4: enrollment and status reporting. Pushing rules (policies), the admin web
-> console and an installer for the server follow.
+> **Status:** steps 1 and 2 of 4: enrollment, status reporting and policies. The admin web console
+> and an installer for the server follow.
 
 ## Set it up (for now, by hand)
 
@@ -45,6 +45,32 @@ last check-in. `criofire unenroll` leaves; the PC's rules stay as they are.
 
 Other server commands: `tokens` (codes that still work), `revoke <id>`, `devices` (enrolled PCs and
 their last report), `fingerprint`.
+
+## Policies: the organization's rules
+
+A policy is a set of rules (made with `criofire export` on a PC set up the way you want), plus what
+users may still change. Assign it to PCs; they apply it at their next check-in, and again whenever
+you change it.
+
+```powershell
+criofire-server policy create "Office" --rules office-rules.json --mode ask
+criofire-server policy create "Kiosk" --rules kiosk-rules.json --mode allowlist --lock --protect
+criofire-server policy assign pol_1a2b3c4d PC-042 PC-043      # or --all
+criofire-server policy default pol_1a2b3c4d                   # what new PCs get when they enroll
+criofire-server policy update pol_1a2b3c4d --rules office-rules-v2.json
+criofire-server policy list
+```
+
+- **Organization rules always win.** They live in their own filter sublayer above the user's: an
+  organization block beats any user allow, and an organization allow is a hard permit that user
+  blocks cannot override. Only panic "block everything" beats them.
+- `--mode` sets the mode on every PC with the policy (users cannot change it); without it, users choose.
+- `--lock` removes users' own rules (a backup is kept on the PC) and lets them add none.
+  Without it, users may add their own rules next to the organization's.
+- `--protect` switches tamper protection on and keeps it on.
+- Rules for programs that are not installed on a PC are skipped there.
+- Unassigning a policy (`assign none ...`) or deleting it removes its rules from the PCs at their
+  next check-in; `criofire unenroll` on a PC removes them at once. The user's own rules stay.
 
 ## See what one PC blocked and allowed
 

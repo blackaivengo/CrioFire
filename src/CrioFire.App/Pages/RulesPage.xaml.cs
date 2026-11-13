@@ -70,7 +70,7 @@ public partial class RulesPage : UserControl, IPage
                     r,
                     allow ? "Allow" : "Block",
                     Who.Direction(r.Direction),
-                    KnownApps.DisplayName(r.App),
+                    KnownApps.DisplayName(r.App) + Organization(r),
                     r.App ?? r.Name,
                     r.ExpiresUtc is DateTime t ? Fmt.Time(t) : "always",
                     allow ? chipIce : chipFire,
@@ -102,7 +102,7 @@ public partial class RulesPage : UserControl, IPage
                     allow ? "Allow" : "Block",
                     Who.Direction(r.Direction),
                     rule,
-                    r.App is null ? "Any program" : KnownApps.DisplayName(r.App),
+                    (r.App is null ? "Any program" : KnownApps.DisplayName(r.App)) + Organization(r),
                     r.App,
                     r.FilterId,
                     allow ? chipIce : chipFire,
@@ -132,7 +132,7 @@ public partial class RulesPage : UserControl, IPage
                     allow ? "Allow" : "Block",
                     Who.Direction(r.Direction),
                     service,
-                    displayNames.TryGetValue(service, out var display) ? display : service,
+                    (displayNames.TryGetValue(service, out var display) ? display : service) + Organization(r),
                     allow ? chipIce : chipFire,
                     allow ? chipIceText : chipFireText);
             })
@@ -487,6 +487,8 @@ public partial class RulesPage : UserControl, IPage
     private void OnAllowHour(object sender, RoutedEventArgs e) => Add("allow", 60);
 
     private void OnBlock(object sender, RoutedEventArgs e) => Add("block", null);
+
+    private static string Organization(RuleInfo r) => r.Managed ? " · set by your organization" : string.Empty;
 
     private StackPanel BuildActions()
     {

@@ -31,6 +31,16 @@ public sealed unsafe class WfpEngine : IDisposable
     /// </summary>
     private const ushort SubLayerWeight = 0x8000;
 
+    // Rules pushed by a company's CrioFire Server live in their own sublayer, evaluated before the
+    // user's: their blocks win over any user permit (block always wins across sublayers), and their
+    // permits are hard permits (FWPM_FILTER_FLAG_CLEAR_ACTION_RIGHT) that user blocks cannot override.
+    private const ushort ManagedSubLayerWeight = 0x8001;
+    private const string ManagedSubLayerName = "CrioFire organization rules";
+    private const string ManagedSubLayerDescription = "criofire-managed-sublayer: rules set by the organization's CrioFire Server";
+
+    /// <summary>True while <see cref="Managed{T}"/> runs: rules are written to and matched in the managed sublayer.</summary>
+    private bool _managed;
+
     // Filter weights inside CrioFire's sublayer (0-15): a user's rule beats the built-in permits,
     // which beat the catch-all block of Ask/Allow-list mode.
     private const byte RuleWeight = 10;
@@ -118,7 +128,64 @@ public sealed unsafe class WfpEngine : IDisposable
         }
 
         tx.Commit();
+        EnsureManagedSublayer();
         EnableNetEventCollection();
+    }
+
+    /// <summary>Adds the sublayer for organization rules (installs from before it existed get it here). Safe to call repeatedly.</summary>
+    public void EnsureManagedSublayer()
+    {
+        ThrowIfDisposed();
+        var providerKey = WfpIds.ProviderKey;
+        fixed (char* pName = ManagedSubLayerName)
+        fixed (char* pDesc = ManagedSubLayerDescription)
+        {
+            var subLayer = new FWPM_SUBLAYER0
+            {
+                subLayerKey = WfpIds.ManagedSubLayerKey,
+                displayData = new FWPM_DISPLAY_DATA0 { name = pName, description = pDesc },
+                flags = FwpmFlags.FWPM_SUBLAYER_FLAG_PERSISTENT,
+                providerKey = &providerKey,
+                weight = ManagedSubLayerWeight,
+            };
+            CheckAllowExisting("FwpmSubLayerAdd0", Fwpuclnt.FwpmSubLayerAdd0(_handle, &subLayer, null));
+        }
+    }
+
+    /// <summary>
+    /// Runs rule changes for the organization's rules: inside, SetAppRule, AddNetRule,
+    /// SetServiceRule and the removals work on the managed sublayer only. Outside, they never touch
+    /// organization rules.
+    /// </summary>
+    public T Managed<T>(Func<T> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        ThrowIfDisposed();
+        EnsureManagedSublayer();
+        _managed = true;
+        try
+        {
+            return action();
+        }
+        finally
+        {
+            _managed = false;
+        }
+    }
+
+    /// <summary>Removes every organization rule (not panic). Returns how many filters were removed.</summary>
+    public int ClearManaged()
+    {
+        ThrowIfDisposed();
+        using var tx = BeginTransaction();
+        var managed = ListFilters().Where(f => f.Managed && f.Kind != FilterKind.Panic).ToList();
+        foreach (var filter in managed)
+        {
+            DeleteFilter(filter.FilterId, ignoreMissing: true);
+        }
+
+        tx.Commit();
+        return managed.Count;
     }
 
     /// <summary>
@@ -353,6 +420,13 @@ public sealed unsafe class WfpEngine : IDisposable
 
             var subLayerKey = WfpIds.SubLayerKey;
             var result = Fwpuclnt.FwpmSubLayerDeleteByKey0(_handle, &subLayerKey);
+            if (result != FwpErrors.FWP_E_SUBLAYER_NOT_FOUND)
+            {
+                Check("FwpmSubLayerDeleteByKey0", result);
+            }
+
+            var managedKey = WfpIds.ManagedSubLayerKey;
+            result = Fwpuclnt.FwpmSubLayerDeleteByKey0(_handle, &managedKey);
             if (result != FwpErrors.FWP_E_SUBLAYER_NOT_FOUND)
             {
                 Check("FwpmSubLayerDeleteByKey0", result);
@@ -600,6 +674,10 @@ public sealed unsafe class WfpEngine : IDisposable
         var filters = ListFilters();
         var target = filters.FirstOrDefault(f => f.FilterId == filterId)
             ?? throw new InvalidOperationException($"Filter {filterId} does not belong to CrioFire, or does not exist.");
+        if (target.Managed != _managed)
+        {
+            throw new InvalidOperationException("That rule is set by your organization's CrioFire Server.");
+        }
 
         var removed = 0;
         if (target.Net is { } net)
@@ -703,6 +781,19 @@ public sealed unsafe class WfpEngine : IDisposable
                 {
                     AddFilter(layer, "CrioFire panic: block all network traffic", FilterDescriptions.Panic(state),
                         FwpActionType.FWP_ACTION_BLOCK, weightValue, &notLoopback, 1);
+
+                    // The same block above the organization's rules, whose permits would otherwise win.
+                    EnsureManagedSublayer();
+                    _managed = true;
+                    try
+                    {
+                        AddFilter(layer, "CrioFire panic: block all network traffic", FilterDescriptions.Panic(state),
+                            FwpActionType.FWP_ACTION_BLOCK, weightValue, &notLoopback, 1);
+                    }
+                    finally
+                    {
+                        _managed = false;
+                    }
                 }
 
                 added++;
@@ -724,7 +815,8 @@ public sealed unsafe class WfpEngine : IDisposable
     {
         ThrowIfDisposed();
         using var tx = BeginTransaction();
-        var filters = ListFilters();
+        // Organization rules stay (the server manages them); panic filters go wherever they are.
+        var filters = ListFilters().Where(f => !f.Managed || f.Kind == FilterKind.Panic).ToList();
         foreach (var filter in filters)
         {
             DeleteFilter(filter.FilterId, ignoreMissing: true);
@@ -768,7 +860,8 @@ public sealed unsafe class WfpEngine : IDisposable
                         var service = kind == FilterKind.ServiceRule && ServiceRule.TryParse(description, out var parsedService) ? parsedService : null;
                         var builtIn = kind == FilterKind.BuiltInAllow ? FilterDescriptions.BuiltInName(description) : null;
                         var panic = kind == FilterKind.Panic ? FilterDescriptions.PanicOf(description) : null;
-                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net, builtIn, service, panic));
+                        result.Add(new CrioFireFilter(f->filterId, name, FilterLayers.Find(f->layerKey), rule, kind, mode, net, builtIn, service, panic,
+                            Managed: f->subLayerKey == WfpIds.ManagedSubLayerKey));
                     }
                 }
                 finally
@@ -915,10 +1008,11 @@ public sealed unsafe class WfpEngine : IDisposable
             var filter = new FWPM_FILTER0
             {
                 displayData = new FWPM_DISPLAY_DATA0 { name = pName, description = pDesc },
-                flags = FwpmFlags.FWPM_FILTER_FLAG_PERSISTENT,
+                flags = FwpmFlags.FWPM_FILTER_FLAG_PERSISTENT
+                    | (_managed && action == FwpActionType.FWP_ACTION_PERMIT ? FwpmFlags.FWPM_FILTER_FLAG_CLEAR_ACTION_RIGHT : 0),
                 providerKey = &providerKey,
                 layerKey = layer.Key,
-                subLayerKey = WfpIds.SubLayerKey,
+                subLayerKey = _managed ? WfpIds.ManagedSubLayerKey : WfpIds.SubLayerKey,
                 weight = weight,
                 numFilterConditions = conditionCount,
                 filterCondition = conditions,
@@ -972,6 +1066,7 @@ public sealed unsafe class WfpEngine : IDisposable
         {
             if (filter.Service is not null
                 && filter.Layer is not null
+                && filter.Managed == _managed
                 && layers.Contains(filter.Layer)
                 && string.Equals(filter.Service.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase))
             {
@@ -986,7 +1081,7 @@ public sealed unsafe class WfpEngine : IDisposable
     private int RemoveNetRuleInternal(IReadOnlyList<CrioFireFilter> filters, string description)
     {
         var removed = 0;
-        foreach (var filter in filters.Where(f => f.Net is not null && f.Net.Format() == description))
+        foreach (var filter in filters.Where(f => f.Net is not null && f.Managed == _managed && f.Net.Format() == description))
         {
             DeleteFilter(filter.FilterId, ignoreMissing: true);
             removed++;
@@ -1121,6 +1216,7 @@ public sealed unsafe class WfpEngine : IDisposable
         {
             if (filter.Rule is not null
                 && filter.Layer is not null
+                && filter.Managed == _managed
                 && layers.Contains(filter.Layer)
                 && string.Equals(filter.Rule.AppPath, fullPath, StringComparison.OrdinalIgnoreCase))
             {

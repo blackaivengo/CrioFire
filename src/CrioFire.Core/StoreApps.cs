@@ -164,22 +164,31 @@ public static class StoreApps
         var renewed = new List<string>();
         var rules = engine.ListFilters()
             .Where(f => f.Kind == FilterKind.AppRule && f.Rule is not null && IsPackage(f.Rule.AppPath))
-            .GroupBy(f => f.Rule!.AppPath, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(f => (Key: f.Rule!.AppPath.ToLowerInvariant(), f.Managed));
         foreach (var package in rules)
         {
-            var signature = InstalledSignature(Family(package.Key));
-            if (seen.TryGetValue(package.Key, out var before) && before == signature)
+            var key = package.First().Rule!.AppPath;
+            var seenKey = (package.Key.Managed ? "managed|" : string.Empty) + key;
+            var signature = InstalledSignature(Family(key));
+            if (seen.TryGetValue(seenKey, out var before) && before == signature)
             {
                 continue;
             }
 
             foreach (var (action, direction) in package.Select(f => (f.Rule!.Action, f.Rule.Direction)).Distinct())
             {
-                engine.SetAppRule(package.Key, action, direction);
+                if (package.Key.Managed)
+                {
+                    engine.Managed(() => engine.SetAppRule(key, action, direction));   // an organization rule stays one
+                }
+                else
+                {
+                    engine.SetAppRule(key, action, direction);
+                }
             }
 
-            seen[package.Key] = signature;
-            renewed.Add(package.Key);
+            seen[seenKey] = signature;
+            renewed.Add(key);
         }
 
         return renewed;

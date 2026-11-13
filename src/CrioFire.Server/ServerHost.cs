@@ -65,7 +65,14 @@ internal static class ServerHost
 
             store.RecordCheckin(device.DeviceId, report, Address(context), DateTime.UtcNow);
             var pending = store.PendingActivity(device.DeviceId);
-            return Results.Json(new CheckinResponse(0, DateTime.UtcNow, checkinSeconds, pending), ManagementJson.Default.CheckinResponse);
+
+            // The whole policy goes only when the PC has another one (or another version); otherwise
+            // the answer stays a few bytes.
+            var policy = store.AssignedPolicy(device.DeviceId);
+            var send = policy is not null && (report.PolicyId != policy.Id || report.PolicyVersion != policy.Version);
+            return Results.Json(
+                new CheckinResponse(policy?.Version ?? 0, DateTime.UtcNow, checkinSeconds, pending, policy?.Id, send ? policy!.ToManaged() : null),
+                ManagementJson.Default.CheckinResponse);
         });
 
         app.MapPost("/api/v1/activity", async (HttpContext context) =>

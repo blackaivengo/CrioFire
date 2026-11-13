@@ -211,6 +211,50 @@ public sealed class ModeTests : IDisposable
     }
 
     [Fact]
+    public async Task OrganizationRulesWinOverTheUsersButNotOverPanicBlock()
+    {
+        var engine = Engine;
+        using var listener = new LocalListener(IPAddress.Loopback);
+        try
+        {
+            // The user blocks, the organization allows: the organization's hard permit wins.
+            engine.SetAppRule(Peer.ExePath, RuleAction.Block, TrafficDirection.Outbound);
+            engine.Managed(() => engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Outbound));
+            var allowed = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
+            Assert.True(allowed.ExitCode == 0, $"An organization allow should beat a user block: {allowed.Output}");
+
+            // The user allows, the organization blocks: the block wins.
+            engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Outbound);
+            engine.Managed(() => engine.SetAppRule(Peer.ExePath, RuleAction.Block, TrafficDirection.Outbound));
+            var blocked = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
+            Assert.True(blocked.ExitCode != 0, $"An organization block should beat a user allow: {blocked.Output}");
+
+            // User removals, and "remove all rules", leave the organization's rules alone.
+            engine.RemoveAppRules(Peer.ExePath);
+            engine.RemoveAllFilters();
+            Assert.Contains(engine.ListFilters(), f => f.Managed && f.Rule?.AppPath == Peer.ExePath);
+            Assert.DoesNotContain(engine.ListFilters(), f => !f.Managed && f.Rule?.AppPath == Peer.ExePath);
+
+            // Panic "block everything" still beats an organization allow.
+            engine.Managed(() => engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Outbound));
+            var target = await InternetTargetAsync();
+            engine.SetPanic(PanicState.BlockAll);
+            var panicked = await Peer.ConnectAsync(target, 443);
+            engine.SetPanic(PanicState.Off);
+            Assert.True(panicked.ExitCode != 0, $"Panic should block even organization-allowed programs: {panicked.Output}");
+
+            Assert.True(engine.ClearManaged() > 0);
+            Assert.DoesNotContain(engine.ListFilters(), f => f.Managed);
+        }
+        finally
+        {
+            engine.SetPanic(PanicState.Off);
+            engine.ClearManaged();
+            engine.RemoveAppRules(Peer.ExePath);
+        }
+    }
+
+    [Fact]
     public async Task PanicBlockStopsEvenAllowedProgramsButNotLoopback()
     {
         var engine = Engine;

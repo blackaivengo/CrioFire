@@ -23,7 +23,8 @@ internal sealed partial class ApiService(ILogger<ApiService> logger) : Backgroun
                 new RuleBackupStore(RuleBackupStore.DefaultFolder),
                 new TamperProtection(TamperProtection.DefaultPath),
                 new LicenseStore(LicenseStore.DefaultPath),
-                new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath)));
+                new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath),
+                new ManagedPolicyStore(ManagedPolicyStore.DefaultPath)));
             LogListening(logger, ApiServer.DefaultPipeName);
             await server.RunAsync(stoppingToken).ConfigureAwait(false);
         }

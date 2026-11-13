@@ -80,19 +80,19 @@ public static class RuleBackup
         var mode = filters.FirstOrDefault(f => f.Kind == FilterKind.DefaultBlock)?.Mode ?? FirewallMode.Learning;
 
         var programs = filters
-            .Where(f => f.Kind == FilterKind.AppRule && f.Rule is not null && !temporary.Contains(f.Rule.AppPath))
+            .Where(f => !f.Managed && f.Kind == FilterKind.AppRule && f.Rule is not null && !temporary.Contains(f.Rule.AppPath))
             .Select(f => new AppRuleEntry(f.Rule!.AppPath, RuleDescription.ActionText(f.Rule.Action), RuleDescription.DirectionText(f.Rule.Direction)))
             .Distinct(AppEntryComparer.Instance)
             .OrderBy(e => e.App, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Direction, StringComparer.Ordinal)
             .ToList();
         var network = filters
-            .Where(f => f.Kind == FilterKind.NetRule && f.Net is not null)
+            .Where(f => !f.Managed && f.Kind == FilterKind.NetRule && f.Net is not null)
             .Select(f => ToEntry(f.Net!))
             .Distinct()
             .OrderBy(e => e.App ?? string.Empty, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Ports, StringComparer.Ordinal).ThenBy(e => e.Addresses, StringComparer.Ordinal)
             .ToList();
         var services = filters
-            .Where(f => f.Kind == FilterKind.ServiceRule && f.Service is not null)
+            .Where(f => !f.Managed && f.Kind == FilterKind.ServiceRule && f.Service is not null)
             .Select(f => new ServiceRuleEntry(f.Service!.ServiceName, RuleDescription.ActionText(f.Service.Action), RuleDescription.DirectionText(f.Service.Direction)))
             .Distinct()
             .OrderBy(e => e.Service, StringComparer.OrdinalIgnoreCase)
@@ -286,7 +286,7 @@ public static class RuleBackup
             var filters = engine.ListFilters();
             foreach (var n in current.Network.Where(n => !incomingNet.Contains(n)))
             {
-                var first = filters.FirstOrDefault(f => f.Kind == FilterKind.NetRule && f.Net is not null && ToEntry(f.Net) == n);
+                var first = filters.FirstOrDefault(f => !f.Managed && f.Kind == FilterKind.NetRule && f.Net is not null && ToEntry(f.Net) == n);
                 if (first is not null)
                 {
                     engine.RemoveFilter(first.FilterId);   // removes all of that rule's filters

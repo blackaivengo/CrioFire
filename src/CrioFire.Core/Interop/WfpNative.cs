@@ -47,6 +47,9 @@ internal static class FwpmFlags
     public const uint FWPM_SUBLAYER_FLAG_PERSISTENT = 0x00000001;
     public const uint FWPM_FILTER_FLAG_PERSISTENT = 0x00000001;
 
+    /// <summary>A permit that lower-priority sublayers cannot override with a block (a "hard permit").</summary>
+    public const uint FWPM_FILTER_FLAG_CLEAR_ACTION_RIGHT = 0x00000008;
+
     /// <summary>RPC_C_AUTHN_WINNT: authenticate to the local BFE with the caller's token.</summary>
     public const uint RPC_C_AUTHN_WINNT = 10;
 }
