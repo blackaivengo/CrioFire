@@ -40,7 +40,7 @@ public partial class AlertWindow : Window
     {
         ArgumentNullException.ThrowIfNull(blocked);
         InitializeComponent();
-        Headline.Text = L.T($"{Path.GetFileName(blocked.App) ?? "A program"} wants to connect");
+        Headline.Text = L.T($"{Path.GetFileName(blocked.App) ?? L.T("A program")} wants to connect");
         Details.Text = $"{blocked.Protocol} → {blocked.Remote ?? "unknown address"} · {blocked.App}";
         Details.ToolTip = blocked.App;
 

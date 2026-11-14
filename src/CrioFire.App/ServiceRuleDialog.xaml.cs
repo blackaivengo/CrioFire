@@ -107,7 +107,7 @@ public partial class ServiceRuleDialog : Window
             _ => L.T("when it connects out"),
         };
         var where = Networks == NetworkProfiles.Any ? string.Empty : L.T($" on {NetworkScope.Label(Networks)} (elsewhere the mode decides)");
-        PreviewText.Text = L.T($"{row.DisplayName} ({row.Name}) {(allow ? "is allowed" : "is blocked")} {direction}{where}, whichever process runs it.");
+        PreviewText.Text = L.T($"{row.DisplayName} ({row.Name}) {(allow ? L.T("is allowed") : L.T("is blocked"))} {direction}{where}, whichever process runs it.");
         PreviewBox.SetResourceReference(BackgroundProperty, allow ? "ChipIceBrush" : "ChipFireBrush");
         PreviewText.SetResourceReference(ForegroundProperty, allow ? "ChipIceTextBrush" : "ChipFireTextBrush");
     }

@@ -87,7 +87,7 @@ public partial class ConnectionsPage : UserControl, IPage
         }
 
         var programs = rows.Select(r => r.ProcessId).Distinct().Count();
-        Subtitle = L.T($"{Fmt.Count(rows.Count)} {(all ? "sockets" : "connections")} from {programs} programs. Updates every 3 seconds.");
+        Subtitle = L.T($"{Fmt.Count(rows.Count)} {(all ? L.T("sockets") : L.T("connections"))} from {programs} programs. Updates every 3 seconds.");
     }
 
     private void RefreshUsage()

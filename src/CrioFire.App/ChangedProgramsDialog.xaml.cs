@@ -55,8 +55,8 @@ public partial class ChangedProgramsDialog : Window
             TextWrapping = TextWrapping.Wrap,
         });
         body.Children.Add(Muted(string.Join("\n", TextWrap.Path(program.App, 90))));
-        body.Children.Add(Line(L.T($"Publisher when you allowed it: {program.WasPublisher ?? "unsigned"}")));
-        body.Children.Add(Line(L.T($"Publisher now: {program.NowPublisher ?? "unsigned"}")));
+        body.Children.Add(Line(L.T($"Publisher when you allowed it: {program.WasPublisher ?? L.T("unsigned")}")));
+        body.Children.Add(Line(L.T($"Publisher now: {program.NowPublisher ?? L.T("unsigned")}")));
         body.Children.Add(Line(program.WasPublisher is null && program.NowPublisher is null
             ? L.T("The contents of this unsigned program are different.")
             : program.NowPublisher is null

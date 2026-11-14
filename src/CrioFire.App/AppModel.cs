@@ -308,7 +308,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.SetDomainRule, Domain = domain, Action = action, App = app, Networks = NetworkScope.TextOrNull(networks) }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, L.T($"{(action == "allow" ? "Allowing" : "Blocking")} {domain} and every name under it. The addresses follow name lookups and apply within a few seconds."));
+            Message?.Invoke(this, L.T($"{(action == "allow" ? L.T("Allowing") : L.T("Blocking"))} {domain} and every name under it. The addresses follow name lookups and apply within a few seconds."));
             NotifyChanged();
         }
 
@@ -1053,7 +1053,7 @@ internal sealed class AppModel
             done += Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = id }) is not null ? 1 : 0;
         }
 
-        Message?.Invoke(this, L.T($"{(action == "allow" ? "Allowed" : "Blocked")}: {done} of {count} done.") + (notes.Count > 0 ? " " + string.Join(" ", notes) : string.Empty));
+        Message?.Invoke(this, L.T($"{(action == "allow" ? L.T("Allowed") : L.T("Blocked"))}: {done} of {count} done.") + (notes.Count > 0 ? " " + string.Join(" ", notes) : string.Empty));
         RefreshCore();
         NotifyChanged();
 

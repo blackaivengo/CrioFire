@@ -71,7 +71,7 @@ public partial class DomainRuleDialog : Window
 
         var who = App is null ? L.T("Every program") : Path.GetFileName(App);
         var where = Networks == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(Networks)}";
-        PreviewText.Text = L.T($"{who} {(allow ? "may connect" : "is blocked from connecting")} to {domain} and every name under it{where}.");
+        PreviewText.Text = L.T($"{who} {(allow ? L.T("may connect") : L.T("is blocked from connecting"))} to {domain} and every name under it{where}.");
         PreviewBox.SetResourceReference(BackgroundProperty, allow ? "ChipIceBrush" : "ChipFireBrush");
         PreviewText.SetResourceReference(ForegroundProperty, allow ? "ChipIceTextBrush" : "ChipFireTextBrush");
     }

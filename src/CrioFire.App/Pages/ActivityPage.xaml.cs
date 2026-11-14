@@ -52,7 +52,7 @@ public partial class ActivityPage : UserControl, IPage
 
     private int Minutes => WindowHour.IsChecked == true ? 60 : WindowWeek.IsChecked == true ? 10080 : WindowMonth.IsChecked == true ? 43200 : 1440;
 
-    private string WindowText => Minutes switch { 60 => "hour", 10080 => "7 days", 43200 => "30 days", _ => "24 hours" };
+    private string WindowText => Minutes switch { 60 => L.T("hour"), 10080 => L.T("7 days"), 43200 => L.T("30 days"), _ => L.T("24 hours") };
 
     private string? WhyGroup => new[] { WhyMine, WhyNoRule, WhyAuto, WhyLocal, WhyPanic }.FirstOrDefault(r => r.IsChecked == true)?.Tag as string;
 
@@ -118,7 +118,7 @@ public partial class ActivityPage : UserControl, IPage
         _quiet = false;
 
         Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        Empty.Text = L.T($"Nothing {(Kind == "allowed" ? "allowed" : Kind == "blocked" ? "blocked" : "recorded")} in the last {WindowText} matches these filters.");
+        Empty.Text = L.T($"Nothing {(Kind == "allowed" ? L.T("allowed") : Kind == "blocked" ? L.T("blocked") : L.T("recorded"))} in the last {WindowText} matches these filters.");
         PageText.Text = page.Total == 0 ? string.Empty
             : $"Rows {Fmt.Count(page.Offset + 1)}–{Fmt.Count(page.Offset + rows.Count)} of {Fmt.Count(page.Total)}";
         PrevButton.IsEnabled = page.Offset > 0;
