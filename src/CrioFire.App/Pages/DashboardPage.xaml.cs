@@ -1,9 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Media3D;
 using CrioFire.Core;
 using CrioFire.Core.Api;
 
@@ -87,6 +84,7 @@ public partial class DashboardPage : UserControl, IPage
             KpiBlocked.Text = "–";
             KpiBlockedNote.Text = L.T("Reports need the CrioFire service.");
             HourBars.ItemsSource = null;
+            ChartSpoken.ClearValue(System.Windows.Automation.AutomationProperties.NameProperty);
             TopApps.ItemsSource = null;
             ChartEmpty.Visibility = Visibility.Visible;
             TopAppsEmpty.Visibility = Visibility.Visible;
@@ -95,7 +93,9 @@ public partial class DashboardPage : UserControl, IPage
 
         KpiBlocked.Text = Fmt.Count(report.Total);
         KpiBlockedNote.Text = L.T($"{Fmt.Count(report.ByRule)} by your rules · {Fmt.Count(report.ByMode)} with no rule");
-        HourBars.ItemsSource = Bars.From(report.Buckets, ChartHeight, _ => string.Empty, b => $"{Fmt.Time(b.StartUtc)}–{Fmt.Time(b.StartUtc.AddHours(1))}");
+        var bars = Bars.From(report.Buckets, ChartHeight, _ => string.Empty, b => $"{Fmt.Time(b.StartUtc)}–{Fmt.Time(b.StartUtc.AddHours(1))}");
+        HourBars.ItemsSource = bars;
+        System.Windows.Automation.AutomationProperties.SetName(ChartSpoken, Bars.Spoken(bars));
         ChartEmpty.Visibility = report.Total == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (report.Buckets.Count > 12)
         {
@@ -168,15 +168,9 @@ public partial class DashboardPage : UserControl, IPage
 
     private void OnOpenAllowed(object sender, RoutedEventArgs e) => _model.ShowAllowed();
 
-    /// <summary>A click on a panel (not on a button or switch inside it) opens its full view.</summary>
-    private void OnPanel(object sender, MouseButtonEventArgs e)
+    /// <summary>A click on a panel (not on a button or switch inside it), or Enter on it, opens its full view.</summary>
+    private void OnPanel(object sender, RoutedEventArgs e)
     {
-        if (e.ChangedButton != MouseButton.Left || FromControl(e.OriginalSource as DependencyObject, sender as DependencyObject))
-        {
-            return;
-        }
-
-        e.Handled = true;
         switch ((sender as FrameworkElement)?.Tag as string)
         {
             case "blocked":
@@ -204,14 +198,8 @@ public partial class DashboardPage : UserControl, IPage
     }
 
     /// <summary>A program row in "Blocked most" or "Waiting for your decision": its blocked connections.</summary>
-    private void OnTopAppClick(object sender, MouseButtonEventArgs e)
+    private void OnTopAppClick(object sender, RoutedEventArgs e)
     {
-        if (e.ChangedButton != MouseButton.Left || FromControl(e.OriginalSource as DependencyObject, sender as DependencyObject))
-        {
-            return;
-        }
-
-        e.Handled = true;
         if ((sender as FrameworkElement)?.Tag is string app && app.Length > 0)
         {
             _model.OpenActivity(new ActivityQuery("blocked", App: app));
@@ -219,14 +207,8 @@ public partial class DashboardPage : UserControl, IPage
     }
 
     /// <summary>A row in "Allowed most": that program's or service's allowed connections.</summary>
-    private void OnAllowedRowClick(object sender, MouseButtonEventArgs e)
+    private void OnAllowedRowClick(object sender, RoutedEventArgs e)
     {
-        if (e.ChangedButton != MouseButton.Left || FromControl(e.OriginalSource as DependencyObject, sender as DependencyObject))
-        {
-            return;
-        }
-
-        e.Handled = true;
         if ((sender as FrameworkElement)?.Tag is AllowedRow row)
         {
             var services = (row.Service ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -234,20 +216,6 @@ public partial class DashboardPage : UserControl, IPage
                 ? new ActivityQuery("allowed", Service: services[0])
                 : new ActivityQuery("allowed", App: row.App));
         }
-    }
-
-    /// <summary>True when the click landed on a button, switch or other control inside the panel.</summary>
-    private static bool FromControl(DependencyObject? source, DependencyObject? panel)
-    {
-        for (var d = source; d is not null && d != panel; d = d is Visual or Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
-        {
-            if (d is ButtonBase or TextBox)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private void UpdateProtection()

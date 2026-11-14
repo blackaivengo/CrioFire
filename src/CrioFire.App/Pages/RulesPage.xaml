@@ -95,7 +95,7 @@
         <TextBlock x:Name="ProgramsTitle" Text="Programs" Style="{StaticResource H2}" Margin="0,0,0,10" />
         <TextBlock x:Name="Empty" Style="{StaticResource Muted}" Visibility="Collapsed"
                    Text="No rules yet. Allow or block a program above, or answer an alert in Ask mode." />
-        <ListView x:Name="Table" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
+        <ListView x:Name="Table" SelectionMode="Extended" SelectionChanged="OnSelectionChanged" AutomationProperties.LabeledBy="{Binding ElementName=ProgramsTitle}">
           <ListView.View>
             <GridView>
               <GridViewColumn Header="ACTION" Width="100">
@@ -131,7 +131,7 @@
                    Text="By port and remote address, for every program or one. They win over program rules, and the more specific rule wins." />
         <TextBlock x:Name="NetEmpty" Style="{StaticResource Muted}" Visibility="Collapsed"
                    Text="No network rules. Add one to block a port like 445 inbound, keep a program to port 443, or block an address range." />
-        <ListView x:Name="NetTable" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
+        <ListView x:Name="NetTable" SelectionMode="Extended" SelectionChanged="OnSelectionChanged" AutomationProperties.LabeledBy="{Binding ElementName=NetTitle}">
           <ListView.View>
             <GridView>
               <GridViewColumn Header="ACTION" Width="100">
@@ -170,7 +170,7 @@
                    Text="Rules for single services, even when several share one svchost.exe process. A service rule wins over a rule for svchost.exe and over the automatic rules below." />
         <TextBlock x:Name="ServiceEmpty" Style="{StaticResource Muted}" Visibility="Collapsed"
                    Text="No service rules. Block or allow one with 'Service rule...', or from Activity." />
-        <ListView x:Name="ServiceTable" SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
+        <ListView x:Name="ServiceTable" SelectionMode="Extended" SelectionChanged="OnSelectionChanged" AutomationProperties.LabeledBy="{Binding ElementName=ServiceTitle}">
           <ListView.View>
             <GridView>
               <GridViewColumn Header="ACTION" Width="100">

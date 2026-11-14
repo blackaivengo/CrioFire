@@ -82,6 +82,12 @@ public partial class ActivityPage : UserControl, IPage
         }
     }
 
+    public bool FocusSearch()
+    {
+        SearchBox.SelectAll();
+        return SearchBox.Focus();
+    }
+
     public void Refresh()
     {
         TakeQuery();

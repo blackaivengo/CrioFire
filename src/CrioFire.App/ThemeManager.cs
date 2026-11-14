@@ -8,7 +8,8 @@ namespace CrioFire.App;
 /// <summary>
 /// Light / dark / follow-Windows theme. Swaps the theme dictionary at index 0 of the app's
 /// resources (every color is a DynamicResource, so the whole UI restyles live), matches the
-/// Windows title bar, and remembers the choice in the app's preferences.
+/// Windows title bar, and remembers the choice in the app's preferences. While a Windows contrast
+/// theme is on, the HighContrast dictionary (the contrast theme's own colors) replaces both.
 /// </summary>
 internal static class ThemeManager
 {
@@ -20,6 +21,9 @@ internal static class ThemeManager
 
     public static bool IsDark { get; private set; } = true;
 
+    /// <summary>A Windows contrast theme is on: its colors are used, whatever the choice.</summary>
+    public static bool IsHighContrast => SystemParameters.HighContrast;
+
     public static event EventHandler? Changed;
 
     public static void Initialize()
@@ -30,6 +34,13 @@ internal static class ThemeManager
             if (Choice == System && e.Category == UserPreferenceCategory.General)
             {
                 Application.Current?.Dispatcher.BeginInvoke(() => Apply(System, save: false));
+            }
+        };
+        SystemParameters.StaticPropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SystemParameters.HighContrast))
+            {
+                Application.Current?.Dispatcher.BeginInvoke(() => Apply(Choice, save: false));
             }
         };
     }
@@ -47,7 +58,8 @@ internal static class ThemeManager
         };
 
         var dictionaries = Application.Current.Resources.MergedDictionaries;
-        var theme = new ResourceDictionary { Source = new Uri($"pack://application:,,,/Themes/{(IsDark ? "Dark" : "Light")}.xaml") };
+        var name = IsHighContrast ? "HighContrast" : IsDark ? "Dark" : "Light";
+        var theme = new ResourceDictionary { Source = new Uri($"pack://application:,,,/Themes/{name}.xaml") };
         if (dictionaries.Count > 0)
         {
             dictionaries[0] = theme;
@@ -83,6 +95,7 @@ internal static partial class TitleBar
 {
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_CAPTION_COLOR = 35;
+    private const int DWMWA_COLOR_DEFAULT = unchecked((int)0xFFFFFFFF);
 
     public static void Attach(Window window)
     {
@@ -97,9 +110,12 @@ internal static partial class TitleBar
             return;
         }
 
-        var value = dark ? 1 : 0;
+        // A contrast theme draws its own title bar: undo ours.
+        var contrast = ThemeManager.IsHighContrast;
+        var value = dark && !contrast ? 1 : 0;
         _ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref value, sizeof(int));
-        var caption = dark ? 0x00160C07 : 0x00F9F1E9;   // COLORREF 0x00BBGGRR of the window background
+        var caption = contrast ? DWMWA_COLOR_DEFAULT
+            : dark ? 0x00160C07 : 0x00F9F1E9;   // COLORREF 0x00BBGGRR of the window background
         _ = DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ref caption, sizeof(int));
     }
 

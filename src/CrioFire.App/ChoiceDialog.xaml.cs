@@ -41,6 +41,10 @@ public partial class ChoiceDialog : Window
 
         FitButtonsInOneRow();
 
+        // The keyboard starts on the default answer, and screen readers hear the question, not only that button.
+        Loaded += (_, _) => Buttons.Children.OfType<Button>().FirstOrDefault(b => b.IsDefault)?.Focus();
+        ContentRendered += (_, _) => ScreenReader.Say(this, $"{TitleText.Text} {MessageText.Text}");
+
         MouseLeftButtonDown += (_, e) =>
         {
             if (e.ButtonState == MouseButtonState.Pressed)

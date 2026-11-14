@@ -90,6 +90,7 @@ public partial class ReportsPage : UserControl, IPage
         var bars = Bars.From(r.Buckets, ChartHeight, b => BucketLabel(b, r.Buckets.Count), b => BucketTip(b));
         DayBars.ItemsSource = bars;
         DayLabels.ItemsSource = bars;
+        System.Windows.Automation.AutomationProperties.SetName(ChartSpoken, Bars.Spoken(bars));
         var max = r.Buckets.Count == 0 ? 0 : r.Buckets.Max(b => b.Total);
         AxisTop.Text = max == 0 ? string.Empty : Fmt.Count(max);
         AxisMid.Text = max < 2 ? string.Empty : Fmt.Count(max / 2);
@@ -191,6 +192,7 @@ public partial class ReportsPage : UserControl, IPage
 
         SumBlockedNote.Text = SumProgramsNote.Text = string.Empty;
         DayBars.ItemsSource = DayLabels.ItemsSource = ProgramList.ItemsSource = DestinationList.ItemsSource = null;
+        ChartSpoken.ClearValue(System.Windows.Automation.AutomationProperties.NameProperty);
         AllowedList.ItemsSource = ReasonList.ItemsSource = AllowedDestinationList.ItemsSource = null;
         AllowedHeadline.Text = string.Empty;
         AllowedEmpty.Visibility = ReasonsEmpty.Visibility = AllowedDestinationsEmpty.Visibility = Visibility.Visible;

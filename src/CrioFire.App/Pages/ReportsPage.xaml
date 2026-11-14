@@ -1,6 +1,7 @@
 <UserControl x:Class="CrioFire.App.Pages.ReportsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:app="clr-namespace:CrioFire.App">
   <UserControl.Resources>
     <ItemsPanelTemplate x:Key="BarsPanel">
       <UniformGrid Rows="1" />
@@ -17,7 +18,7 @@
             <RadioButton x:Name="PeriodMonth" Content="Last 30 days" Tag="30d" GroupName="Period" Style="{StaticResource SegItem}" Click="OnPeriod" />
           </StackPanel>
         </Border>
-        <Button Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" MinHeight="44" Click="OnExportCsv">
+        <Button Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" MinHeight="44" Click="OnExportCsv" AutomationProperties.Name="Export CSV">
           <StackPanel Orientation="Horizontal">
             <Viewbox Width="16" Height="16">
               <Canvas Width="24" Height="24">
@@ -27,11 +28,11 @@
             <TextBlock Text="Export CSV" Margin="8,0,0,0" />
           </StackPanel>
         </Button>
-        <Button Style="{StaticResource FireButton}" MinHeight="44" Click="OnSavePdf">
+        <Button Style="{StaticResource FireButton}" MinHeight="44" Click="OnSavePdf" AutomationProperties.Name="Save as PDF">
           <StackPanel Orientation="Horizontal">
             <Viewbox Width="16" Height="16">
               <Canvas Width="24" Height="24">
-                <Path Data="{StaticResource IconDocument}" Stroke="White" StrokeThickness="2" StrokeLineJoin="Round" />
+                <Path Data="{StaticResource IconDocument}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" />
               </Canvas>
             </Viewbox>
             <TextBlock Text="Save as PDF" Margin="8,0,0,0" />
@@ -105,6 +106,8 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
             <TextBlock x:Name="ChartEmpty" Text="Nothing blocked in this period." Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+            <!-- What the bars show, for screen readers. -->
+            <app:SpokenText x:Name="ChartSpoken" HorizontalAlignment="Left" VerticalAlignment="Top" />
           </Grid>
           <ItemsControl x:Name="DayLabels" Grid.Column="1" Margin="0,248,0,0" ItemsPanel="{StaticResource BarsPanel}">
             <ItemsControl.ItemTemplate>

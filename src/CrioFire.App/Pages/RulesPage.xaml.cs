@@ -50,6 +50,12 @@ public partial class RulesPage : UserControl, IPage
 
     private string? DirectionFilter => DirOut.IsChecked == true ? "out" : DirIn.IsChecked == true ? "in" : null;
 
+    public bool FocusSearch()
+    {
+        SearchBox.SelectAll();
+        return SearchBox.Focus();
+    }
+
     public void Refresh()
     {
         var chipFire = (Brush)FindResource("ChipFireBrush");

@@ -5,6 +5,15 @@ using CrioFire.Core;
 
 namespace CrioFire.App.Pages;
 
+/// <summary>
+/// What screen readers say for a row of a table (its ToString): the cells that matter, in reading order.
+/// Typing in a table also jumps to the row whose text starts with the letters typed.
+/// </summary>
+internal static class RowText
+{
+    public static string Join(params string?[] parts) => string.Join(", ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+}
+
 /// <summary>One stacked bar: "your rules" (fire) under "no rule yet" (ice). Heights in pixels.</summary>
 public sealed record ChartBar(double RuleHeight, double ModeHeight, string Tip, string Label, string TotalText);
 
@@ -36,6 +45,8 @@ public sealed record UsageRow(string Program, string App, string SentText, strin
             share,
             share.ToString("P0", culture) + L.T(" of all data"));
     }
+
+    public override string ToString() => RowText.Join(Program, TotalText, ShareText);
 }
 
 /// <param name="Services">The Windows services running in that process (svchost.exe), comma-separated, or empty.</param>
@@ -59,6 +70,8 @@ public sealed record LiveRow(string Program, string Path, string Local, string R
             c.ProcessId,
             names);
     }
+
+    public override string ToString() => RowText.Join(Program, Services, Remote, Protocol, State);
 }
 
 internal static class Bars
@@ -76,6 +89,9 @@ internal static class Bars
     }
 
     public static string Name(string? path) => string.IsNullOrEmpty(path) ? "?" : (Path.GetFileName(path) is { Length: > 0 } name ? name : path);
+
+    /// <summary>What a chart shows, for screen readers: each bar that has anything, as its tooltip says it.</summary>
+    public static string Spoken(IEnumerable<ChartBar> bars) => string.Join("; ", bars.Where(b => b.TotalText.Length > 0).Select(b => b.Tip));
 }
 
 public sealed record ProgramRow(string Name, string App, string CountText, double Share, string Why, string LastSeen,
@@ -89,7 +105,10 @@ public sealed record ProgramRow(string Name, string App, string CountText, doubl
 public sealed record DestinationRow(string Address, string Port, string CountText);
 
 public sealed record ActivityRow(string Time, string Why, string Direction, string Protocol, string Remote, string Program, string? App,
-    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
+    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
+{
+    public override string ToString() => RowText.Join(Program, Why, Direction, Remote, Protocol, Time);
+}
 
 /// <summary>A program rule on the Rules page. <see cref="Info"/> is the rule itself, for switching and removing.</summary>
 public sealed record RuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Program, string App, string Until,
@@ -100,6 +119,8 @@ public sealed record RuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, str
 
     public string FlipHint => Info.Managed ? L.T("Set by your organization; it cannot be changed on this PC.")
         : Action == "Allow" ? L.T("Allowed. Click to block it instead.") : L.T("Blocked. Click to allow it instead.");
+
+    public override string ToString() => RowText.Join(Program, ActionText, Direction, Until);
 }
 
 public sealed record NetRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Rule, string Program, string? App, ulong FilterId,
@@ -110,6 +131,8 @@ public sealed record NetRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, 
 
     public string FlipHint => Info.Managed ? L.T("Set by your organization; it cannot be changed on this PC.")
         : Action == "Allow" ? L.T("Allowed. Click to block it instead.") : L.T("Blocked. Click to allow it instead.");
+
+    public override string ToString() => RowText.Join(Rule, ActionText, Direction, Program);
 }
 
 /// <summary>A program or a single Windows service that was allowed to connect.</summary>
@@ -124,7 +147,10 @@ public sealed record AllowedRow(string Name, string Detail, string? App, string?
 
 /// <summary>One line of the Activity page's "Allowed" list: allowed connections grouped by destination and reason.</summary>
 public sealed record AllowedActivityRow(string Time, string Why, string Direction, string Protocol, string Remote, string CountText, string Program, string Detail,
-    string? App, string? Service, System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush);
+    string? App, string? Service, System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
+{
+    public override string ToString() => RowText.Join(Program, Why, Direction, Remote, Protocol, CountText, Time);
+}
 
 public sealed record ServiceRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Service, string DisplayName,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
@@ -134,10 +160,15 @@ public sealed record ServiceRuleRow(CrioFire.Core.Api.RuleInfo Info, string Acti
 
     public string FlipHint => Info.Managed ? L.T("Set by your organization; it cannot be changed on this PC.")
         : Action == "Allow" ? L.T("Allowed. Click to block it instead.") : L.T("Blocked. Click to allow it instead.");
+
+    public override string ToString() => RowText.Join(DisplayName, Service, ActionText, Direction);
 }
 
 /// <summary>One of CrioFire's automatic permits or always-on behaviours, shown on the Rules page.</summary>
-public sealed record AutoRuleRow(string Name, string Title, string Description, string State, bool CanSwitch, bool IsOn);
+public sealed record AutoRuleRow(string Name, string Title, string Description, string State, bool CanSwitch, bool IsOn)
+{
+    public override string ToString() => RowText.Join(Title, State);
+}
 
 internal static class Who
 {
@@ -171,6 +202,8 @@ public sealed record TrafficRow(TrafficItem Item, string Time, string CountText,
 {
     /// <summary>Identifies the row across refreshes (time and count change, the rest does not).</summary>
     public string Key => string.Join('|', Item.Allowed, Item.App, Item.Service, Item.Protocol, Item.Direction, Item.Remote, Item.Port, Item.Why, Item.FilterId);
+
+    public override string ToString() => RowText.Join(Program, Why, Direction, Remote, PortName, CountText, Time);
 }
 
 /// <summary>One labelled line of the Activity page's details pane.</summary>
@@ -181,4 +214,6 @@ public sealed record DomainRuleRow(CrioFire.Core.Api.DomainRuleInfo Info, string
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush, bool CanRemove, string RemoveHint)
 {
     public string ActionText => L.T(Action);
+
+    public override string ToString() => RowText.Join(Domain, ActionText, Details);
 }

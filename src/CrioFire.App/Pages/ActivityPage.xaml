@@ -83,7 +83,7 @@
       <ContentControl Style="{StaticResource Card}" Margin="0,0,10,0" VerticalAlignment="Top">
         <StackPanel>
           <TextBlock x:Name="Empty" Style="{StaticResource Muted}" Visibility="Collapsed" TextWrapping="Wrap" />
-          <ListView x:Name="Table" SelectionMode="Extended" SelectionChanged="OnSelectionChanged" MaxHeight="620">
+          <ListView x:Name="Table" SelectionMode="Extended" SelectionChanged="OnSelectionChanged" MaxHeight="620" AutomationProperties.Name="Connections">
             <ListView.View>
               <GridView>
                 <GridViewColumn Header="LAST" Width="92" DisplayMemberBinding="{Binding Time}" />

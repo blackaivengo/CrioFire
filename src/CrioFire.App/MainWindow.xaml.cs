@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
@@ -33,6 +34,9 @@ internal interface IPage
     Task LoadAsync() => Task.CompletedTask;
 
     void Refresh();
+
+    /// <summary>Puts the keyboard focus in the page's search box (Ctrl+F); false when it has none.</summary>
+    bool FocusSearch() => false;
 }
 
 /// <summary>
@@ -55,6 +59,7 @@ public partial class MainWindow : Window
     private bool _toldVersion;
     private bool _polling;
     private int _changedSeen;
+    private string _panicSaid = "off";  // the panic state screen readers were last told about
     private int _navigation;          // bumped on every page switch, so a slow load cannot show a page you left
     private bool _refreshing;
     private bool _refreshAgain;
@@ -69,6 +74,7 @@ public partial class MainWindow : Window
 
         _model.Changed += (_, _) => RefreshPage();
         _model.Message += (_, text) => ShowMessage(text);
+        PreviewKeyDown += OnShortcut;
         _model.NavigateRequested += (_, page) => GoTo(page);
         _model.PendingResolved += (_, app) => CloseAlert(app);
         ThemeManager.Changed += (_, _) =>
@@ -197,6 +203,33 @@ public partial class MainWindow : Window
         if (sender is RadioButton { Content: string name })
         {
             Show(name);
+        }
+    }
+
+    /// <summary>
+    /// Ctrl+1 to Ctrl+6 open the pages in sidebar order, F5 reloads the open page, Ctrl+F goes to
+    /// its search box (Activity, Rules).
+    /// </summary>
+    private void OnShortcut(object sender, KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var modifiers = Keyboard.Modifiers;
+        if (modifiers == ModifierKeys.Control && key is >= Key.D1 and <= Key.D6 or >= Key.NumPad1 and <= Key.NumPad6)
+        {
+            var index = key >= Key.NumPad1 ? key - Key.NumPad1 : key - Key.D1;
+            var target = new[] { NavDashboard, NavActivity, NavRules, NavConnections, NavReports, NavSettings }[index];
+            target.IsChecked = true;
+            target.Focus();
+            e.Handled = true;
+        }
+        else if (modifiers == ModifierKeys.None && key == Key.F5)
+        {
+            RefreshPage();
+            e.Handled = true;
+        }
+        else if (modifiers == ModifierKeys.Control && key == Key.F && _current is not null)
+        {
+            e.Handled = _current.FocusSearch();
         }
     }
 
@@ -568,6 +601,15 @@ public partial class MainWindow : Window
         PanicBannerText.Text = panic == "block"
             ? L.T("Panic: all network traffic is blocked. Your rules are kept.")
             : L.T("Panic: everything is allowed. Your rules are paused, not deleted.");
+        if (panic != _panicSaid)
+        {
+            // Screen readers hear the banner when it appears (or changes), not just whoever looks at it.
+            _panicSaid = panic;
+            if (panic != "off")
+            {
+                ScreenReader.Say(this, PanicBannerText.Text, important: true);
+            }
+        }
         PanicButton.Content = panic == "off" ? L.T("Panic...") : L.T("Panic options...");
 
         var changed = status?.ChangedPrograms ?? 0;
@@ -578,6 +620,7 @@ public partial class MainWindow : Window
         if (changed > _changedSeen)
         {
             _tray?.ShowHint(L.T("A program changed"), L.T("An allowed program is no longer the file you allowed. Open CrioFire to review it."));
+            ScreenReader.Say(this, ChangedBannerText.Text, important: true);
         }
 
         _changedSeen = changed;
@@ -623,6 +666,7 @@ public partial class MainWindow : Window
 
         MessageText.Text = text;
         MessageBar.Visibility = Visibility.Visible;
+        ScreenReader.Say(this, text);
         _messageTimer.Stop();
         _messageTimer.Start();
     }
@@ -647,6 +691,7 @@ public partial class MainWindow : Window
         UpdateBannerText.Text = L.T($"CrioFire {version} is available. Download it from the release page; installing it keeps your rules and settings.");
         if (!string.Equals(version, Prefs.Current.AnnouncedUpdate, StringComparison.OrdinalIgnoreCase))
         {
+            ScreenReader.Say(this, UpdateBannerText.Text);
             Prefs.Current.AnnouncedUpdate = version;
             Prefs.Save();
             _tray?.ShowHint(L.T("A new CrioFire is available"), L.T($"Version {version}. Open CrioFire to see what's new."));
@@ -673,6 +718,8 @@ public partial class MainWindow : Window
 
     private void UpdateThemeButton()
     {
+        // With a Windows contrast theme on, its colors are used and light/dark does not apply.
+        ThemeButton.Visibility = ThemeManager.IsHighContrast ? Visibility.Collapsed : Visibility.Visible;
         var dark = ThemeManager.IsDark;
         ThemeButton.ToolTip = dark ? L.T("Switch to light mode") : L.T("Switch to dark mode");
         SunSpot.SetResourceReference(Border.BackgroundProperty, dark ? "TransparentBrush" : "SegOnBrush");

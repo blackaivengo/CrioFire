@@ -22,12 +22,12 @@
           <TextBlock x:Name="SecondsText" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="{StaticResource DisplayFont}" FontSize="20" FontWeight="Bold" />
         </Grid>
         <StackPanel Grid.Column="1">
-          <TextBlock Text="Is your network still working?" Style="{StaticResource H2}" />
-          <TextBlock Style="{StaticResource Muted}" FontSize="14" LineHeight="21" Margin="0,8,0,20"
+          <TextBlock x:Name="Question" Text="Is your network still working?" Style="{StaticResource H2}" />
+          <TextBlock x:Name="Explanation" Style="{StaticResource Muted}" FontSize="14" LineHeight="21" Margin="0,8,0,20"
                      Text="Check that the programs you need can still connect. If you don't answer, CrioFire switches back automatically." />
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Switch back" Style="{StaticResource GhostButton}" IsCancel="True" Margin="0,0,8,0" />
-            <Button Content="Keep it" Style="{StaticResource IceButton}" IsDefault="True" Click="OnKeep" />
+            <Button x:Name="KeepButton" Content="Keep it" Style="{StaticResource IceButton}" IsDefault="True" Click="OnKeep" />
           </StackPanel>
         </StackPanel>
       </Grid>

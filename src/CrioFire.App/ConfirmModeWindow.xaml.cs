@@ -14,6 +14,10 @@ public partial class ConfirmModeWindow : Window
     public ConfirmModeWindow()
     {
         InitializeComponent();
+
+        // The question has a deadline: screen readers hear it at once, and Enter keeps the mode.
+        Loaded += (_, _) => KeepButton.Focus();
+        ContentRendered += (_, _) => ScreenReader.Say(this, $"{Question.Text} {Explanation.Text}", important: true);
         UpdateCountdown();
         _timer.Tick += (_, _) =>
         {

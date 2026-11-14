@@ -32,7 +32,7 @@
       </Grid>
     </DockPanel>
     <ContentControl x:Name="LiveCard" Style="{StaticResource IceCard}">
-      <ListView x:Name="Table" SelectionMode="Single">
+      <ListView x:Name="Table" SelectionMode="Single" AutomationProperties.Name="Live connections">
         <ListView.View>
           <GridView>
             <GridViewColumn Header="PROGRAM" Width="200">

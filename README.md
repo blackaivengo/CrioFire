@@ -187,6 +187,10 @@ The app follows the Windows display language when it is one of its 16 (English, 
 Urdu, German, Japanese, Turkish, Korean, Vietnamese), else English; **Settings → Language** picks
 another. The command line and the service stay in English. See [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
+Everything works from the keyboard and with screen readers (Narrator, NVDA, JAWS), and a Windows
+contrast theme replaces the app's colors with its own. Ctrl+1 to Ctrl+6 open the pages, F5
+reloads, Ctrl+F searches. See [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
+
 - **Dashboard**: the protection ring and mode (Learning / Ask / Allow-list), blocked connections
   over the last 24 hours, the programs blocked most, programs waiting for your decision, and live
   connections. Switching to Ask or Allow-list offers to allow everything running now, then asks you

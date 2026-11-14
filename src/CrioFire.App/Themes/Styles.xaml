@@ -7,6 +7,17 @@
   <FontFamily x:Key="BodyFont">Segoe UI Variable Text, Segoe UI</FontFamily>
   <FontFamily x:Key="DisplayFont">Segoe UI Variable Display, Segoe UI</FontFamily>
 
+  <!-- Keyboard focus: a ring around the focused control (the default dotted line is hard to see on these themes). -->
+  <Style x:Key="FocusRing">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Border Margin="-3" CornerRadius="12" BorderThickness="2" BorderBrush="{DynamicResource FocusBrush}" SnapsToDevicePixels="True" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- Where ice meets fire: used only on the logo, the protection ring and the top edge of key panels. -->
   <LinearGradientBrush x:Key="BrandBrush" StartPoint="0,0" EndPoint="1,0">
     <GradientStop Color="#7DD8FF" Offset="0" />
@@ -38,11 +49,14 @@
     <Setter Property="FontFamily" Value="{StaticResource DisplayFont}" />
     <Setter Property="FontSize" Value="28" />
     <Setter Property="FontWeight" Value="SemiBold" />
+    <!-- Headings for screen readers, which can jump from one to the next. -->
+    <Setter Property="AutomationProperties.HeadingLevel" Value="Level1" />
   </Style>
   <Style x:Key="H2" TargetType="TextBlock">
     <Setter Property="FontFamily" Value="{StaticResource DisplayFont}" />
     <Setter Property="FontSize" Value="18" />
     <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="AutomationProperties.HeadingLevel" Value="Level2" />
   </Style>
   <Style x:Key="Muted" TargetType="TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
@@ -124,6 +138,7 @@
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Margin" Value="0,2" />
     <Setter Property="GroupName" Value="Nav" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
@@ -154,7 +169,7 @@
               <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavActiveBrush}" />
               <Setter TargetName="accent" Property="Visibility" Value="Visible" />
               <Setter TargetName="glow" Property="Opacity" Value="0.6" />
-              <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource NavActiveTextBrush}" />
               <Setter Property="FontWeight" Value="SemiBold" />
             </Trigger>
           </ControlTemplate.Triggers>
@@ -180,6 +195,7 @@
     <Setter Property="Padding" Value="16,0" />
     <Setter Property="MinHeight" Value="38" />
     <Setter Property="Margin" Value="2,0" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
@@ -215,7 +231,7 @@
   </Style>
   <Style x:Key="SegFireItem" TargetType="RadioButton" BasedOn="{StaticResource SegItem}">
     <Setter Property="Background" Value="{DynamicResource FireBrush}" />
-    <Setter Property="Foreground" Value="White" />
+    <Setter Property="Foreground" Value="{DynamicResource FireInkBrush}" />
   </Style>
 
   <!-- Buttons. Filled ones glow in their own color. -->
@@ -229,6 +245,7 @@
     <Setter Property="Padding" Value="16,0" />
     <Setter Property="MinHeight" Value="40" />
     <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
@@ -264,7 +281,7 @@
   </Style>
   <Style x:Key="FireButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
     <Setter Property="Background" Value="{DynamicResource FireBrush}" />
-    <Setter Property="Foreground" Value="White" />
+    <Setter Property="Foreground" Value="{DynamicResource FireInkBrush}" />
   </Style>
   <Style x:Key="OutlineFireButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
     <Setter Property="Background" Value="{DynamicResource PanicBgBrush}" />
@@ -288,6 +305,7 @@
     <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
     <Setter Property="FontSize" Value="14" />
     <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="CheckBox">
@@ -378,6 +396,7 @@
   </Style>
   <Style TargetType="ListViewItem">
     <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ListViewItem">
@@ -390,6 +409,7 @@
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
               <Setter TargetName="bd" Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -450,6 +470,7 @@
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
@@ -505,6 +526,7 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsHighlighted" Value="True">
               <Setter TargetName="bd" Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter TargetName="bd" Property="Opacity" Value="0.4" />

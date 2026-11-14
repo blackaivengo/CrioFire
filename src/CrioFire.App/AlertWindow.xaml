@@ -45,7 +45,7 @@
           </Grid>
           <StackPanel Grid.Column="1">
             <TextBlock x:Name="Headline" Style="{StaticResource H2}" FontSize="19" TextWrapping="Wrap" />
-            <TextBlock Text="Blocked for now, because it has no rule yet." Style="{StaticResource Muted}" Margin="0,3,0,3" />
+            <TextBlock x:Name="Reason" Text="Blocked for now, because it has no rule yet." Style="{StaticResource Muted}" Margin="0,3,0,3" />
             <TextBlock x:Name="Details" Style="{StaticResource Caption}" FontSize="12" TextTrimming="CharacterEllipsis" />
           </StackPanel>
         </Grid>
@@ -54,7 +54,7 @@
           <Grid Margin="3,0">
             <!-- Press and hold for more durations; release over one to pick it, press again to confirm. -->
             <Button x:Name="TimedButton" Style="{StaticResource OutlineIceButton}" MinHeight="44" Padding="10,0"
-                    ToolTip="Hold for more choices" Click="OnTimedClick"
+                    ToolTip="Hold for more choices" Click="OnTimedClick" AutomationProperties.Name="{Binding Text, ElementName=TimedText}"
                     PreviewMouseLeftButtonDown="OnTimedDown" PreviewMouseMove="OnTimedMove" PreviewMouseLeftButtonUp="OnTimedUp"
                     PreviewKeyDown="OnTimedKey">
               <StackPanel Orientation="Horizontal">

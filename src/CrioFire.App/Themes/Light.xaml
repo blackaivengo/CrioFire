@@ -55,6 +55,11 @@
   <SolidColorBrush x:Key="OutlineIceBrush" Color="#4D0874B3" />
   <SolidColorBrush x:Key="OutlineIceBgBrush" Color="#B3FFFFFF" />
   <SolidColorBrush x:Key="ScrollThumbBrush" Color="#401E3C64" />
+  <!-- Keyboard focus ring, text on fire-red buttons, and text on the selected nav item, row or menu item. -->
+  <SolidColorBrush x:Key="FocusBrush" Color="#0874B3" />
+  <SolidColorBrush x:Key="FireInkBrush" Color="White" />
+  <SolidColorBrush x:Key="NavActiveTextBrush" Color="#0E1A2B" />
+  <SolidColorBrush x:Key="SelectedRowTextBrush" Color="#0E1A2B" />
 
   <SolidColorBrush x:Key="IceGlowBrush" Color="#731E96DC" />
   <SolidColorBrush x:Key="FireGlowBrush" Color="#66E5341F" />

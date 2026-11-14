@@ -78,6 +78,8 @@ public partial class AlertWindow : Window
             Left = area.Right - ActualWidth;
             Top = Math.Max(area.Top, area.Bottom - ((slot + 1) * (ActualHeight - 30)) - 10);
         };
+        // The alert does not take the focus, so screen readers are told it is there (Alt+Tab reaches it).
+        ContentRendered += (_, _) => ScreenReader.Say(this, $"{Headline.Text}. {Reason.Text}", important: true);
         Deactivated += (_, _) => DurationPopup.IsOpen = false;
         PreviewMouseDown += (_, e) =>
         {
