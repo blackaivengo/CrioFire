@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: الخدمة لا تعمل",
   "CrioFire: not set up yet": "CrioFire: لم يُعدّ بعد",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: طوارئ · كل حركة الشبكة محظورة",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: طوارئ · كل شيء مسموح، القواعد متوقفة مؤقتًا"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: طوارئ · كل شيء مسموح، القواعد متوقفة مؤقتًا",
+  "Show the welcome tour": "عرض الجولة الترحيبية",
+  "Welcome to CrioFire": "مرحبًا بك في CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "يرى CrioFire كل برنامج يتصل بالشبكة ويتيح لك أن تقرر أيها يُسمح له. تبدأ خدمته مع Windows وتستمر في حمايتك حتى عند إغلاق هذه النافذة.",
+  "This short tour takes a minute. You can open it again from Settings.": "تستغرق هذه الجولة القصيرة دقيقة واحدة. يمكنك فتحها مرة أخرى من الإعدادات.",
+  "Choose a mode": "اختر وضعًا",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "يمكنك التبديل في أي وقت من لوحة المعلومات أو من أيقونة CrioFire بجوار الساعة.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "عند إغلاق هذه النافذة يبقى CrioFire يعمل بجوار الساعة. انقر أيقونته لفتحه مرة أخرى، وانقر بزر الماوس الأيمن لتغيير الوضع أو الخروج.",
+  "If something goes wrong": "إذا حدث خطأ ما",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "هل هناك ما لا يستطيع الاتصال، أو ما يتصل وهو لا ينبغي له؟ الطوارئ، في أسفل اليمين، يسمح بكل شيء أو يحظره لبعض الوقت دون حذف أي قاعدة.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "يعرض النشاط ما تم حظره وسببه، وتسرد القواعد كل ما قررته.",
+  "Skip": "تخطٍّ",
+  "Back": "رجوع",
+  "Next": "التالي",
+  "Get started": "ابدأ"
 }

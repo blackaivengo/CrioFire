@@ -12,6 +12,7 @@ public class UiPreferencesTests
         Assert.True(p.CloseToTray);
         Assert.False(p.TrayHintShown);
         Assert.False(p.AutostartAsked);
+        Assert.False(p.WelcomeShown);
     }
 
     [Fact]
@@ -28,10 +29,12 @@ public class UiPreferencesTests
         var p = UiPreferences.Parse("future=42\r\ntheme=light\n");
         p.CloseToTray = false;
         p.TrayHintShown = true;
+        p.WelcomeShown = true;
         var back = UiPreferences.Parse(p.Format());
         Assert.Equal("light", back.Theme);
         Assert.False(back.CloseToTray);
         Assert.True(back.TrayHintShown);
+        Assert.True(back.WelcomeShown);
         Assert.Contains("future=42", back.Format());
     }
 

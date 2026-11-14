@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: सेवा नहीं चल रही",
   "CrioFire: not set up yet": "CrioFire: अभी सेट अप नहीं",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: पैनिक · सारा नेटवर्क ट्रैफ़िक ब्लॉक",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: पैनिक · सब कुछ अनुमति, नियम रुके हुए"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: पैनिक · सब कुछ अनुमति, नियम रुके हुए",
+  "Show the welcome tour": "स्वागत टूर दिखाएँ",
+  "Welcome to CrioFire": "CrioFire में आपका स्वागत है",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire नेटवर्क से जुड़ने वाले हर प्रोग्राम को देखता है और आपको तय करने देता है कि किसे जुड़ने दिया जाए। इसकी सेवा Windows के साथ शुरू होती है और यह विंडो बंद होने पर भी आपकी सुरक्षा करती रहती है।",
+  "This short tour takes a minute. You can open it again from Settings.": "यह छोटा टूर एक मिनट लेता है। आप इसे सेटिंग्स से फिर खोल सकते हैं।",
+  "Choose a mode": "एक मोड चुनें",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "आप इसे कभी भी डैशबोर्ड में या घड़ी के पास CrioFire आइकन से बदल सकते हैं।",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "यह विंडो बंद करने पर CrioFire घड़ी के पास चलता रहता है। फिर से खोलने के लिए इसके आइकन पर क्लिक करें; मोड बदलने या बाहर निकलने के लिए राइट-क्लिक करें।",
+  "If something goes wrong": "अगर कुछ गड़बड़ हो",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "कोई चीज़ कनेक्ट नहीं हो पा रही, या कोई ऐसी चीज़ कनेक्ट हो रही है जो नहीं होनी चाहिए? नीचे बाईं ओर पैनिक, कोई नियम हटाए बिना कुछ समय के लिए सब कुछ अनुमति देता है या ब्लॉक करता है।",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "गतिविधि दिखाती है कि क्या और क्यों ब्लॉक हुआ, और नियम में आपके सभी फ़ैसले होते हैं।",
+  "Skip": "छोड़ें",
+  "Back": "पीछे",
+  "Next": "आगे",
+  "Get started": "शुरू करें"
 }

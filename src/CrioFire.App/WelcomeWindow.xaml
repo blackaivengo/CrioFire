@@ -1,0 +1,110 @@
+<Window x:Class="CrioFire.App.WelcomeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome to CrioFire" Width="640" SizeToContent="Height" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource BodyFont}" Foreground="{DynamicResource TextBrush}">
+  <!-- The welcome tour: four pages, shown once on the first start and again from Settings. -->
+  <Grid Margin="28">
+    <Border Margin="40,50,40,-10" CornerRadius="20" Background="{DynamicResource VioletGlowBrush}" IsHitTestVisible="False">
+      <Border.Effect>
+        <BlurEffect Radius="44" />
+      </Border.Effect>
+    </Border>
+    <Border CornerRadius="16" Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="30,28,30,24">
+      <StackPanel>
+        <Grid MinHeight="330">
+          <!-- 1. What CrioFire does. -->
+          <StackPanel x:Name="PageWelcome">
+            <Viewbox Width="56" Height="56" HorizontalAlignment="Left" Margin="0,0,0,18">
+              <Canvas Width="40" Height="40">
+                <Path Data="{StaticResource LogoFlame}" Fill="{StaticResource BrandBrush}" />
+                <Path Data="M14,22 L17,20 L20,22 L23,20 L26,22 M20,16 V30" Stroke="White" Opacity="0.85" StrokeThickness="1.6"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Welcome to CrioFire" Style="{StaticResource H1}" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource Muted}" FontSize="15" LineHeight="24" Margin="0,14,0,0" TextWrapping="Wrap"
+                       Text="CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed." />
+            <TextBlock Style="{StaticResource Muted}" FontSize="14" LineHeight="22" Margin="0,14,0,0" TextWrapping="Wrap"
+                       Text="This short tour takes a minute. You can open it again from Settings." />
+          </StackPanel>
+
+          <!-- 2. The mode. -->
+          <StackPanel x:Name="PageMode" Visibility="Collapsed">
+            <TextBlock Text="Choose a mode" Style="{StaticResource H1}" FontSize="24" Margin="0,0,0,16" />
+            <RadioButton x:Name="ModeLearning" GroupName="WelcomeMode" Style="{StaticResource OptionCard}"
+                         AutomationProperties.Name="{Binding Text, ElementName=LearningTitle}" AutomationProperties.HelpText="{Binding Text, ElementName=LearningText}">
+              <StackPanel>
+                <TextBlock x:Name="LearningTitle" Text="Learning" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Text="Watching, not blocking" Style="{StaticResource Caption}" FontSize="12" Margin="0,2,0,0" />
+                <TextBlock x:Name="LearningText" Style="{StaticResource Muted}" FontSize="13" LineHeight="20" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="Programs without a rule may connect. CrioFire only blocks what your rules say, so you can see what talks to the network before you lock it down." />
+              </StackPanel>
+            </RadioButton>
+            <RadioButton x:Name="ModeAsk" GroupName="WelcomeMode" Style="{StaticResource OptionCard}"
+                         AutomationProperties.Name="{Binding Text, ElementName=AskTitle}" AutomationProperties.HelpText="{Binding Text, ElementName=AskText}">
+              <StackPanel>
+                <TextBlock x:Name="AskTitle" Text="Ask" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Text="New programs need your OK" Style="{StaticResource Caption}" FontSize="12" Margin="0,2,0,0" />
+                <TextBlock x:Name="AskText" Style="{StaticResource Muted}" FontSize="13" LineHeight="20" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="A program without a rule is stopped the moment it tries to connect out, and CrioFire asks you: allow it, allow it for an hour, or keep it blocked." />
+              </StackPanel>
+            </RadioButton>
+            <RadioButton x:Name="ModeAllowList" GroupName="WelcomeMode" Style="{StaticResource OptionCard}"
+                         AutomationProperties.Name="{Binding Text, ElementName=AllowListTitle}" AutomationProperties.HelpText="{Binding Text, ElementName=AllowListText}">
+              <StackPanel>
+                <TextBlock x:Name="AllowListTitle" Text="Allow-list" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Text="Only programs you trust" Style="{StaticResource Caption}" FontSize="12" Margin="0,2,0,0" />
+                <TextBlock x:Name="AllowListText" Style="{StaticResource Muted}" FontSize="13" LineHeight="20" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="Programs without an allow rule are blocked silently. Nothing new reaches the network until you add it to your rules." />
+              </StackPanel>
+            </RadioButton>
+            <TextBlock x:Name="ModeNote" Style="{StaticResource Muted}" FontSize="13" LineHeight="20" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Text="You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock." />
+          </StackPanel>
+
+          <!-- 3. Alerts, starting with Windows, the icon next to the clock. -->
+          <StackPanel x:Name="PageStartup" Visibility="Collapsed">
+            <TextBlock Text="Startup and notification area" Style="{StaticResource H1}" FontSize="24" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource Muted}" FontSize="14" LineHeight="22" Margin="0,14,0,0" TextWrapping="Wrap"
+                       Text="Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit." />
+            <TextBlock Style="{StaticResource Muted}" FontSize="14" LineHeight="22" Margin="0,10,0,22" TextWrapping="Wrap"
+                       Text="In Ask mode, CrioFire can only ask about new programs while the app is running." />
+            <CheckBox x:Name="AutostartBox" Style="{StaticResource Switch}">
+              <StackPanel>
+                <TextBlock Text="Start CrioFire when I sign in to Windows" TextWrapping="Wrap" />
+                <TextBlock Text="It starts quietly in the notification area, next to the clock." Style="{StaticResource Muted}" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap" />
+              </StackPanel>
+            </CheckBox>
+          </StackPanel>
+
+          <!-- 4. Where to look, and the way out. -->
+          <StackPanel x:Name="PageHelp" Visibility="Collapsed">
+            <TextBlock Text="If something goes wrong" Style="{StaticResource H1}" FontSize="24" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource Muted}" FontSize="14" LineHeight="22" Margin="0,14,0,0" TextWrapping="Wrap"
+                       Text="Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule." />
+            <TextBlock Style="{StaticResource Muted}" FontSize="14" LineHeight="22" Margin="0,10,0,0" TextWrapping="Wrap"
+                       Text="Activity shows what was blocked and why, and Rules lists everything you decided." />
+          </StackPanel>
+        </Grid>
+
+        <DockPanel Margin="0,22,0,0">
+          <!-- Which page: one dot each. -->
+          <StackPanel x:Name="Dots" Orientation="Horizontal" VerticalAlignment="Center">
+            <Ellipse Width="8" Height="8" Margin="0,0,8,0" />
+            <Ellipse Width="8" Height="8" Margin="0,0,8,0" />
+            <Ellipse Width="8" Height="8" Margin="0,0,8,0" />
+            <Ellipse Width="8" Height="8" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="SkipButton" Content="Skip" Style="{StaticResource GhostButton}" Margin="0,0,8,0" IsCancel="True" />
+            <Button x:Name="BackButton" Content="Back" Style="{StaticResource OutlineIceButton}" Margin="0,0,8,0" Click="OnBack" />
+            <Button x:Name="NextButton" Content="Next" Style="{StaticResource IceButton}" MinWidth="120" IsDefault="True" Click="OnNext" />
+          </StackPanel>
+        </DockPanel>
+      </StackPanel>
+    </Border>
+    <Border Height="2" VerticalAlignment="Top" Margin="16,1,16,0" CornerRadius="1" Background="{StaticResource BrandBrush}" />
+  </Grid>
+</Window>

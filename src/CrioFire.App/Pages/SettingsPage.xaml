@@ -161,6 +161,7 @@
       <StackPanel>
         <TextBlock Text="About" Style="{StaticResource H2}" />
         <TextBlock x:Name="AboutText" Style="{StaticResource Muted}" Margin="0,6,0,0" FontSize="14" LineHeight="22" />
+        <Button Content="Show the welcome tour" Style="{StaticResource OutlineIceButton}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OnWelcome" />
       </StackPanel>
     </ContentControl>
   </StackPanel>

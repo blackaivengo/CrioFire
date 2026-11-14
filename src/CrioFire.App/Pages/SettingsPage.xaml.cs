@@ -418,4 +418,12 @@ public partial class SettingsPage : UserControl, IPage
             _model.Panic(action);
         }
     }
+
+    private void OnWelcome(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is { } owner)
+        {
+            _model.ShowWelcome(owner);
+        }
+    }
 }

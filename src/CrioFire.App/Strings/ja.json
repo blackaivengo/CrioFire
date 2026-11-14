@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: サービスが実行されていません",
   "CrioFire: not set up yet": "CrioFire: まだ設定されていません",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: パニック · すべてのネットワーク通信をブロック中",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: パニック · すべて許可、ルール一時停止中"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: パニック · すべて許可、ルール一時停止中",
+  "Show the welcome tour": "ようこそツアーを表示",
+  "Welcome to CrioFire": "CrioFire へようこそ",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire はネットワークに接続するすべてのプログラムを把握し、どれを許可するかをあなたが決められます。サービスは Windows と一緒に起動し、このウィンドウを閉じても保護を続けます。",
+  "This short tour takes a minute. You can open it again from Settings.": "このツアーは 1 分ほどで終わります。設定からもう一度開くことができます。",
+  "Choose a mode": "モードを選ぶ",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "ダッシュボード、または時計の横の CrioFire アイコンからいつでも切り替えられます。",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "このウィンドウを閉じても、CrioFire は時計の横で動き続けます。アイコンをクリックすると再び開き、右クリックするとモードの切り替えや終了ができます。",
+  "If something goes wrong": "困ったときは",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "接続できないものがある、または接続すべきでないものが接続している場合は、左下のパニックで、ルールを削除せずにしばらくの間すべてを許可またはブロックできます。",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "アクティビティにはブロックされたものとその理由が、ルールにはあなたが決めたすべてが表示されます。",
+  "Skip": "スキップ",
+  "Back": "戻る",
+  "Next": "次へ",
+  "Get started": "始める"
 }

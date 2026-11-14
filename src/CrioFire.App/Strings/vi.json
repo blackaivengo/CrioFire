@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: dịch vụ không chạy",
   "CrioFire: not set up yet": "CrioFire: chưa thiết lập",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: KHẨN CẤP · mọi lưu lượng mạng bị chặn",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: KHẨN CẤP · mọi thứ được cho phép, quy tắc tạm dừng"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: KHẨN CẤP · mọi thứ được cho phép, quy tắc tạm dừng",
+  "Show the welcome tour": "Xem phần giới thiệu",
+  "Welcome to CrioFire": "Chào mừng bạn đến với CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire thấy mọi chương trình kết nối mạng và để bạn quyết định chương trình nào được phép. Dịch vụ của nó khởi động cùng Windows và vẫn bảo vệ bạn ngay cả khi cửa sổ này đã đóng.",
+  "This short tour takes a minute. You can open it again from Settings.": "Phần giới thiệu ngắn này chỉ mất một phút. Bạn có thể mở lại trong Cài đặt.",
+  "Choose a mode": "Chọn chế độ",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "Bạn có thể đổi bất cứ lúc nào trong Bảng điều khiển hoặc từ biểu tượng CrioFire cạnh đồng hồ.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "Khi đóng cửa sổ này, CrioFire vẫn chạy cạnh đồng hồ. Bấm biểu tượng để mở lại; bấm chuột phải để đổi chế độ hoặc thoát.",
+  "If something goes wrong": "Nếu có sự cố",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "Có thứ không kết nối được, hay có thứ kết nối dù không nên? Khẩn cấp ở góc dưới bên trái cho phép hoặc chặn mọi thứ trong một lúc mà không xóa quy tắc nào.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "Hoạt động cho biết những gì bị chặn và lý do, còn Quy tắc liệt kê mọi quyết định của bạn.",
+  "Skip": "Bỏ qua",
+  "Back": "Quay lại",
+  "Next": "Tiếp",
+  "Get started": "Bắt đầu"
 }

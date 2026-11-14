@@ -182,6 +182,10 @@ blocked, on glass panels that glow softly in their color. Light and dark themes 
 default; switch with the sun/moon button or in **Settings** (remembered per user in
 `%LocalAppData%\CrioFire\ui.txt`).
 
+The first time the window opens, a short welcome tour explains what CrioFire does, lets you pick
+the mode and whether it starts with Windows, and shows where Panic, Activity and Rules are.
+Skipping it changes nothing; **Settings → About → Show the welcome tour** opens it again.
+
 The app follows the Windows display language when it is one of its 16 (English, Chinese
 (Simplified), Hindi, Spanish, Arabic, French, Bengali, Portuguese (Brazil), Russian, Indonesian,
 Urdu, German, Japanese, Turkish, Korean, Vietnamese), else English; **Settings → Language** picks

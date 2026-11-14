@@ -597,6 +597,39 @@ internal sealed class AppModel
         return true;
     }
 
+    /// <summary>
+    /// The welcome tour. Finishing it applies its choices: starting with Windows, then the mode
+    /// (through <see cref="SetMode"/>, so a blocking mode still offers to allow what is running and
+    /// asks to keep it). Skipping changes nothing.
+    /// </summary>
+    public void ShowWelcome(Window owner)
+    {
+        Prefs.Current.WelcomeShown = true;
+        Prefs.Save();
+        var startsNow = Autostart.IsEnabled;
+        var canSetMode = Status is { Installed: true };
+        var tour = new WelcomeWindow(Mode, canSetMode, startsNow) { Owner = owner };
+        if (tour.ShowDialog() != true)
+        {
+            return;
+        }
+
+        Prefs.Current.AutostartAsked = true;   // the tour asked
+        Prefs.Save();
+        if (tour.StartWithWindows != startsNow)
+        {
+            Message?.Invoke(this, Autostart.Set(tour.StartWithWindows)
+                ? (tour.StartWithWindows ? L.T("CrioFire will start when you sign in to Windows.") : L.T("CrioFire won't start with Windows any more."))
+                : L.T("Could not change the Windows startup setting."));
+            NotifyChanged();
+        }
+
+        if (canSetMode && tour.Mode != Mode)
+        {
+            SetMode(owner, tour.Mode);
+        }
+    }
+
     /// <summary>Ask mode only works while the app runs: offer once to start it with Windows.</summary>
     private void OfferAutostart(Window owner, string mode)
     {

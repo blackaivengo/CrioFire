@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: el servicio no se está ejecutando",
   "CrioFire: not set up yet": "CrioFire: aún sin configurar",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: PÁNICO · todo el tráfico de red bloqueado",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PÁNICO · todo permitido, reglas en pausa"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PÁNICO · todo permitido, reglas en pausa",
+  "Show the welcome tour": "Mostrar la presentación",
+  "Welcome to CrioFire": "Te damos la bienvenida a CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire ve cada programa que se conecta a la red y te deja decidir cuáles pueden hacerlo. Su servicio se inicia con Windows y te sigue protegiendo aunque cierres esta ventana.",
+  "This short tour takes a minute. You can open it again from Settings.": "Esta breve presentación dura un minuto. Puedes volver a abrirla desde Configuración.",
+  "Choose a mode": "Elige un modo",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "Puedes cambiarlo cuando quieras en el Panel o desde el icono de CrioFire junto al reloj.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "Al cerrar esta ventana, CrioFire sigue funcionando junto al reloj. Haz clic en su icono para volver a abrirlo; haz clic derecho para cambiar el modo o salir.",
+  "If something goes wrong": "Si algo sale mal",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "¿Algo no puede conectarse, o algo se conecta y no debería? Pánico, abajo a la izquierda, permite o bloquea todo durante un rato sin borrar ninguna regla.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "Actividad muestra qué se bloqueó y por qué, y Reglas reúne todo lo que decidiste.",
+  "Skip": "Omitir",
+  "Back": "Atrás",
+  "Next": "Siguiente",
+  "Get started": "Empezar"
 }

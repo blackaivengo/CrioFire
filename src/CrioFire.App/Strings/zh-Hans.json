@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire：服务未运行",
   "CrioFire: not set up yet": "CrioFire：尚未设置",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire：紧急 · 所有网络流量已阻止",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire：紧急 · 全部允许，规则已暂停"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire：紧急 · 全部允许，规则已暂停",
+  "Show the welcome tour": "显示欢迎导览",
+  "Welcome to CrioFire": "欢迎使用 CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire 能看到每个连接网络的程序，并让你决定允许哪些程序连接。它的服务随 Windows 启动，即使关闭此窗口也会继续保护你。",
+  "This short tour takes a minute. You can open it again from Settings.": "这个简短导览只需一分钟。你可以在设置中再次打开它。",
+  "Choose a mode": "选择模式",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "你可以随时在仪表板中，或通过时钟旁的 CrioFire 图标切换。",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "关闭此窗口后，CrioFire 会在时钟旁继续运行。单击其图标可再次打开；右键单击可切换模式或退出。",
+  "If something goes wrong": "如果出了问题",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "有程序无法连接，或有不该连接的程序在连接？左下角的紧急功能可在一段时间内允许或阻止所有连接，而不会删除任何规则。",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "活动显示被阻止的内容及原因，规则列出你做出的所有决定。",
+  "Skip": "跳过",
+  "Back": "上一步",
+  "Next": "下一步",
+  "Get started": "开始使用"
 }

@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: hizmet çalışmıyor",
   "CrioFire: not set up yet": "CrioFire: henüz kurulmadı",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: PANİK · tüm ağ trafiği engellendi",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PANİK · her şeye izin verildi, kurallar duraklatıldı"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PANİK · her şeye izin verildi, kurallar duraklatıldı",
+  "Show the welcome tour": "Hoş geldiniz turunu göster",
+  "Welcome to CrioFire": "CrioFire'a hoş geldiniz",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire ağa bağlanan her programı görür ve hangilerinin bağlanabileceğine sizin karar vermenizi sağlar. Hizmeti Windows ile başlar ve bu pencere kapalıyken bile sizi korumaya devam eder.",
+  "This short tour takes a minute. You can open it again from Settings.": "Bu kısa tur bir dakika sürer. Ayarlar'dan yeniden açabilirsiniz.",
+  "Choose a mode": "Bir mod seçin",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "Dilediğiniz zaman Pano'dan veya saatin yanındaki CrioFire simgesinden değiştirebilirsiniz.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "Bu pencereyi kapatınca CrioFire saatin yanında çalışmaya devam eder. Yeniden açmak için simgesine tıklayın; modu değiştirmek veya çıkmak için sağ tıklayın.",
+  "If something goes wrong": "Bir sorun olursa",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "Bir şey bağlanamıyor mu, yoksa bağlanmaması gereken bir şey mi bağlanıyor? Sol alttaki Panik, hiçbir kuralı silmeden bir süreliğine her şeye izin verir veya her şeyi engeller.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "Etkinlik neyin neden engellendiğini, Kurallar ise verdiğiniz tüm kararları gösterir.",
+  "Skip": "Atla",
+  "Back": "Geri",
+  "Next": "İleri",
+  "Get started": "Başlayın"
 }

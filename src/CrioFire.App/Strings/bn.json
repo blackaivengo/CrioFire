@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: সেবা চলছে না",
   "CrioFire: not set up yet": "CrioFire: এখনও সেট আপ হয়নি",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: জরুরি · সব নেটওয়ার্ক ট্রাফিক ব্লক",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: জরুরি · সবকিছু অনুমতিপ্রাপ্ত, নিয়ম থামানো"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: জরুরি · সবকিছু অনুমতিপ্রাপ্ত, নিয়ম থামানো",
+  "Show the welcome tour": "স্বাগত ভ্রমণ দেখান",
+  "Welcome to CrioFire": "CrioFire-এ স্বাগতম",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire নেটওয়ার্কে সংযোগ করা প্রতিটি প্রোগ্রাম দেখে এবং কোনগুলো পারবে তা আপনাকে ঠিক করতে দেয়। এর সেবা Windows-এর সঙ্গে চালু হয় এবং এই উইন্ডো বন্ধ থাকলেও আপনাকে সুরক্ষা দিতে থাকে।",
+  "This short tour takes a minute. You can open it again from Settings.": "এই ছোট ভ্রমণে এক মিনিট লাগে। সেটিংস থেকে এটি আবার খুলতে পারবেন।",
+  "Choose a mode": "একটি মোড বেছে নিন",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "যেকোনো সময় ড্যাশবোর্ডে বা ঘড়ির পাশের CrioFire আইকন থেকে বদলাতে পারবেন।",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "এই উইন্ডো বন্ধ করলে CrioFire ঘড়ির পাশে চলতে থাকে। আবার খুলতে এর আইকনে ক্লিক করুন; মোড বদলাতে বা বের হতে রাইট-ক্লিক করুন।",
+  "If something goes wrong": "কিছু ভুল হলে",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "কিছু সংযোগ করতে পারছে না, নাকি এমন কিছু সংযোগ করছে যা করার কথা নয়? নিচে বাঁ দিকের জরুরি কোনো নিয়ম না মুছে কিছুক্ষণের জন্য সবকিছুর অনুমতি দেয় বা সবকিছু ব্লক করে।",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "কার্যকলাপ দেখায় কী ব্লক হয়েছে ও কেন, আর নিয়ম-এ আপনার সব সিদ্ধান্ত থাকে।",
+  "Skip": "এড়িয়ে যান",
+  "Back": "পেছনে",
+  "Next": "পরবর্তী",
+  "Get started": "শুরু করুন"
 }

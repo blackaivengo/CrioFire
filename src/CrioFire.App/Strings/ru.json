@@ -694,5 +694,19 @@
   "CrioFire: service not running": "CrioFire: служба не запущена",
   "CrioFire: not set up yet": "CrioFire: ещё не настроен",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: ПАНИКА · весь сетевой трафик заблокирован",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: ПАНИКА · всё разрешено, правила приостановлены"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: ПАНИКА · всё разрешено, правила приостановлены",
+  "Show the welcome tour": "Показать знакомство с программой",
+  "Welcome to CrioFire": "Добро пожаловать в CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire видит каждую программу, которая подключается к сети, и позволяет вам решать, каким это можно. Его служба запускается вместе с Windows и защищает вас, даже когда это окно закрыто.",
+  "This short tour takes a minute. You can open it again from Settings.": "Это короткое знакомство займёт минуту. Его можно открыть снова в настройках.",
+  "Choose a mode": "Выберите режим",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "Сменить его можно в любой момент в Сводке или через значок CrioFire рядом с часами.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "Если закрыть это окно, CrioFire продолжит работать рядом с часами. Щёлкните значок, чтобы открыть его снова; щелчок правой кнопкой — сменить режим или выйти.",
+  "If something goes wrong": "Если что-то пошло не так",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "Что-то не может подключиться или подключается то, что не должно? Паника внизу слева на время разрешает или блокирует всё, не удаляя ни одного правила.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "Активность показывает, что было заблокировано и почему, а Правила — всё, что вы решили.",
+  "Skip": "Пропустить",
+  "Back": "Назад",
+  "Next": "Далее",
+  "Get started": "Начать"
 }

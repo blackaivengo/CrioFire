@@ -75,6 +75,16 @@ public partial class MainWindow : Window
         _model.Changed += (_, _) => RefreshPage();
         _model.Message += (_, text) => ShowMessage(text);
         PreviewKeyDown += OnShortcut;
+
+        // The welcome tour, once, the first time the window shows (also when it first opens from the
+        // tray). Not for someone who already used the app before it had a tour.
+        ContentRendered += (_, _) =>
+        {
+            if (!Prefs.Current.WelcomeShown && !Prefs.Current.TrayHintShown)
+            {
+                Dispatcher.BeginInvoke(() => _model.ShowWelcome(this), DispatcherPriority.ApplicationIdle);
+            }
+        };
         _model.NavigateRequested += (_, page) => GoTo(page);
         _model.PendingResolved += (_, app) => CloseAlert(app);
         ThemeManager.Changed += (_, _) =>

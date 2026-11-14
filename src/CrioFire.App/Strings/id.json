@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: layanan tidak berjalan",
   "CrioFire: not set up yet": "CrioFire: belum disiapkan",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: PANIK · semua lalu lintas jaringan diblokir",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PANIK · semua diizinkan, aturan dijeda"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PANIK · semua diizinkan, aturan dijeda",
+  "Show the welcome tour": "Tampilkan tur sambutan",
+  "Welcome to CrioFire": "Selamat datang di CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire melihat setiap program yang terhubung ke jaringan dan membiarkan Anda memutuskan mana yang boleh. Layanannya dimulai bersama Windows dan tetap melindungi Anda meski jendela ini ditutup.",
+  "This short tour takes a minute. You can open it again from Settings.": "Tur singkat ini hanya semenit. Anda bisa membukanya lagi dari Pengaturan.",
+  "Choose a mode": "Pilih mode",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "Anda bisa menggantinya kapan saja di Dasbor, atau dari ikon CrioFire di samping jam.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "Menutup jendela ini membuat CrioFire tetap berjalan di samping jam. Klik ikonnya untuk membukanya lagi; klik kanan untuk mengganti mode atau keluar.",
+  "If something goes wrong": "Jika terjadi masalah",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "Ada yang tidak bisa terhubung, atau ada yang terhubung padahal tidak boleh? Panik, di kiri bawah, mengizinkan atau memblokir semuanya untuk sementara tanpa menghapus aturan apa pun.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "Aktivitas menunjukkan apa yang diblokir dan alasannya, dan Aturan memuat semua yang Anda putuskan.",
+  "Skip": "Lewati",
+  "Back": "Kembali",
+  "Next": "Berikutnya",
+  "Get started": "Mulai"
 }

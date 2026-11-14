@@ -53,6 +53,13 @@ public sealed class UiPreferences
         set => _values["autostartOff"] = value ? "true" : "false";
     }
 
+    /// <summary>The welcome tour has been shown (once, on the first start; Settings opens it again).</summary>
+    public bool WelcomeShown
+    {
+        get => GetBool("welcomeShown", false);
+        set => _values["welcomeShown"] = value ? "true" : "false";
+    }
+
     /// <summary>The user has been asked once whether CrioFire should start with Windows.</summary>
     public bool AutostartAsked
     {

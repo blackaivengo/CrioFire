@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: سروس نہیں چل رہی",
   "CrioFire: not set up yet": "CrioFire: ابھی سیٹ اپ نہیں",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: ہنگامی · تمام نیٹ ورک ٹریفک بلاک",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: ہنگامی · سب کی اجازت، اصول رکے ہوئے"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: ہنگامی · سب کی اجازت، اصول رکے ہوئے",
+  "Show the welcome tour": "خوش آمدید ٹور دکھائیں",
+  "Welcome to CrioFire": "CrioFire میں خوش آمدید",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire نیٹ ورک سے جڑنے والے ہر پروگرام کو دیکھتا ہے اور آپ کو فیصلہ کرنے دیتا ہے کہ کسے اجازت ہو۔ اس کی سروس Windows کے ساتھ شروع ہوتی ہے اور یہ ونڈو بند ہونے پر بھی آپ کی حفاظت کرتی رہتی ہے۔",
+  "This short tour takes a minute. You can open it again from Settings.": "یہ مختصر ٹور ایک منٹ لیتا ہے۔ آپ اسے ترتیبات سے دوبارہ کھول سکتے ہیں۔",
+  "Choose a mode": "موڈ منتخب کریں",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "آپ کسی بھی وقت ڈیش بورڈ میں یا گھڑی کے پاس CrioFire آئیکن سے اسے بدل سکتے ہیں۔",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "یہ ونڈو بند کرنے پر CrioFire گھڑی کے پاس چلتا رہتا ہے۔ دوبارہ کھولنے کے لیے اس کے آئیکن پر کلک کریں؛ موڈ بدلنے یا باہر نکلنے کے لیے دائیں کلک کریں۔",
+  "If something goes wrong": "اگر کچھ غلط ہو جائے",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "کوئی چیز کنیکٹ نہیں ہو پا رہی، یا کوئی ایسی چیز کنیکٹ ہو رہی ہے جو نہیں ہونی چاہیے؟ نیچے دائیں طرف ہنگامی، کوئی اصول حذف کیے بغیر کچھ دیر کے لیے سب کچھ کی اجازت دیتا یا بلاک کرتا ہے۔",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "سرگرمی دکھاتی ہے کہ کیا اور کیوں بلاک ہوا، اور اصول میں آپ کے تمام فیصلے ہیں۔",
+  "Skip": "چھوڑیں",
+  "Back": "پیچھے",
+  "Next": "اگلا",
+  "Get started": "شروع کریں"
 }

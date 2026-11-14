@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: Dienst läuft nicht",
   "CrioFire: not set up yet": "CrioFire: noch nicht eingerichtet",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: PANIK · gesamter Netzwerkverkehr blockiert",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PANIK · alles erlaubt, Regeln pausiert"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PANIK · alles erlaubt, Regeln pausiert",
+  "Show the welcome tour": "Willkommenstour anzeigen",
+  "Welcome to CrioFire": "Willkommen bei CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "CrioFire sieht jedes Programm, das sich mit dem Netzwerk verbindet, und lässt Sie entscheiden, welche es dürfen. Der Dienst startet mit Windows und schützt Sie weiter, auch wenn dieses Fenster geschlossen ist.",
+  "This short tour takes a minute. You can open it again from Settings.": "Diese kurze Tour dauert eine Minute. Sie können sie in den Einstellungen wieder öffnen.",
+  "Choose a mode": "Modus wählen",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "Sie können jederzeit in der Übersicht wechseln oder über das CrioFire-Symbol neben der Uhr.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "Wenn Sie dieses Fenster schließen, läuft CrioFire neben der Uhr weiter. Klicken Sie auf das Symbol, um es wieder zu öffnen; mit einem Rechtsklick wechseln Sie den Modus oder beenden es.",
+  "If something goes wrong": "Wenn etwas schiefgeht",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "Etwas kann keine Verbindung herstellen, oder etwas verbindet sich, das es nicht soll? Panik unten links erlaubt oder blockiert für eine Weile alles, ohne eine Regel zu löschen.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "Aktivität zeigt, was blockiert wurde und warum, und Regeln listet alles auf, was Sie entschieden haben.",
+  "Skip": "Überspringen",
+  "Back": "Zurück",
+  "Next": "Weiter",
+  "Get started": "Los geht's"
 }

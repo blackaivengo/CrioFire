@@ -690,5 +690,19 @@
   "CrioFire: service not running": "CrioFire: serviço não está em execução",
   "CrioFire: not set up yet": "CrioFire: ainda não configurado",
   "CrioFire: PANIC · all network traffic blocked": "CrioFire: PÂNICO · todo o tráfego de rede bloqueado",
-  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PÂNICO · tudo permitido, regras pausadas"
+  "CrioFire: PANIC · everything allowed, rules paused": "CrioFire: PÂNICO · tudo permitido, regras pausadas",
+  "Show the welcome tour": "Mostrar o tour de boas-vindas",
+  "Welcome to CrioFire": "Boas-vindas ao CrioFire",
+  "CrioFire sees every program that connects to the network and lets you decide which ones may. Its service starts with Windows and keeps protecting you even when this window is closed.": "O CrioFire vê cada programa que se conecta à rede e deixa você decidir quais podem. O serviço inicia com o Windows e continua protegendo você mesmo com esta janela fechada.",
+  "This short tour takes a minute. You can open it again from Settings.": "Este tour rápido leva um minuto. Você pode abri-lo de novo nas Configurações.",
+  "Choose a mode": "Escolha um modo",
+  "You can switch at any time on the Dashboard, or from the CrioFire icon next to the clock.": "Você pode mudar quando quiser no Painel ou pelo ícone do CrioFire ao lado do relógio.",
+  "Closing this window keeps CrioFire running next to the clock. Click its icon to open it again; right-click it to change the mode or quit.": "Fechar esta janela mantém o CrioFire funcionando ao lado do relógio. Clique no ícone para abri-lo de novo; clique com o botão direito para mudar o modo ou sair.",
+  "If something goes wrong": "Se algo der errado",
+  "Something can't connect, or something connects that shouldn't? Panic, at the bottom left, allows or blocks everything for a while without deleting a rule.": "Algo não consegue se conectar, ou algo se conecta e não deveria? Pânico, no canto inferior esquerdo, permite ou bloqueia tudo por um tempo sem apagar nenhuma regra.",
+  "Activity shows what was blocked and why, and Rules lists everything you decided.": "Atividade mostra o que foi bloqueado e por quê, e Regras lista tudo o que você decidiu.",
+  "Skip": "Pular",
+  "Back": "Voltar",
+  "Next": "Avançar",
+  "Get started": "Começar"
 }
