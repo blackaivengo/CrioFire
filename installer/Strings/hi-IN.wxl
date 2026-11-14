@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Hindi. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="hi-IN" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Nirmala UI" />
+  <String Id="DowngradeError" Value="[ProductName] का नया संस्करण पहले से इंस्टॉल है।" />
+  <String Id="NeedsWindows64" Value="CrioFire Private Firewall को 64-बिट Windows चाहिए। Windows 10 और Windows 11 समर्थित हैं।" />
+  <String Id="OpenNow" Value="CrioFire Private Firewall अभी खोलें" />
+  <String Id="ServiceDescription" Value="Windows Filtering Platform के ज़रिए CrioFire Private Firewall के नियम लागू करता है।" />
+  <String Id="ShortcutDescription" Value="देखें कि नेटवर्क से कौन बात करता है, और उसे अनुमति दें या ब्लॉक करें" />
+  <String Id="OptionsTitle" Value="सेटअप विकल्प" />
+  <String Id="OptionsDescription" Value="चुनें कि CrioFire कैसे शुरू हो। आप बाद में ऐप में सब बदल सकते हैं।" />
+  <String Id="ModeLabel" Value="जब बिना नियम वाला कोई प्रोग्राम बाहर कनेक्ट करे:" />
+  <String Id="ModeLearning" Value="सीखें(&amp;L): जाने दें, और दिखाएँ कि क्या कनेक्ट होता है (शुरुआत में अनुशंसित)" />
+  <String Id="ModeAsk" Value="पूछें(&amp;A): ब्लॉक करें और मुझसे पूछें कि अनुमति दें या नहीं" />
+  <String Id="ModeAllowlist" Value="केवल अनुमति सूची(&amp;O): बिना पूछे ब्लॉक करें" />
+  <String Id="AllowRunning" Value="अभी चल रहे प्रोग्राम को अनुमति दें(&amp;W) (अनुशंसित)" />
+  <String Id="Autostart" Value="कोई भी साइन इन करे तो CrioFire को सूचना क्षेत्र में शुरू करें(&amp;S)" />
+  <String Id="ServiceNote" Value="CrioFire सेवा Windows के साथ शुरू होती है और ऐप बंद होने पर भी आपकी सुरक्षा करती रहती है। पूछें मोड केवल तभी पूछ सकता है जब ऐप चल रहा हो। CrioFire को अनइंस्टॉल करने से उसके सभी नियम हट जाते हैं।" />
+</WixLocalization>

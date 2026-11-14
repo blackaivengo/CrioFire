@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Vietnamese. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="vi-VN" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Segoe UI" />
+  <String Id="DowngradeError" Value="Đã cài đặt một phiên bản [ProductName] mới hơn." />
+  <String Id="NeedsWindows64" Value="CrioFire Private Firewall cần Windows 64 bit. Hỗ trợ Windows 10 và Windows 11." />
+  <String Id="OpenNow" Value="Mở CrioFire Private Firewall ngay" />
+  <String Id="ServiceDescription" Value="Áp dụng các quy tắc của CrioFire Private Firewall qua Nền tảng lọc của Windows." />
+  <String Id="ShortcutDescription" Value="Xem những gì giao tiếp với mạng, rồi cho phép hoặc chặn" />
+  <String Id="OptionsTitle" Value="Tùy chọn cài đặt" />
+  <String Id="OptionsDescription" Value="Chọn cách CrioFire khởi động. Bạn có thể đổi tất cả sau trong ứng dụng." />
+  <String Id="ModeLabel" Value="Khi một chương trình không có quy tắc kết nối ra ngoài:" />
+  <String Id="ModeLearning" Value="&amp;Học: cho phép và cho tôi xem những gì kết nối (nên dùng lúc đầu)" />
+  <String Id="ModeAsk" Value="Hỏ&amp;i: chặn và hỏi tôi có cho phép không" />
+  <String Id="ModeAllowlist" Value="Chỉ danh sách cho &amp;phép: chặn mà không hỏi" />
+  <String Id="AllowRunning" Value="Cho phép các chương trình đang &amp;chạy (khuyên dùng)" />
+  <String Id="Autostart" Value="&amp;Khởi động CrioFire trong vùng thông báo khi bất kỳ ai đăng nhập" />
+  <String Id="ServiceNote" Value="Dịch vụ CrioFire khởi động cùng Windows và vẫn bảo vệ bạn ngay cả khi ứng dụng đã đóng. Chế độ Hỏi chỉ hỏi được khi ứng dụng đang chạy. Gỡ cài đặt CrioFire sẽ xóa mọi quy tắc của nó." />
+
+  <!-- The setup wizard's standard pages, which the WiX UI extension has no Vietnamese for. Anything not here (rare error messages) stays English. -->
+  <String Id="WixUIBack" Value="&amp;Quay lại" />
+  <String Id="WixUINext" Value="&amp;Tiếp" />
+  <String Id="WixUICancel" Value="Hủy" />
+  <String Id="WixUIFinish" Value="&amp;Hoàn tất" />
+  <String Id="WixUIRetry" Value="Thử &amp;lại" />
+  <String Id="WixUIIgnore" Value="&amp;Bỏ qua" />
+  <String Id="WixUIYes" Value="&amp;Có" />
+  <String Id="WixUINo" Value="&amp;Không" />
+  <String Id="WixUIOK" Value="OK" />
+  <String Id="WixUIPrint" Value="&amp;In" />
+  <String Id="BrowseDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="CancelDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="DiskCostDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="ErrorDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="ExitDialog_Title" Value="Cài đặt [ProductName]" />
+  <String Id="FatalError_Title" Value="Cài đặt [ProductName]" />
+  <String Id="FilesInUse_Title" Value="Cài đặt [ProductName]" />
+  <String Id="InstallDirDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="InvalidDirDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="LicenseAgreementDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="MaintenanceTypeDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="MaintenanceWelcomeDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="MsiRMFilesInUse_Title" Value="Cài đặt [ProductName]" />
+  <String Id="OutOfDiskDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="OutOfRbDiskDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="PrepareDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="ProgressDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="ResumeDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="UserExit_Title" Value="Cài đặt [ProductName]" />
+  <String Id="VerifyReadyDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="WaitForCostingDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="WelcomeDlg_Title" Value="Cài đặt [ProductName]" />
+  <String Id="BrowseDlgComboLabel" Value="&amp;Tìm trong:" />
+  <String Id="BrowseDlgWixUI_Bmp_UpTooltip" Value="Lên một cấp" />
+  <String Id="BrowseDlgNewFolderTooltip" Value="Tạo thư mục mới" />
+  <String Id="BrowseDlgPathLabel" Value="Tên thư &amp;mục:" />
+  <String Id="BrowseDlgDescription" Value="Duyệt đến thư mục đích" />
+  <String Id="BrowseDlgTitle" Value="{\WixUI_Font_Title}Đổi thư mục đích" />
+  <String Id="CancelDlgText" Value="Bạn có chắc muốn hủy cài đặt [ProductName]?" />
+  <String Id="CancelDlgIconTooltip" Value="Biểu tượng thông tin" />
+  <String Id="DiskCostDlgText" Value="Các ổ đĩa được tô sáng không đủ dung lượng trống cho các tính năng đã chọn. Bạn có thể xóa bớt tệp trên các ổ đĩa đó, cài ít tính năng hơn hoặc chọn ổ đĩa đích khác." />
+  <String Id="DiskCostDlgDescription" Value="Dung lượng đĩa cần để cài các tính năng đã chọn." />
+  <String Id="DiskCostDlgTitle" Value="{\WixUI_Font_Title}Yêu cầu dung lượng đĩa" />
+  <String Id="ErrorDlgErrorIconTooltip" Value="Biểu tượng thông tin" />
+  <String Id="ExitDialogDescription" Value="Bấm nút Hoàn tất để thoát Trình hướng dẫn cài đặt." />
+  <String Id="ExitDialogTitle" Value="{\WixUI_Font_Bigger}Đã hoàn tất Trình hướng dẫn cài đặt [ProductName]" />
+  <String Id="FatalErrorTitle" Value="{\WixUI_Font_Bigger}Trình hướng dẫn cài đặt [ProductName] đã dừng sớm" />
+  <String Id="FatalErrorDescription1" Value="Trình hướng dẫn cài đặt [ProductName] đã dừng sớm do có lỗi. Hệ thống của bạn không bị thay đổi. Để cài chương trình này sau, hãy chạy lại Trình hướng dẫn cài đặt." />
+  <String Id="FatalErrorDescription2" Value="Bấm nút Hoàn tất để thoát Trình hướng dẫn cài đặt." />
+  <String Id="FilesInUseExit" Value="T&amp;hoát" />
+  <String Id="FilesInUseText" Value="Các ứng dụng sau đang dùng những tệp mà bản cài đặt này cần cập nhật. Hãy đóng các ứng dụng này rồi bấm Thử lại để tiếp tục cài đặt, hoặc Thoát để thoát." />
+  <String Id="FilesInUseDescription" Value="Một số tệp cần cập nhật đang được sử dụng." />
+  <String Id="FilesInUseTitle" Value="{\WixUI_Font_Title}Tệp đang được sử dụng" />
+  <String Id="InstallDirDlgChange" Value="Th&amp;ay đổi..." />
+  <String Id="InstallDirDlgTitle" Value="{\WixUI_Font_Title}Thư mục đích" />
+  <String Id="InstallDirDlgDescription" Value="Bấm Tiếp để cài vào thư mục mặc định hoặc bấm Thay đổi để chọn thư mục khác." />
+  <String Id="InstallDirDlgFolderLabel" Value="Cài [ProductName] vào:" />
+  <String Id="InvalidDirDlgText" Value="Thư mục cài đặt phải nằm trên ổ đĩa cứng cục bộ." />
+  <String Id="InvalidDirDlgIconTooltip" Value="Biểu tượng thông tin" />
+  <String Id="LicenseAgreementDlgLicenseAcceptedCheckBox" Value="Tôi &amp;chấp nhận các điều khoản trong Thỏa thuận cấp phép" />
+  <String Id="LicenseAgreementDlgDescription" Value="Vui lòng đọc kỹ thỏa thuận cấp phép sau" />
+  <String Id="LicenseAgreementDlgTitle" Value="{\WixUI_Font_Title}Thỏa thuận cấp phép người dùng cuối" />
+  <String Id="MaintenanceTypeDlgChangeButton" Value="Th&amp;ay đổi" />
+  <String Id="MaintenanceTypeDlgChangeButtonTooltip" Value="Thay đổi bản cài đặt" />
+  <String Id="MaintenanceTypeDlgRepairButton" Value="&amp;Sửa chữa" />
+  <String Id="MaintenanceTypeDlgRepairButtonTooltip" Value="Sửa chữa bản cài đặt" />
+  <String Id="MaintenanceTypeDlgRemoveButton" Value="&amp;Gỡ bỏ" />
+  <String Id="MaintenanceTypeDlgRemoveButtonTooltip" Value="Gỡ bỏ bản cài đặt" />
+  <String Id="MaintenanceTypeDlgDescription" Value="Chọn thao tác bạn muốn thực hiện." />
+  <String Id="MaintenanceTypeDlgTitle" Value="{\WixUI_Font_Title}Thay đổi, sửa chữa hoặc gỡ bỏ bản cài đặt" />
+  <String Id="MaintenanceTypeDlgChangeText" Value="Cho phép thay đổi cách cài đặt các tính năng." />
+  <String Id="MaintenanceTypeDlgChangeDisabledText" Value="[ProductName] không có tính năng nào chọn riêng được." />
+  <String Id="MaintenanceTypeDlgRemoveText" Value="Gỡ bỏ [ProductName] khỏi máy tính của bạn." />
+  <String Id="MaintenanceTypeDlgRemoveDisabledText" Value="Không thể gỡ bỏ [ProductName]." />
+  <String Id="MaintenanceTypeDlgRepairText" Value="Sửa lỗi trong lần cài đặt gần nhất bằng cách khôi phục các tệp, lối tắt và mục registry bị thiếu hoặc hỏng." />
+  <String Id="MaintenanceTypeDlgRepairDisabledText" Value="Không thể sửa chữa [ProductName]." />
+  <String Id="MaintenanceWelcomeDlgDescription" Value="Trình hướng dẫn cài đặt cho phép bạn thay đổi cách cài các tính năng của [ProductName] trên máy tính hoặc gỡ bỏ nó khỏi máy tính. Bấm Tiếp để tiếp tục hoặc Hủy để thoát Trình hướng dẫn cài đặt." />
+  <String Id="MaintenanceWelcomeDlgTitle" Value="{\WixUI_Font_Bigger}Chào mừng đến với Trình hướng dẫn cài đặt [ProductName]" />
+  <String Id="MsiRMFilesInUseText" Value="Các ứng dụng sau đang dùng những tệp mà bản cài đặt này cần cập nhật. Bạn có thể để Trình hướng dẫn cài đặt đóng chúng và thử khởi động lại, hoặc khởi động lại máy tính sau." />
+  <String Id="MsiRMFilesInUseDescription" Value="Một số tệp cần cập nhật đang được sử dụng." />
+  <String Id="MsiRMFilesInUseTitle" Value="{\WixUI_Font_Title}Tệp đang được sử dụng" />
+  <String Id="MsiRMFilesInUseUseRM" Value="Đó&amp;ng các ứng dụng và thử khởi động lại chúng." />
+  <String Id="MsiRMFilesInUseDontUseRM" Value="&amp;Không đóng ứng dụng. Sẽ cần khởi động lại máy tính." />
+  <String Id="OutOfDiskDlgText" Value="Các ổ đĩa được tô sáng không đủ dung lượng trống cho các tính năng đang chọn. Bạn có thể xóa bớt tệp trên các ổ đĩa đó, cài ít tính năng hơn hoặc chọn ổ đĩa đích khác." />
+  <String Id="OutOfDiskDlgDescription" Value="Dung lượng đĩa cần để cài đặt vượt quá dung lượng còn trống." />
+  <String Id="OutOfDiskDlgTitle" Value="{\WixUI_Font_Title}Hết dung lượng đĩa" />
+  <String Id="OutOfRbDiskDlgText" Value="Các ổ đĩa được tô sáng không đủ dung lượng trống cho các tính năng đang chọn. Bạn có thể xóa bớt tệp trên các ổ đĩa đó, cài ít tính năng hơn hoặc chọn ổ đĩa đích khác." />
+  <String Id="OutOfRbDiskDlgDescription" Value="Dung lượng đĩa cần để cài đặt vượt quá dung lượng còn trống." />
+  <String Id="OutOfRbDiskDlgTitle" Value="{\WixUI_Font_Title}Hết dung lượng đĩa" />
+  <String Id="OutOfRbDiskDlgText2" Value="Ngoài ra, bạn có thể tắt chức năng khôi phục (rollback) của trình cài đặt. Khi tắt, trình cài đặt sẽ không thể đưa máy tính về trạng thái ban đầu nếu quá trình cài đặt bị gián đoạn. Bấm Có nếu bạn chấp nhận rủi ro khi tắt chức năng này." />
+  <String Id="PrepareDlgDescription" Value="Vui lòng chờ trong khi Trình hướng dẫn cài đặt chuẩn bị hướng dẫn bạn cài đặt." />
+  <String Id="PrepareDlgTitle" Value="{\WixUI_Font_Bigger}Chào mừng đến với Trình hướng dẫn cài đặt [ProductName]" />
+  <String Id="ProgressDlgTextInstalling" Value="Vui lòng chờ trong khi Trình hướng dẫn cài đặt cài [ProductName]." />
+  <String Id="ProgressDlgTitleInstalling" Value="{\WixUI_Font_Title}Đang cài [ProductName]" />
+  <String Id="ProgressDlgTextChanging" Value="Vui lòng chờ trong khi Trình hướng dẫn cài đặt thay đổi [ProductName]." />
+  <String Id="ProgressDlgTitleChanging" Value="{\WixUI_Font_Title}Đang thay đổi [ProductName]" />
+  <String Id="ProgressDlgTextRepairing" Value="Vui lòng chờ trong khi Trình hướng dẫn cài đặt sửa chữa [ProductName]." />
+  <String Id="ProgressDlgTitleRepairing" Value="{\WixUI_Font_Title}Đang sửa chữa [ProductName]" />
+  <String Id="ProgressDlgTextRemoving" Value="Vui lòng chờ trong khi Trình hướng dẫn cài đặt gỡ bỏ [ProductName]." />
+  <String Id="ProgressDlgTitleRemoving" Value="{\WixUI_Font_Title}Đang gỡ bỏ [ProductName]" />
+  <String Id="ProgressDlgTextUpdating" Value="Vui lòng chờ trong khi Trình hướng dẫn cài đặt cập nhật [ProductName]." />
+  <String Id="ProgressDlgTitleUpdating" Value="{\WixUI_Font_Title}Đang cập nhật [ProductName]" />
+  <String Id="ProgressDlgProgressBar" Value="Tiến độ" />
+  <String Id="ProgressDlgStatusLabel" Value="Trạng thái:" />
+  <String Id="ResumeDlgInstall" Value="&amp;Cài đặt" />
+  <String Id="ResumeDlgDescription" Value="Trình hướng dẫn cài đặt sẽ hoàn tất việc cài [ProductName] trên máy tính của bạn. Bấm Cài đặt để tiếp tục hoặc Hủy để thoát Trình hướng dẫn cài đặt." />
+  <String Id="ResumeDlgTitle" Value="{\WixUI_Font_Bigger}Tiếp tục Trình hướng dẫn cài đặt [ProductName]" />
+  <String Id="UserExitTitle" Value="{\WixUI_Font_Bigger}Trình hướng dẫn cài đặt [ProductName] đã bị gián đoạn" />
+  <String Id="UserExitDescription1" Value="Quá trình cài đặt [ProductName] đã bị gián đoạn. Hệ thống của bạn không bị thay đổi. Để cài chương trình này sau, hãy chạy lại bản cài đặt." />
+  <String Id="UserExitDescription2" Value="Bấm nút Hoàn tất để thoát Trình hướng dẫn cài đặt." />
+  <String Id="VerifyReadyDlgInstall" Value="&amp;Cài đặt" />
+  <String Id="VerifyReadyDlgInstallText" Value="Bấm Cài đặt để bắt đầu. Bấm Quay lại để xem lại hoặc thay đổi thiết lập cài đặt. Bấm Hủy để thoát trình hướng dẫn." />
+  <String Id="VerifyReadyDlgInstallTitle" Value="{\WixUI_Font_Title}Sẵn sàng cài [ProductName]" />
+  <String Id="VerifyReadyDlgChange" Value="Th&amp;ay đổi" />
+  <String Id="VerifyReadyDlgChangeText" Value="Bấm Thay đổi để bắt đầu. Bấm Quay lại để xem lại hoặc thay đổi thiết lập cài đặt. Bấm Hủy để thoát trình hướng dẫn." />
+  <String Id="VerifyReadyDlgChangeTitle" Value="{\WixUI_Font_Title}Sẵn sàng thay đổi [ProductName]" />
+  <String Id="VerifyReadyDlgRepair" Value="&amp;Sửa chữa" />
+  <String Id="VerifyReadyDlgRepairText" Value="Bấm Sửa chữa để sửa bản cài đặt [ProductName]. Bấm Quay lại để xem lại hoặc thay đổi thiết lập cài đặt. Bấm Hủy để thoát trình hướng dẫn." />
+  <String Id="VerifyReadyDlgRepairTitle" Value="{\WixUI_Font_Title}Sẵn sàng sửa chữa [ProductName]" />
+  <String Id="VerifyReadyDlgRemove" Value="&amp;Gỡ bỏ" />
+  <String Id="VerifyReadyDlgRemoveText" Value="Bấm Gỡ bỏ để gỡ [ProductName] khỏi máy tính của bạn. Bấm Quay lại để xem lại hoặc thay đổi thiết lập cài đặt. Bấm Hủy để thoát trình hướng dẫn." />
+  <String Id="VerifyReadyDlgRemoveTitle" Value="{\WixUI_Font_Title}Sẵn sàng gỡ bỏ [ProductName]" />
+  <String Id="VerifyReadyDlgUpdate" Value="Cậ&amp;p nhật" />
+  <String Id="VerifyReadyDlgUpdateText" Value="Bấm Cập nhật để cập nhật [ProductName] trên máy tính của bạn. Bấm Quay lại để xem lại hoặc thay đổi thiết lập cài đặt. Bấm Hủy để thoát trình hướng dẫn." />
+  <String Id="VerifyReadyDlgUpdateTitle" Value="{\WixUI_Font_Title}Sẵn sàng cập nhật [ProductName]" />
+  <String Id="WaitForCostingDlgReturn" Value="&amp;Quay lại" />
+  <String Id="WaitForCostingDlgText" Value="Vui lòng chờ trong khi trình cài đặt tính xong dung lượng đĩa cần thiết." />
+  <String Id="WaitForCostingDlgIconTooltip" Value="Biểu tượng cảnh báo" />
+  <String Id="WelcomeDlgDescription" Value="Trình hướng dẫn cài đặt sẽ cài [ProductName] lên máy tính của bạn. Bấm Tiếp để tiếp tục hoặc Hủy để thoát Trình hướng dẫn cài đặt." />
+  <String Id="WelcomeDlgTitle" Value="{\WixUI_Font_Bigger}Chào mừng đến với Trình hướng dẫn cài đặt [ProductName]" />
+  <String Id="ProgressTextInstallValidate" Value="Đang kiểm tra bản cài đặt" />
+  <String Id="ProgressTextInstallFiles" Value="Đang sao chép tệp mới" />
+  <String Id="ProgressTextFileCost" Value="Đang tính dung lượng cần thiết" />
+  <String Id="ProgressTextCostInitialize" Value="Đang tính dung lượng cần thiết" />
+  <String Id="ProgressTextCostFinalize" Value="Đang tính dung lượng cần thiết" />
+  <String Id="ProgressTextCreateShortcuts" Value="Đang tạo lối tắt" />
+  <String Id="ProgressTextPublishFeatures" Value="Đang đăng ký các tính năng sản phẩm" />
+  <String Id="ProgressTextPublishProduct" Value="Đang đăng ký thông tin sản phẩm" />
+  <String Id="ProgressTextAppSearch" Value="Đang tìm các ứng dụng đã cài" />
+  <String Id="ProgressTextCreateFolders" Value="Đang tạo thư mục" />
+  <String Id="ProgressTextDeleteServices" Value="Đang xóa dịch vụ" />
+  <String Id="ProgressTextFindRelatedProducts" Value="Đang tìm các ứng dụng liên quan" />
+  <String Id="ProgressTextInstallServices" Value="Đang cài dịch vụ mới" />
+  <String Id="ProgressTextLaunchConditions" Value="Đang kiểm tra điều kiện khởi chạy" />
+  <String Id="ProgressTextMigrateFeatureStates" Value="Đang chuyển trạng thái tính năng từ các ứng dụng liên quan" />
+  <String Id="ProgressTextMoveFiles" Value="Đang di chuyển tệp" />
+  <String Id="ProgressTextProcessComponents" Value="Đang cập nhật đăng ký thành phần" />
+  <String Id="ProgressTextRegisterProduct" Value="Đang đăng ký sản phẩm" />
+  <String Id="ProgressTextRegisterUser" Value="Đang đăng ký người dùng" />
+  <String Id="ProgressTextRemoveEnvironmentStrings" Value="Đang cập nhật biến môi trường" />
+  <String Id="ProgressTextRemoveExistingProducts" Value="Đang gỡ bỏ ứng dụng" />
+  <String Id="ProgressTextRemoveFiles" Value="Đang xóa tệp" />
+  <String Id="ProgressTextRemoveFolders" Value="Đang xóa thư mục" />
+  <String Id="ProgressTextRemoveRegistryValues" Value="Đang xóa giá trị registry hệ thống" />
+  <String Id="ProgressTextRemoveShortcuts" Value="Đang xóa lối tắt" />
+  <String Id="ProgressTextStartServices" Value="Đang khởi động dịch vụ" />
+  <String Id="ProgressTextStopServices" Value="Đang dừng dịch vụ" />
+  <String Id="ProgressTextUnpublishFeatures" Value="Đang hủy đăng ký các tính năng sản phẩm" />
+  <String Id="ProgressTextWriteEnvironmentStrings" Value="Đang cập nhật biến môi trường" />
+  <String Id="ProgressTextWriteRegistryValues" Value="Đang ghi giá trị registry hệ thống" />
+  <String Id="ProgressTextGenerateScript" Value="Đang tạo thao tác kịch bản cho hành động:" />
+  <String Id="ProgressTextRollback" Value="Đang hoàn tác hành động:" />
+  <String Id="ProgressTextRollbackCleanup" Value="Đang xóa tệp sao lưu" />
+  <String Id="ProgressTextUnpublishProduct" Value="Đang hủy đăng ký thông tin sản phẩm" />
+</WixLocalization>

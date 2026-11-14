@@ -12,7 +12,11 @@ param(
 
     # Learning by default: a blocking mode would cut off a CI runner's own connections.
     [ValidateSet('learning', 'ask', 'allowlist')]
-    [string] $Mode = 'learning'
+    [string] $Mode = 'learning',
+
+    # A language to install in, by its Windows language ID (the MSI's embedded transform of that
+    # name), e.g. 1081 for Hindi. Default: what Windows Installer picks for the runner (English).
+    [int] $Language
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,8 +69,17 @@ trap {
     break
 }
 
-Write-Host "Installing $Msi (mode $Mode)"
-Invoke-Msi "/i `"$Msi`" CRIOFIRE_MODE=$Mode CRIOFIRE_ALLOW_RUNNING=0 CRIOFIRE_AUTOSTART=1" (Join-Path $logDir 'install.log')
+$transform = if ($Language) { " TRANSFORMS=:$Language" } else { '' }
+$suffix = if ($Language) { "-$Language" } else { '' }
+Write-Host "Installing $Msi (mode $Mode$transform)"
+$installLog = Join-Path $logDir "install$suffix.log"
+Invoke-Msi "/i `"$Msi`" CRIOFIRE_MODE=$Mode CRIOFIRE_ALLOW_RUNNING=0 CRIOFIRE_AUTOSTART=1$transform" $installLog
+
+if ($Language) {
+    $languageLine = Select-String -Path $installLog -Pattern 'Property\(S\): ProductLanguage = (\d+)' | Select-Object -Last 1
+    $installedLanguage = if ($languageLine) { $languageLine.Matches[0].Groups[1].Value } else { 'none' }
+    Check ($installedLanguage -eq "$Language") "the installer ran in language $Language (ProductLanguage $installedLanguage)"
+}
 
 Check (Test-Path $cli) 'criofire.exe is installed'
 Check (Test-Path (Join-Path $installDir 'criofire-ui.exe')) 'criofire-ui.exe is installed'
@@ -89,7 +102,7 @@ Check ($machinePath -like "*$installDir*") 'criofire is on the system PATH'
 Check ($LASTEXITCODE -eq 0) 'a rule can be added with the installed command line'
 
 Write-Host "Uninstalling"
-Invoke-Msi "/x `"$Msi`"" (Join-Path $logDir 'uninstall.log')
+Invoke-Msi "/x `"$Msi`"" (Join-Path $logDir "uninstall$suffix.log")
 
 Check ($null -eq (Get-Service criofire -ErrorAction SilentlyContinue)) 'the service is removed'
 Check (-not (Test-Path $installDir)) 'the program folder is removed'

@@ -112,6 +112,12 @@ jobs:
         shell: pwsh
         run: ./build/test-msi.ps1 -Msi (Get-Item out/msi/criofire-0*-x64.msi).FullName
 
+      # Once more in Hindi (1081), through the transform stored in the MSI: the language that
+      # needs Unicode most, so every language's transform is known to install.
+      - name: Install, check and uninstall the x64 MSI in Hindi
+        shell: pwsh
+        run: ./build/test-msi.ps1 -Msi (Get-Item out/msi/criofire-0*-x64.msi).FullName -Language 1081
+
       # The same for CrioFire Server: service, firewall rule, locked-down data folder, the console
       # answering and the first administrator; uninstall keeps the server's data.
       - name: Install, check and uninstall the x64 server MSI

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Turkish. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="tr-TR" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Segoe UI" />
+  <String Id="DowngradeError" Value="[ProductName] uygulamasının daha yeni bir sürümü zaten yüklü." />
+  <String Id="NeedsWindows64" Value="CrioFire Private Firewall 64 bit Windows gerektirir. Windows 10 ve Windows 11 desteklenir." />
+  <String Id="OpenNow" Value="CrioFire Private Firewall&#x27;u şimdi aç" />
+  <String Id="ServiceDescription" Value="CrioFire Private Firewall kurallarını Windows Filtreleme Platformu üzerinden uygular." />
+  <String Id="ShortcutDescription" Value="Ağla neyin konuştuğunu görün; izin verin veya engelleyin" />
+  <String Id="OptionsTitle" Value="Kurulum seçenekleri" />
+  <String Id="OptionsDescription" Value="CrioFire&#x27;ın nasıl başlayacağını seçin. Hepsini sonra uygulamada değiştirebilirsiniz." />
+  <String Id="ModeLabel" Value="Kuralı olmayan bir program dışarı bağlandığında:" />
+  <String Id="ModeLearning" Value="&amp;Öğrenme: izin ver ve neyin bağlandığını göster (başlangıçta önerilir)" />
+  <String Id="ModeAsk" Value="&amp;Sorma: engelle ve izin verilip verilmeyeceğini bana sor" />
+  <String Id="ModeAllowlist" Value="&amp;Yalnızca izin listesi: sormadan engelle" />
+  <String Id="AllowRunning" Value="Şu anda &amp;çalışan programlara izin ver (önerilir)" />
+  <String Id="Autostart" Value="Herhangi biri oturum açtığında CrioFire&#x27;ı bildirim alanında &amp;başlat" />
+  <String Id="ServiceNote" Value="CrioFire hizmeti Windows ile başlar ve uygulama kapalıyken bile sizi korumaya devam eder. Sorma modu yalnızca uygulama çalışırken sorabilir. CrioFire kaldırılırsa tüm kuralları da kaldırılır." />
+</WixLocalization>

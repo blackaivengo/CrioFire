@@ -8,6 +8,10 @@
   shortcut and, if chosen, starts the app in the notification area when anyone signs in.
   Uninstall removes every CrioFire filter, the provider and sublayer, and %ProgramData%\criofire.
 
+  One MSI in 16 languages: build/package-msi.ps1 builds it once per language (Strings\*.wxl) and
+  embeds each language as a transform that Windows Installer picks to match the Windows display
+  language. TRANSFORMS=:1031 (the language's LCID) chooses one, e.g. for testing.
+
   Silent install examples:
     msiexec /i criofire-0.1.0-x64.msi /qn
     msiexec /i criofire-0.1.0-x64.msi /qn CRIOFIRE_MODE=ask CRIOFIRE_ALLOW_RUNNING=1 CRIOFIRE_AUTOSTART=1
@@ -18,17 +22,18 @@
            Manufacturer="CrioSoft LLC"
            Version="$(var.ProductVersion)"
            UpgradeCode="198d2f7e-447b-44b2-93b5-0da622466caa"
+           ProductCode="$(var.ProductCode)"
            Scope="perMachine"
            Compressed="yes"
            InstallerVersion="500">
 
     <SummaryInformation Description="CrioFire Private Firewall" Manufacturer="CrioSoft LLC" />
     <!-- Same-version upgrades too: v0.1.0-beta.1 and v0.1.0 both map to MSI version 0.1.0. -->
-    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="!(loc.DowngradeError)" />
     <MediaTemplate EmbedCab="yes" />
 
     <Launch Condition="Installed OR VersionNT64 &gt;= 603"
-            Message="CrioFire Private Firewall needs 64-bit Windows. Windows 10 and Windows 11 are supported." />
+            Message="!(loc.NeedsWindows64)" />
 
     <Icon Id="CrioFireIcon" SourceFile="$(var.AppIcon)" />
     <Property Id="ARPPRODUCTICON" Value="CrioFireIcon" />
@@ -74,7 +79,7 @@
                            Timeout="5" RebootPrompt="no" />
 
     <!-- "Open CrioFire now" on the last page. -->
-    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open CrioFire Private Firewall now" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="!(loc.OpenNow)" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
     <Property Id="WixShellExecTarget" Value="[#UiExe]" />
     <CustomAction Id="LaunchApp" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixShellExec" Impersonate="yes" Return="ignore" />
@@ -115,7 +120,7 @@
         <ServiceInstall Id="CrioFireService"
                         Name="criofire"
                         DisplayName="CrioFire Private Firewall"
-                        Description="Enforces CrioFire Private Firewall rules through the Windows Filtering Platform."
+                        Description="!(loc.ServiceDescription)"
                         Type="ownProcess"
                         Start="auto"
                         ErrorControl="normal"
@@ -143,7 +148,7 @@
     <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Guid="89e10885-8f16-4012-a8d9-62cafdfde1f7">
       <Shortcut Id="AppShortcut"
                 Name="CrioFire Private Firewall"
-                Description="See what talks to the network, and allow or block it"
+                Description="!(loc.ShortcutDescription)"
                 Target="[INSTALLFOLDER]criofire-ui.exe"
                 Icon="CrioFireIcon"
                 WorkingDirectory="INSTALLFOLDER" />

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Arabic. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="ar-SA" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Segoe UI" />
+  <String Id="DowngradeError" Value="يوجد إصدار أحدث من [ProductName] مثبّت بالفعل." />
+  <String Id="NeedsWindows64" Value="يحتاج CrioFire Private Firewall إلى Windows بنظام 64 بت. يدعم Windows 10 وWindows 11." />
+  <String Id="OpenNow" Value="فتح CrioFire Private Firewall الآن" />
+  <String Id="ServiceDescription" Value="يطبّق قواعد CrioFire Private Firewall عبر منصة تصفية Windows." />
+  <String Id="ShortcutDescription" Value="شاهد ما يتصل بالشبكة، واسمح به أو احظره" />
+  <String Id="OptionsTitle" Value="خيارات الإعداد" />
+  <String Id="OptionsDescription" Value="اختر طريقة بدء CrioFire. يمكنك تغيير كل ذلك لاحقًا في التطبيق." />
+  <String Id="ModeLabel" Value="عندما يتصل برنامج بلا قاعدة بالخارج:" />
+  <String Id="ModeLearning" Value="التعلّم(&amp;L): اسمح له، وأرني ما يتصل (موصى به في البداية)" />
+  <String Id="ModeAsk" Value="السؤال(&amp;A): احظره واسألني هل أسمح به" />
+  <String Id="ModeAllowlist" Value="قائمة السماح فقط(&amp;O): احظره دون سؤال" />
+  <String Id="AllowRunning" Value="السماح للبرامج التي تعمل الآن(&amp;W) (موصى به)" />
+  <String Id="Autostart" Value="تشغيل CrioFire في منطقة الإعلامات عند تسجيل دخول أي شخص(&amp;S)" />
+  <String Id="ServiceNote" Value="تبدأ خدمة CrioFire مع Windows وتستمر في حمايتك حتى عند إغلاق التطبيق. لا يستطيع وضع السؤال أن يسألك إلا أثناء عمل التطبيق. إلغاء تثبيت CrioFire يزيل جميع قواعده." />
+</WixLocalization>

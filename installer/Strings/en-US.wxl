@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: English. How to translate: docs/TRANSLATING.md. -->
+<!-- Overridable, so each language’s file wins over these when English is the fallback for the rest. -->
+<WixLocalization Culture="en-US" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Overridable="yes" Value="Segoe UI" />
+  <String Id="DowngradeError" Overridable="yes" Value="A newer version of [ProductName] is already installed." />
+  <String Id="NeedsWindows64" Overridable="yes" Value="CrioFire Private Firewall needs 64-bit Windows. Windows 10 and Windows 11 are supported." />
+  <String Id="OpenNow" Overridable="yes" Value="Open CrioFire Private Firewall now" />
+  <String Id="ServiceDescription" Overridable="yes" Value="Enforces CrioFire Private Firewall rules through the Windows Filtering Platform." />
+  <String Id="ShortcutDescription" Overridable="yes" Value="See what talks to the network, and allow or block it" />
+  <String Id="OptionsTitle" Overridable="yes" Value="Setup options" />
+  <String Id="OptionsDescription" Overridable="yes" Value="Choose how CrioFire starts. You can change all of it later in the app." />
+  <String Id="ModeLabel" Overridable="yes" Value="When a program without a rule connects out:" />
+  <String Id="ModeLearning" Overridable="yes" Value="&amp;Learning: let it, and show me what connects (recommended at first)" />
+  <String Id="ModeAsk" Overridable="yes" Value="&amp;Ask: block it and ask me whether to allow it" />
+  <String Id="ModeAllowlist" Overridable="yes" Value="Allow-list &amp;only: block it without asking" />
+  <String Id="AllowRunning" Overridable="yes" Value="Allo&amp;w the programs that are running now (recommended)" />
+  <String Id="Autostart" Overridable="yes" Value="&amp;Start CrioFire in the notification area when anyone signs in" />
+  <String Id="ServiceNote" Overridable="yes" Value="The CrioFire service starts with Windows and keeps protecting you even when the app is closed. Ask mode can only ask while the app runs. Uninstalling CrioFire removes all of its rules." />
+</WixLocalization>

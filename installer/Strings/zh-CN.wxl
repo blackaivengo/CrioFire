@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Chinese (Simplified). How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="zh-CN" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Microsoft YaHei UI" />
+  <String Id="DowngradeError" Value="已安装较新版本的 [ProductName]。" />
+  <String Id="NeedsWindows64" Value="CrioFire Private Firewall 需要 64 位 Windows。支持 Windows 10 和 Windows 11。" />
+  <String Id="OpenNow" Value="立即打开 CrioFire Private Firewall" />
+  <String Id="ServiceDescription" Value="通过 Windows 筛选平台执行 CrioFire Private Firewall 的规则。" />
+  <String Id="ShortcutDescription" Value="查看哪些程序在连接网络，并允许或阻止它们" />
+  <String Id="OptionsTitle" Value="设置选项" />
+  <String Id="OptionsDescription" Value="选择 CrioFire 的启动方式。以后都可以在应用中更改。" />
+  <String Id="ModeLabel" Value="当没有规则的程序向外连接时：" />
+  <String Id="ModeLearning" Value="学习(&amp;L)：允许连接，并显示哪些程序在连接（建议开始时使用）" />
+  <String Id="ModeAsk" Value="询问(&amp;A)：阻止连接，并询问我是否允许" />
+  <String Id="ModeAllowlist" Value="仅允许列表(&amp;O)：直接阻止，不询问" />
+  <String Id="AllowRunning" Value="允许当前正在运行的程序(&amp;W)（推荐）" />
+  <String Id="Autostart" Value="任何人登录时在通知区域启动 CrioFire(&amp;S)" />
+  <String Id="ServiceNote" Value="CrioFire 服务随 Windows 启动，即使关闭应用也会继续保护你。询问模式只能在应用运行时询问。卸载 CrioFire 会删除它的所有规则。" />
+</WixLocalization>

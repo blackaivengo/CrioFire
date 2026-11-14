@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Portuguese (Brazil). How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="pt-BR" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Segoe UI" />
+  <String Id="DowngradeError" Value="Uma versão mais recente do [ProductName] já está instalada." />
+  <String Id="NeedsWindows64" Value="O CrioFire Private Firewall precisa do Windows de 64 bits. Há suporte para Windows 10 e Windows 11." />
+  <String Id="OpenNow" Value="Abrir o CrioFire Private Firewall agora" />
+  <String Id="ServiceDescription" Value="Aplica as regras do CrioFire Private Firewall pela Plataforma de Filtragem do Windows." />
+  <String Id="ShortcutDescription" Value="Veja o que se comunica com a rede e permita ou bloqueie" />
+  <String Id="OptionsTitle" Value="Opções de instalação" />
+  <String Id="OptionsDescription" Value="Escolha como o CrioFire começa. Você pode mudar tudo depois no aplicativo." />
+  <String Id="ModeLabel" Value="Quando um programa sem regra se conecta para fora:" />
+  <String Id="ModeLearning" Value="Apre&amp;ndizado: deixar e me mostrar o que se conecta (recomendado no início)" />
+  <String Id="ModeAsk" Value="&amp;Perguntar: bloquear e me perguntar se devo permitir" />
+  <String Id="ModeAllowlist" Value="Somente lista de per&amp;missões: bloquear sem perguntar" />
+  <String Id="AllowRunning" Value="Permitir os programas que estão em &amp;execução agora (recomendado)" />
+  <String Id="Autostart" Value="&amp;Iniciar o CrioFire na área de notificação quando alguém entrar" />
+  <String Id="ServiceNote" Value="O serviço do CrioFire inicia com o Windows e continua protegendo você mesmo com o aplicativo fechado. O modo Perguntar só pode perguntar enquanto o aplicativo está aberto. Desinstalar o CrioFire remove todas as regras dele." />
+</WixLocalization>

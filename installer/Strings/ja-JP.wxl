@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Japanese. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="ja-JP" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Yu Gothic UI" />
+  <String Id="DowngradeError" Value="新しいバージョンの [ProductName] が既にインストールされています。" />
+  <String Id="NeedsWindows64" Value="CrioFire Private Firewall には 64 ビット版 Windows が必要です。Windows 10 と Windows 11 に対応しています。" />
+  <String Id="OpenNow" Value="CrioFire Private Firewall を今すぐ開く" />
+  <String Id="ServiceDescription" Value="Windows フィルタリング プラットフォームを使って CrioFire Private Firewall のルールを適用します。" />
+  <String Id="ShortcutDescription" Value="ネットワークと通信しているものを確認し、許可またはブロックします" />
+  <String Id="OptionsTitle" Value="セットアップ オプション" />
+  <String Id="OptionsDescription" Value="CrioFire の開始方法を選んでください。あとからアプリですべて変更できます。" />
+  <String Id="ModeLabel" Value="ルールのないプログラムが外部に接続するとき:" />
+  <String Id="ModeLearning" Value="学習(&amp;L): 接続させて、何が接続するかを表示する (最初はこちらを推奨)" />
+  <String Id="ModeAsk" Value="確認(&amp;A): ブロックして、許可するかどうかを確認する" />
+  <String Id="ModeAllowlist" Value="許可リストのみ(&amp;O): 確認せずにブロックする" />
+  <String Id="AllowRunning" Value="現在実行中のプログラムを許可する(&amp;W) (推奨)" />
+  <String Id="Autostart" Value="だれかがサインインしたら通知領域で CrioFire を起動する(&amp;S)" />
+  <String Id="ServiceNote" Value="CrioFire サービスは Windows と一緒に起動し、アプリを閉じていても保護を続けます。確認モードで確認できるのはアプリの実行中だけです。CrioFire をアンインストールすると、そのルールはすべて削除されます。" />
+</WixLocalization>

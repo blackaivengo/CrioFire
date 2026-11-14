@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using CrioFire.Core;
 
 namespace CrioFire.Tests;
@@ -148,7 +150,94 @@ public sealed class LocalizationTests : IDisposable
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems.Take(30)));
     }
 
-    private static string StringsFolder
+    /// <summary>The installer's language for each of the app's: the culture of its installer\Strings\*.wxl.</summary>
+    private static readonly Dictionary<string, string> InstallerCultures = new(StringComparer.Ordinal)
+    {
+        ["en"] = "en-US", ["zh-Hans"] = "zh-CN", ["hi"] = "hi-IN", ["es"] = "es-ES", ["ar"] = "ar-SA", ["fr"] = "fr-FR",
+        ["bn"] = "bn-BD", ["pt-BR"] = "pt-BR", ["ru"] = "ru-RU", ["id"] = "id-ID", ["ur"] = "ur-PK", ["de"] = "de-DE",
+        ["ja"] = "ja-JP", ["tr"] = "tr-TR", ["ko"] = "ko-KR", ["vi"] = "vi-VN",
+    };
+
+    [Fact]
+    public void TheInstallerSpeaksEveryLanguageOfTheApp()
+    {
+        XNamespace wxl = "http://wixtoolset.org/schemas/v4/wxl";
+        var folder = Path.Combine(RepoRoot, "installer", "Strings");
+        Assert.Equal(Languages.All.Select(l => l.Code).Order(StringComparer.Ordinal), InstallerCultures.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            InstallerCultures.Values.Order(StringComparer.Ordinal),
+            Directory.GetFiles(folder, "*.wxl").Select(Path.GetFileNameWithoutExtension).Order(StringComparer.Ordinal));
+
+        // build/package-msi.ps1 builds and joins exactly these languages.
+        var script = File.ReadAllText(Path.Combine(RepoRoot, "build", "package-msi.ps1"));
+        var built = Regex.Matches(script, @"'([a-z]{2}-[A-Z]{2})' = \d+").Select(m => m.Groups[1].Value).Distinct();
+        Assert.Equal(InstallerCultures.Values.Order(StringComparer.Ordinal), built.Order(StringComparer.Ordinal));
+
+        Dictionary<string, string> Texts(string culture, List<string> problems)
+        {
+            var root = XDocument.Load(Path.Combine(folder, culture + ".wxl")).Root!;
+            if ((string?)root.Attribute("Culture") != culture)
+            {
+                problems.Add($"{culture}.wxl: Culture=\"{(string?)root.Attribute("Culture")}\"");
+            }
+
+            // UTF-8 for every language: Hindi and Bengali have no other code page, and one code page lets
+            // the transforms carry only texts. The summary stream must be ANSI; its texts are English.
+            if ((string?)root.Attribute("Codepage") != "65001" || (string?)root.Attribute("SummaryInformationCodepage") != "1252")
+            {
+                problems.Add($"{culture}.wxl: Codepage must be 65001 and SummaryInformationCodepage 1252");
+            }
+
+            var texts = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var s in root.Elements(wxl + "String"))
+            {
+                if (!texts.TryAdd((string)s.Attribute("Id")!, (string?)s.Attribute("Value") ?? ""))
+                {
+                    problems.Add($"{culture}.wxl: {(string)s.Attribute("Id")!} is there twice");
+                }
+            }
+
+            return texts;
+        }
+
+        static string Shape(string text) =>
+            string.Join(" ", Regex.Matches(text, @"\[[A-Za-z_]+\]|\{\\WixUI_Font_[A-Za-z]+\}").Select(m => m.Value).Order(StringComparer.Ordinal));
+
+        var problems = new List<string>();
+        var english = Texts("en-US", problems);
+        foreach (var culture in InstallerCultures.Values.Where(c => c != "en-US"))
+        {
+            var texts = Texts(culture, problems);
+            foreach (var (id, englishText) in english)
+            {
+                if (!texts.TryGetValue(id, out var text) || text.Length == 0)
+                {
+                    problems.Add($"{culture}.wxl: {id} is missing");
+                }
+                else if (Shape(text) != Shape(englishText))
+                {
+                    problems.Add($"{culture}.wxl: {id} must keep {Shape(englishText)}");
+                }
+            }
+
+            foreach (var (id, text) in texts)
+            {
+                if (Regex.Count(text.Replace("&&", "", StringComparison.Ordinal), "&") > 1)
+                {
+                    problems.Add($"{culture}.wxl: {id} has more than one & (the underlined letter)");
+                }
+
+                if (Regex.IsMatch(text, @"\[(?!ProductName\])[^\]]*\]"))
+                {
+                    problems.Add($"{culture}.wxl: {id} names a property other than [ProductName]");
+                }
+            }
+        }
+
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems.Take(30)));
+    }
+
+    private static string RepoRoot
     {
         get
         {
@@ -158,9 +247,11 @@ public sealed class LocalizationTests : IDisposable
                 dir = dir.Parent;
             }
 
-            return Path.Combine(dir?.FullName ?? throw new DirectoryNotFoundException("The repository root was not found."), "src", "CrioFire.App", "Strings");
+            return dir?.FullName ?? throw new DirectoryNotFoundException("The repository root was not found.");
         }
     }
+
+    private static string StringsFolder => Path.Combine(RepoRoot, "src", "CrioFire.App", "Strings");
 
     private static Dictionary<string, string> Read(string code) =>
         JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(Path.Combine(StringsFolder, code + ".json")))!;

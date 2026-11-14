@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Indonesian. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="id-ID" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Segoe UI" />
+  <String Id="DowngradeError" Value="Versi [ProductName] yang lebih baru sudah terpasang." />
+  <String Id="NeedsWindows64" Value="CrioFire Private Firewall memerlukan Windows 64-bit. Windows 10 dan Windows 11 didukung." />
+  <String Id="OpenNow" Value="Buka CrioFire Private Firewall sekarang" />
+  <String Id="ServiceDescription" Value="Menerapkan aturan CrioFire Private Firewall melalui Windows Filtering Platform." />
+  <String Id="ShortcutDescription" Value="Lihat apa yang berkomunikasi dengan jaringan, lalu izinkan atau blokir" />
+  <String Id="OptionsTitle" Value="Opsi penyiapan" />
+  <String Id="OptionsDescription" Value="Pilih cara CrioFire dimulai. Semuanya bisa diubah nanti di aplikasi." />
+  <String Id="ModeLabel" Value="Saat program tanpa aturan terhubung keluar:" />
+  <String Id="ModeLearning" Value="&amp;Belajar: biarkan, dan tunjukkan apa yang terhubung (disarankan di awal)" />
+  <String Id="ModeAsk" Value="&amp;Tanya: blokir dan tanyakan apakah saya mengizinkannya" />
+  <String Id="ModeAllowlist" Value="&amp;Hanya daftar izin: blokir tanpa bertanya" />
+  <String Id="AllowRunning" Value="Izinkan program yang sedang be&amp;rjalan sekarang (disarankan)" />
+  <String Id="Autostart" Value="&amp;Jalankan CrioFire di area notifikasi saat siapa pun masuk" />
+  <String Id="ServiceNote" Value="Layanan CrioFire dimulai bersama Windows dan tetap melindungi Anda meski aplikasi ditutup. Mode Tanya hanya bisa bertanya saat aplikasi berjalan. Menghapus CrioFire juga menghapus semua aturannya." />
+
+  <!-- The setup wizard's standard pages, which the WiX UI extension has no Indonesian for. Anything not here (rare error messages) stays English. -->
+  <String Id="WixUIBack" Value="&amp;Kembali" />
+  <String Id="WixUINext" Value="&amp;Lanjut" />
+  <String Id="WixUICancel" Value="Batal" />
+  <String Id="WixUIFinish" Value="&amp;Selesai" />
+  <String Id="WixUIRetry" Value="&amp;Coba lagi" />
+  <String Id="WixUIIgnore" Value="&amp;Abaikan" />
+  <String Id="WixUIYes" Value="&amp;Ya" />
+  <String Id="WixUINo" Value="&amp;Tidak" />
+  <String Id="WixUIOK" Value="OK" />
+  <String Id="WixUIPrint" Value="&amp;Cetak" />
+  <String Id="BrowseDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="CancelDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="DiskCostDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="ErrorDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="ExitDialog_Title" Value="Penyiapan [ProductName]" />
+  <String Id="FatalError_Title" Value="Penyiapan [ProductName]" />
+  <String Id="FilesInUse_Title" Value="Penyiapan [ProductName]" />
+  <String Id="InstallDirDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="InvalidDirDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="LicenseAgreementDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="MaintenanceTypeDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="MaintenanceWelcomeDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="MsiRMFilesInUse_Title" Value="Penyiapan [ProductName]" />
+  <String Id="OutOfDiskDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="OutOfRbDiskDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="PrepareDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="ProgressDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="ResumeDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="UserExit_Title" Value="Penyiapan [ProductName]" />
+  <String Id="VerifyReadyDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="WaitForCostingDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="WelcomeDlg_Title" Value="Penyiapan [ProductName]" />
+  <String Id="BrowseDlgComboLabel" Value="&amp;Cari di:" />
+  <String Id="BrowseDlgWixUI_Bmp_UpTooltip" Value="Naik satu tingkat" />
+  <String Id="BrowseDlgNewFolderTooltip" Value="Buat folder baru" />
+  <String Id="BrowseDlgPathLabel" Value="&amp;Nama folder:" />
+  <String Id="BrowseDlgDescription" Value="Telusuri ke folder tujuan" />
+  <String Id="BrowseDlgTitle" Value="{\WixUI_Font_Title}Ubah folder tujuan" />
+  <String Id="CancelDlgText" Value="Yakin ingin membatalkan pemasangan [ProductName]?" />
+  <String Id="CancelDlgIconTooltip" Value="Ikon informasi" />
+  <String Id="DiskCostDlgText" Value="Volume yang disorot tidak memiliki cukup ruang disk untuk fitur yang dipilih. Anda dapat menghapus beberapa file dari volume yang disorot, memasang lebih sedikit fitur, atau memilih drive tujuan lain." />
+  <String Id="DiskCostDlgDescription" Value="Ruang disk yang diperlukan untuk memasang fitur yang dipilih." />
+  <String Id="DiskCostDlgTitle" Value="{\WixUI_Font_Title}Kebutuhan Ruang Disk" />
+  <String Id="ErrorDlgErrorIconTooltip" Value="Ikon informasi" />
+  <String Id="ExitDialogDescription" Value="Klik tombol Selesai untuk keluar dari Wizard Penyiapan." />
+  <String Id="ExitDialogTitle" Value="{\WixUI_Font_Bigger}Wizard Penyiapan [ProductName] telah selesai" />
+  <String Id="FatalErrorTitle" Value="{\WixUI_Font_Bigger}Wizard Penyiapan [ProductName] berhenti sebelum selesai" />
+  <String Id="FatalErrorDescription1" Value="Wizard Penyiapan [ProductName] berhenti sebelum selesai karena terjadi kesalahan. Sistem Anda tidak diubah. Untuk memasang program ini nanti, jalankan Wizard Penyiapan lagi." />
+  <String Id="FatalErrorDescription2" Value="Klik tombol Selesai untuk keluar dari Wizard Penyiapan." />
+  <String Id="FilesInUseExit" Value="&amp;Keluar" />
+  <String Id="FilesInUseText" Value="Aplikasi berikut sedang menggunakan file yang perlu diperbarui oleh penyiapan ini. Tutup aplikasi tersebut, lalu klik Coba lagi untuk melanjutkan penyiapan atau Keluar untuk keluar." />
+  <String Id="FilesInUseDescription" Value="Beberapa file yang perlu diperbarui sedang digunakan." />
+  <String Id="FilesInUseTitle" Value="{\WixUI_Font_Title}File Sedang Digunakan" />
+  <String Id="InstallDirDlgChange" Value="&amp;Ubah..." />
+  <String Id="InstallDirDlgTitle" Value="{\WixUI_Font_Title}Folder Tujuan" />
+  <String Id="InstallDirDlgDescription" Value="Klik Lanjut untuk memasang di folder bawaan atau klik Ubah untuk memilih folder lain." />
+  <String Id="InstallDirDlgFolderLabel" Value="Pasang [ProductName] di:" />
+  <String Id="InvalidDirDlgText" Value="Folder pemasangan harus berada di hard drive lokal." />
+  <String Id="InvalidDirDlgIconTooltip" Value="Ikon informasi" />
+  <String Id="LicenseAgreementDlgLicenseAcceptedCheckBox" Value="Saya &amp;menerima ketentuan dalam Perjanjian Lisensi" />
+  <String Id="LicenseAgreementDlgDescription" Value="Bacalah perjanjian lisensi berikut dengan saksama" />
+  <String Id="LicenseAgreementDlgTitle" Value="{\WixUI_Font_Title}Perjanjian Lisensi Pengguna Akhir" />
+  <String Id="MaintenanceTypeDlgChangeButton" Value="&amp;Ubah" />
+  <String Id="MaintenanceTypeDlgChangeButtonTooltip" Value="Ubah pemasangan" />
+  <String Id="MaintenanceTypeDlgRepairButton" Value="&amp;Perbaiki" />
+  <String Id="MaintenanceTypeDlgRepairButtonTooltip" Value="Perbaiki pemasangan" />
+  <String Id="MaintenanceTypeDlgRemoveButton" Value="&amp;Hapus" />
+  <String Id="MaintenanceTypeDlgRemoveButtonTooltip" Value="Hapus pemasangan" />
+  <String Id="MaintenanceTypeDlgDescription" Value="Pilih tindakan yang ingin Anda lakukan." />
+  <String Id="MaintenanceTypeDlgTitle" Value="{\WixUI_Font_Title}Ubah, perbaiki, atau hapus pemasangan" />
+  <String Id="MaintenanceTypeDlgChangeText" Value="Mengubah cara fitur dipasang." />
+  <String Id="MaintenanceTypeDlgChangeDisabledText" Value="[ProductName] tidak memiliki fitur yang dapat dipilih sendiri-sendiri." />
+  <String Id="MaintenanceTypeDlgRemoveText" Value="Menghapus [ProductName] dari komputer Anda." />
+  <String Id="MaintenanceTypeDlgRemoveDisabledText" Value="[ProductName] tidak dapat dihapus." />
+  <String Id="MaintenanceTypeDlgRepairText" Value="Memperbaiki kesalahan pada pemasangan terakhir dengan memulihkan file, pintasan, dan entri registri yang hilang atau rusak." />
+  <String Id="MaintenanceTypeDlgRepairDisabledText" Value="[ProductName] tidak dapat diperbaiki." />
+  <String Id="MaintenanceWelcomeDlgDescription" Value="Wizard Penyiapan memungkinkan Anda mengubah cara fitur [ProductName] dipasang di komputer Anda atau menghapusnya dari komputer Anda. Klik Lanjut untuk melanjutkan atau Batal untuk keluar dari Wizard Penyiapan." />
+  <String Id="MaintenanceWelcomeDlgTitle" Value="{\WixUI_Font_Bigger}Selamat datang di Wizard Penyiapan [ProductName]" />
+  <String Id="MsiRMFilesInUseText" Value="Aplikasi berikut sedang menggunakan file yang perlu diperbarui oleh penyiapan ini. Anda dapat membiarkan Wizard Penyiapan menutup dan mencoba memulai ulang aplikasi tersebut, atau memulai ulang komputer nanti." />
+  <String Id="MsiRMFilesInUseDescription" Value="Beberapa file yang perlu diperbarui sedang digunakan." />
+  <String Id="MsiRMFilesInUseTitle" Value="{\WixUI_Font_Title}File Sedang Digunakan" />
+  <String Id="MsiRMFilesInUseUseRM" Value="&amp;Tutup aplikasi dan coba mulai ulang aplikasi tersebut." />
+  <String Id="MsiRMFilesInUseDontUseRM" Value="&amp;Jangan tutup aplikasi. Komputer perlu dimulai ulang." />
+  <String Id="OutOfDiskDlgText" Value="Volume yang disorot tidak memiliki cukup ruang disk untuk fitur yang dipilih saat ini. Anda dapat menghapus beberapa file dari volume yang disorot, memasang lebih sedikit fitur, atau memilih drive tujuan lain." />
+  <String Id="OutOfDiskDlgDescription" Value="Ruang disk yang diperlukan untuk pemasangan melebihi ruang disk yang tersedia." />
+  <String Id="OutOfDiskDlgTitle" Value="{\WixUI_Font_Title}Ruang Disk Tidak Cukup" />
+  <String Id="OutOfRbDiskDlgText" Value="Volume yang disorot tidak memiliki cukup ruang disk untuk fitur yang dipilih saat ini. Anda dapat menghapus beberapa file dari volume yang disorot, memasang lebih sedikit fitur, atau memilih drive tujuan lain." />
+  <String Id="OutOfRbDiskDlgDescription" Value="Ruang disk yang diperlukan untuk pemasangan melebihi ruang disk yang tersedia." />
+  <String Id="OutOfRbDiskDlgTitle" Value="{\WixUI_Font_Title}Ruang Disk Tidak Cukup" />
+  <String Id="OutOfRbDiskDlgText2" Value="Atau, Anda dapat menonaktifkan fungsi pembatalan (rollback) pemasang. Tanpa rollback, pemasang tidak dapat mengembalikan komputer ke keadaan semula jika pemasangan terhenti. Klik Ya jika Anda bersedia mengambil risiko menonaktifkan rollback." />
+  <String Id="PrepareDlgDescription" Value="Harap tunggu selagi Wizard Penyiapan bersiap memandu Anda melalui pemasangan." />
+  <String Id="PrepareDlgTitle" Value="{\WixUI_Font_Bigger}Selamat datang di Wizard Penyiapan [ProductName]" />
+  <String Id="ProgressDlgTextInstalling" Value="Harap tunggu selagi Wizard Penyiapan memasang [ProductName]." />
+  <String Id="ProgressDlgTitleInstalling" Value="{\WixUI_Font_Title}Memasang [ProductName]" />
+  <String Id="ProgressDlgTextChanging" Value="Harap tunggu selagi Wizard Penyiapan mengubah [ProductName]." />
+  <String Id="ProgressDlgTitleChanging" Value="{\WixUI_Font_Title}Mengubah [ProductName]" />
+  <String Id="ProgressDlgTextRepairing" Value="Harap tunggu selagi Wizard Penyiapan memperbaiki [ProductName]." />
+  <String Id="ProgressDlgTitleRepairing" Value="{\WixUI_Font_Title}Memperbaiki [ProductName]" />
+  <String Id="ProgressDlgTextRemoving" Value="Harap tunggu selagi Wizard Penyiapan menghapus [ProductName]." />
+  <String Id="ProgressDlgTitleRemoving" Value="{\WixUI_Font_Title}Menghapus [ProductName]" />
+  <String Id="ProgressDlgTextUpdating" Value="Harap tunggu selagi Wizard Penyiapan memperbarui [ProductName]." />
+  <String Id="ProgressDlgTitleUpdating" Value="{\WixUI_Font_Title}Memperbarui [ProductName]" />
+  <String Id="ProgressDlgProgressBar" Value="Kemajuan" />
+  <String Id="ProgressDlgStatusLabel" Value="Status:" />
+  <String Id="ResumeDlgInstall" Value="&amp;Pasang" />
+  <String Id="ResumeDlgDescription" Value="Wizard Penyiapan akan menyelesaikan pemasangan [ProductName] di komputer Anda. Klik Pasang untuk melanjutkan atau Batal untuk keluar dari Wizard Penyiapan." />
+  <String Id="ResumeDlgTitle" Value="{\WixUI_Font_Bigger}Melanjutkan Wizard Penyiapan [ProductName]" />
+  <String Id="UserExitTitle" Value="{\WixUI_Font_Bigger}Wizard Penyiapan [ProductName] dihentikan" />
+  <String Id="UserExitDescription1" Value="Penyiapan [ProductName] dihentikan. Sistem Anda tidak diubah. Untuk memasang program ini nanti, jalankan pemasangan lagi." />
+  <String Id="UserExitDescription2" Value="Klik tombol Selesai untuk keluar dari Wizard Penyiapan." />
+  <String Id="VerifyReadyDlgInstall" Value="&amp;Pasang" />
+  <String Id="VerifyReadyDlgInstallText" Value="Klik Pasang untuk memulai pemasangan. Klik Kembali untuk meninjau atau mengubah pengaturan pemasangan. Klik Batal untuk keluar dari wizard." />
+  <String Id="VerifyReadyDlgInstallTitle" Value="{\WixUI_Font_Title}Siap memasang [ProductName]" />
+  <String Id="VerifyReadyDlgChange" Value="&amp;Ubah" />
+  <String Id="VerifyReadyDlgChangeText" Value="Klik Ubah untuk memulai pemasangan. Klik Kembali untuk meninjau atau mengubah pengaturan pemasangan. Klik Batal untuk keluar dari wizard." />
+  <String Id="VerifyReadyDlgChangeTitle" Value="{\WixUI_Font_Title}Siap mengubah [ProductName]" />
+  <String Id="VerifyReadyDlgRepair" Value="&amp;Perbaiki" />
+  <String Id="VerifyReadyDlgRepairText" Value="Klik Perbaiki untuk memperbaiki pemasangan [ProductName]. Klik Kembali untuk meninjau atau mengubah pengaturan pemasangan. Klik Batal untuk keluar dari wizard." />
+  <String Id="VerifyReadyDlgRepairTitle" Value="{\WixUI_Font_Title}Siap memperbaiki [ProductName]" />
+  <String Id="VerifyReadyDlgRemove" Value="&amp;Hapus" />
+  <String Id="VerifyReadyDlgRemoveText" Value="Klik Hapus untuk menghapus [ProductName] dari komputer Anda. Klik Kembali untuk meninjau atau mengubah pengaturan pemasangan. Klik Batal untuk keluar dari wizard." />
+  <String Id="VerifyReadyDlgRemoveTitle" Value="{\WixUI_Font_Title}Siap menghapus [ProductName]" />
+  <String Id="VerifyReadyDlgUpdate" Value="Per&amp;barui" />
+  <String Id="VerifyReadyDlgUpdateText" Value="Klik Perbarui untuk memperbarui [ProductName] di komputer Anda. Klik Kembali untuk meninjau atau mengubah pengaturan pemasangan. Klik Batal untuk keluar dari wizard." />
+  <String Id="VerifyReadyDlgUpdateTitle" Value="{\WixUI_Font_Title}Siap memperbarui [ProductName]" />
+  <String Id="WaitForCostingDlgReturn" Value="&amp;Kembali" />
+  <String Id="WaitForCostingDlgText" Value="Harap tunggu selagi pemasang selesai menghitung kebutuhan ruang disk Anda." />
+  <String Id="WaitForCostingDlgIconTooltip" Value="Ikon peringatan" />
+  <String Id="WelcomeDlgDescription" Value="Wizard Penyiapan akan memasang [ProductName] di komputer Anda. Klik Lanjut untuk melanjutkan atau Batal untuk keluar dari Wizard Penyiapan." />
+  <String Id="WelcomeDlgTitle" Value="{\WixUI_Font_Bigger}Selamat datang di Wizard Penyiapan [ProductName]" />
+  <String Id="ProgressTextInstallValidate" Value="Memeriksa pemasangan" />
+  <String Id="ProgressTextInstallFiles" Value="Menyalin file baru" />
+  <String Id="ProgressTextFileCost" Value="Menghitung kebutuhan ruang" />
+  <String Id="ProgressTextCostInitialize" Value="Menghitung kebutuhan ruang" />
+  <String Id="ProgressTextCostFinalize" Value="Menghitung kebutuhan ruang" />
+  <String Id="ProgressTextCreateShortcuts" Value="Membuat pintasan" />
+  <String Id="ProgressTextPublishFeatures" Value="Menerbitkan fitur produk" />
+  <String Id="ProgressTextPublishProduct" Value="Menerbitkan informasi produk" />
+  <String Id="ProgressTextAppSearch" Value="Mencari aplikasi yang terpasang" />
+  <String Id="ProgressTextCreateFolders" Value="Membuat folder" />
+  <String Id="ProgressTextDeleteServices" Value="Menghapus layanan" />
+  <String Id="ProgressTextFindRelatedProducts" Value="Mencari aplikasi terkait" />
+  <String Id="ProgressTextInstallServices" Value="Memasang layanan baru" />
+  <String Id="ProgressTextLaunchConditions" Value="Memeriksa syarat peluncuran" />
+  <String Id="ProgressTextMigrateFeatureStates" Value="Memindahkan status fitur dari aplikasi terkait" />
+  <String Id="ProgressTextMoveFiles" Value="Memindahkan file" />
+  <String Id="ProgressTextProcessComponents" Value="Memperbarui pendaftaran komponen" />
+  <String Id="ProgressTextRegisterProduct" Value="Mendaftarkan produk" />
+  <String Id="ProgressTextRegisterUser" Value="Mendaftarkan pengguna" />
+  <String Id="ProgressTextRemoveEnvironmentStrings" Value="Memperbarui variabel lingkungan" />
+  <String Id="ProgressTextRemoveExistingProducts" Value="Menghapus aplikasi" />
+  <String Id="ProgressTextRemoveFiles" Value="Menghapus file" />
+  <String Id="ProgressTextRemoveFolders" Value="Menghapus folder" />
+  <String Id="ProgressTextRemoveRegistryValues" Value="Menghapus nilai registri sistem" />
+  <String Id="ProgressTextRemoveShortcuts" Value="Menghapus pintasan" />
+  <String Id="ProgressTextStartServices" Value="Memulai layanan" />
+  <String Id="ProgressTextStopServices" Value="Menghentikan layanan" />
+  <String Id="ProgressTextUnpublishFeatures" Value="Membatalkan penerbitan fitur produk" />
+  <String Id="ProgressTextWriteEnvironmentStrings" Value="Memperbarui variabel lingkungan" />
+  <String Id="ProgressTextWriteRegistryValues" Value="Menulis nilai registri sistem" />
+  <String Id="ProgressTextGenerateScript" Value="Menyiapkan operasi skrip untuk tindakan:" />
+  <String Id="ProgressTextRollback" Value="Membatalkan tindakan:" />
+  <String Id="ProgressTextRollbackCleanup" Value="Menghapus file cadangan" />
+  <String Id="ProgressTextUnpublishProduct" Value="Membatalkan penerbitan informasi produk" />
+</WixLocalization>

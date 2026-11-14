@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Russian. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="ru-RU" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Segoe UI" />
+  <String Id="DowngradeError" Value="Уже установлена более новая версия [ProductName]." />
+  <String Id="NeedsWindows64" Value="Для CrioFire Private Firewall нужна 64-разрядная Windows. Поддерживаются Windows 10 и Windows 11." />
+  <String Id="OpenNow" Value="Открыть CrioFire Private Firewall" />
+  <String Id="ServiceDescription" Value="Применяет правила CrioFire Private Firewall через платформу фильтрации Windows." />
+  <String Id="ShortcutDescription" Value="Смотрите, что обращается к сети, и разрешайте или блокируйте" />
+  <String Id="OptionsTitle" Value="Параметры установки" />
+  <String Id="OptionsDescription" Value="Выберите, как начнёт работу CrioFire. Всё это можно изменить в приложении." />
+  <String Id="ModeLabel" Value="Когда программа без правила подключается к сети:" />
+  <String Id="ModeLearning" Value="&amp;Обучение: разрешить и показывать, что подключается (сначала рекомендуется)" />
+  <String Id="ModeAsk" Value="&amp;Запрос: заблокировать и спросить меня, разрешить ли" />
+  <String Id="ModeAllowlist" Value="Только &amp;белый список: блокировать без вопросов" />
+  <String Id="AllowRunning" Value="Разрешить программы, которые &amp;работают сейчас (рекомендуется)" />
+  <String Id="Autostart" Value="За&amp;пускать CrioFire в области уведомлений при входе любого пользователя" />
+  <String Id="ServiceNote" Value="Служба CrioFire запускается вместе с Windows и защищает вас, даже когда приложение закрыто. В режиме «Запрос» вопросы появляются, только пока приложение запущено. При удалении CrioFire удаляются все его правила." />
+</WixLocalization>

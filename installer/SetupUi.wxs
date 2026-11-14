@@ -2,13 +2,14 @@
 <!--
   Setup wizard: Welcome -> License -> Install folder -> Setup options -> Ready -> Finish.
   Based on WixUI_InstallDir from the WiX UI extension, with CrioFire's "Setup options" page added.
+  Texts come from Strings\<culture>.wxl (CrioFire's own) and the WiX UI extension (the standard pages).
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <UI Id="CrioFireUI">
-      <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="9" />
-      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" />
-      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="9" Bold="yes" />
+      <TextStyle Id="WixUI_Font_Normal" FaceName="!(loc.CrioFireFont)" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="!(loc.CrioFireFont)" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="!(loc.CrioFireFont)" Size="9" Bold="yes" />
 
       <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
       <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
@@ -68,30 +69,30 @@
 
   <Fragment>
     <UI>
-      <Dialog Id="CrioFireSettingsDlg" Width="370" Height="270" Title="[ProductName] Setup">
+      <Dialog Id="CrioFireSettingsDlg" Width="370" Height="270" Title="!(loc.InstallDirDlg_Title)">
         <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
         <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="373" Height="0" />
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="373" Height="0" />
-        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Setup options" />
-        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Choose how CrioFire starts. You can change all of it later in the app." />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}!(loc.OptionsTitle)" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes" Text="!(loc.OptionsDescription)" />
 
-        <Control Id="ModeLabel" Type="Text" X="20" Y="52" Width="330" Height="12" NoPrefix="yes" Text="When a program without a rule connects out:" />
+        <Control Id="ModeLabel" Type="Text" X="20" Y="52" Width="330" Height="12" NoPrefix="yes" Text="!(loc.ModeLabel)" />
         <Control Id="ModeGroup" Type="RadioButtonGroup" X="26" Y="67" Width="324" Height="58" Property="CRIOFIRE_MODE">
           <RadioButtonGroup Property="CRIOFIRE_MODE">
-            <RadioButton Value="learning" X="0" Y="0" Width="324" Height="17" Text="&amp;Learning: let it, and show me what connects (recommended at first)" />
-            <RadioButton Value="ask" X="0" Y="20" Width="324" Height="17" Text="&amp;Ask: block it and ask me whether to allow it" />
-            <RadioButton Value="allowlist" X="0" Y="40" Width="324" Height="17" Text="Allow-list &amp;only: block it without asking" />
+            <RadioButton Value="learning" X="0" Y="0" Width="324" Height="17" Text="!(loc.ModeLearning)" />
+            <RadioButton Value="ask" X="0" Y="20" Width="324" Height="17" Text="!(loc.ModeAsk)" />
+            <RadioButton Value="allowlist" X="0" Y="40" Width="324" Height="17" Text="!(loc.ModeAllowlist)" />
           </RadioButtonGroup>
         </Control>
 
         <Control Id="AllowRunningBox" Type="CheckBox" X="20" Y="132" Width="330" Height="17" Property="CRIOFIRE_ALLOW_RUNNING" CheckBoxValue="1"
-                 Text="Allo&amp;w the programs that are running now (recommended)"
+                 Text="!(loc.AllowRunning)"
                  DisableCondition="CRIOFIRE_MODE = &quot;learning&quot;" EnableCondition="CRIOFIRE_MODE &lt;&gt; &quot;learning&quot;" />
         <Control Id="AutostartBox" Type="CheckBox" X="20" Y="152" Width="330" Height="17" Property="CRIOFIRE_AUTOSTART" CheckBoxValue="1"
-                 Text="&amp;Start CrioFire in the notification area when anyone signs in" />
+                 Text="!(loc.Autostart)" />
 
         <Control Id="ServiceNote" Type="Text" X="20" Y="180" Width="330" Height="46" NoPrefix="yes"
-                 Text="The CrioFire service starts with Windows and keeps protecting you even when the app is closed. Ask mode can only ask while the app runs. Uninstalling CrioFire removes all of its rules." />
+                 Text="!(loc.ServiceNote)" />
 
         <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />

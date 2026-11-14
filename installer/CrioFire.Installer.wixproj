@@ -12,11 +12,20 @@
     <CrioFirePublishDir Condition="'$(CrioFirePublishDir)' == ''">$(MSBuildThisFileDirectory)..\out\$(InstallerPlatform)</CrioFirePublishDir>
 
     <OutputName>criofire-$(ProductVersion)-$(InstallerPlatform)</OutputName>
+    <!--
+      One language per build (Strings\<culture>.wxl), English filling in for any text a language
+      lacks. build/package-msi.ps1 builds every language and joins them into one MSI; they must
+      share the ProductCode, so it passes one in. The output goes to a <culture>\ subfolder.
+    -->
+    <CrioFireCulture Condition="'$(CrioFireCulture)' == ''">en-US</CrioFireCulture>
+    <Cultures Condition="'$(CrioFireCulture)' == 'en-US'">en-US</Cultures>
+    <Cultures Condition="'$(CrioFireCulture)' != 'en-US'">$(CrioFireCulture),en-US</Cultures>
+    <ProductCode Condition="'$(ProductCode)' == ''">*</ProductCode>
     <!-- Separate intermediate folders, so building x64 then arm64 does not skip the second build. -->
     <IntermediateOutputPath>obj\$(InstallerPlatform)\$(Configuration)\</IntermediateOutputPath>
     <!-- ICE61: same-version upgrades are allowed on purpose (prerelease builds share MSI versions). -->
     <SuppressIces>ICE61</SuppressIces>
-    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(CrioFirePublishDir);AppIcon=$(MSBuildThisFileDirectory)..\src\CrioFire.App\Assets\criofire.ico</DefineConstants>
+    <DefineConstants>ProductVersion=$(ProductVersion);ProductCode=$(ProductCode);PublishDir=$(CrioFirePublishDir);AppIcon=$(MSBuildThisFileDirectory)..\src\CrioFire.App\Assets\criofire.ico</DefineConstants>
   </PropertyGroup>
 
   <!-- The CrioFire Server installer in server\ is a project of its own. -->

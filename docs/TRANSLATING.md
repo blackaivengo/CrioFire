@@ -1,11 +1,12 @@
 # Translating CrioFire
 
-The desktop app (`criofire-ui.exe`) speaks 16 languages: English, Chinese (Simplified), Hindi,
+The desktop app (`criofire-ui.exe`) and its installer speak 16 languages: English, Chinese (Simplified), Hindi,
 Spanish, Arabic, French, Bengali, Portuguese (Brazil), Russian, Indonesian, Urdu, German,
 Japanese, Turkish, Korean and Vietnamese. It follows the Windows display language when it is one
 of them, and English otherwise; Settings → Language picks another one (the app restarts).
-The command line, the service and the admin console stay in English, so scripts and
-administrators always see the same words.
+The installer follows the Windows display language the same way. The command line, the service,
+the admin console and the CrioFire Server installer stay in English, so scripts and administrators
+always see the same words. The license stays in English: it is the binding text.
 
 ## How it works
 
@@ -30,9 +31,26 @@ administrators always see the same words.
 `tests/CrioFire.Tests/LocalizationTests.cs` checks every translation file: valid JSON, only texts
 the app has, and placeholders that fit the English text.
 
+## The installer
+
+- `installer/Strings/<culture>.wxl` holds the installer's own texts (the Setup options page, the
+  Start menu shortcut, the service description, a few messages) and the font for that language.
+  `en-US.wxl` is the list of texts; each language has the same `String` Ids.
+- The standard pages (Welcome, License, Install folder, Ready, progress, errors) come translated
+  with the WiX UI extension. It has no Indonesian, Vietnamese, Bengali or Urdu, so those four files
+  also translate the pages CrioFire shows; texts they do not list (rare error messages) stay English.
+- Keep `[ProductName]` and `{\WixUI_Font_Title}` as they are, and at most one `&`: it underlines
+  the next letter as the keyboard shortcut. Languages without Latin letters add it at the end, as
+  in `学习(&L)`. A text must fit its box on the page; when in doubt, keep it about as long as English.
+- `build/package-msi.ps1` builds the installer once per language and stores every language in the
+  one MSI. To see a language without changing Windows: `msiexec /i criofire-<version>-x64.msi
+  TRANSFORMS=:1081` (the language ID: 1081 Hindi, 1031 German, 1041 Japanese and so on; the list is
+  in the script).
+- The same test checks every `.wxl` file: all the texts there, the same `[...]` values, one `&`.
+
 ## Reviewing a language
 
 The first translations were written with care, but a native speaker should read each language in
-the running app before a release, especially the security warnings (blocking modes, panic,
+the running app and installer before a release, especially the security warnings (blocking modes, panic,
 tamper protection, changed programs). Notes for translators can go in the file as keys starting
 with `//`; they are ignored.

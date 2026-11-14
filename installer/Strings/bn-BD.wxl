@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CrioFire installer texts: Bengali. How to translate: docs/TRANSLATING.md. -->
+<WixLocalization Culture="bn-BD" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="CrioFireFont" Value="Nirmala UI" />
+  <String Id="DowngradeError" Value="[ProductName]-এর একটি নতুন সংস্করণ আগে থেকেই ইনস্টল করা আছে।" />
+  <String Id="NeedsWindows64" Value="CrioFire Private Firewall-এর জন্য 64-বিট Windows লাগে। Windows 10 ও Windows 11 সমর্থিত।" />
+  <String Id="OpenNow" Value="এখনই CrioFire Private Firewall খুলুন" />
+  <String Id="ServiceDescription" Value="Windows Filtering Platform-এর মাধ্যমে CrioFire Private Firewall-এর নিয়ম প্রয়োগ করে।" />
+  <String Id="ShortcutDescription" Value="দেখুন কে নেটওয়ার্কের সঙ্গে কথা বলে, এবং অনুমতি দিন বা ব্লক করুন" />
+  <String Id="OptionsTitle" Value="সেটআপের বিকল্প" />
+  <String Id="OptionsDescription" Value="CrioFire কীভাবে চালু হবে বেছে নিন। পরে অ্যাপে সব বদলাতে পারবেন।" />
+  <String Id="ModeLabel" Value="নিয়মহীন কোনো প্রোগ্রাম বাইরে সংযোগ করলে:" />
+  <String Id="ModeLearning" Value="শেখা(&amp;L): যেতে দিন, আর কী সংযোগ করে দেখান (শুরুতে প্রস্তাবিত)" />
+  <String Id="ModeAsk" Value="জিজ্ঞাসা(&amp;A): ব্লক করুন এবং অনুমতি দেব কিনা আমাকে জিজ্ঞেস করুন" />
+  <String Id="ModeAllowlist" Value="শুধু অনুমতি তালিকা(&amp;O): জিজ্ঞেস না করেই ব্লক করুন" />
+  <String Id="AllowRunning" Value="এখন চলমান প্রোগ্রামগুলোকে অনুমতি দিন(&amp;W) (প্রস্তাবিত)" />
+  <String Id="Autostart" Value="কেউ সাইন ইন করলে বিজ্ঞপ্তি এলাকায় CrioFire চালু করুন(&amp;S)" />
+  <String Id="ServiceNote" Value="CrioFire সেবা Windows-এর সঙ্গে চালু হয় এবং অ্যাপ বন্ধ থাকলেও আপনাকে সুরক্ষা দিতে থাকে। জিজ্ঞাসা মোড শুধু অ্যাপ চলার সময় জিজ্ঞেস করতে পারে। CrioFire আনইনস্টল করলে এর সব নিয়ম মুছে যায়।" />
+
+  <!-- The setup wizard's standard pages, which the WiX UI extension has no Bengali for. Anything not here (rare error messages) stays English. -->
+  <String Id="WixUIBack" Value="পেছনে(&amp;B)" />
+  <String Id="WixUINext" Value="পরবর্তী(&amp;N)" />
+  <String Id="WixUICancel" Value="বাতিল" />
+  <String Id="WixUIFinish" Value="শেষ(&amp;F)" />
+  <String Id="WixUIRetry" Value="আবার চেষ্টা(&amp;R)" />
+  <String Id="WixUIIgnore" Value="উপেক্ষা(&amp;I)" />
+  <String Id="WixUIYes" Value="হ্যাঁ(&amp;Y)" />
+  <String Id="WixUINo" Value="না(&amp;N)" />
+  <String Id="WixUIOK" Value="ঠিক আছে" />
+  <String Id="WixUIPrint" Value="প্রিন্ট(&amp;P)" />
+  <String Id="BrowseDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="CancelDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="DiskCostDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="ErrorDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="ExitDialog_Title" Value="[ProductName] সেটআপ" />
+  <String Id="FatalError_Title" Value="[ProductName] সেটআপ" />
+  <String Id="FilesInUse_Title" Value="[ProductName] সেটআপ" />
+  <String Id="InstallDirDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="InvalidDirDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="LicenseAgreementDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="MaintenanceTypeDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="MaintenanceWelcomeDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="MsiRMFilesInUse_Title" Value="[ProductName] সেটআপ" />
+  <String Id="OutOfDiskDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="OutOfRbDiskDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="PrepareDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="ProgressDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="ResumeDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="UserExit_Title" Value="[ProductName] সেটআপ" />
+  <String Id="VerifyReadyDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="WaitForCostingDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="WelcomeDlg_Title" Value="[ProductName] সেটআপ" />
+  <String Id="BrowseDlgComboLabel" Value="এখানে খুঁজুন(&amp;L):" />
+  <String Id="BrowseDlgWixUI_Bmp_UpTooltip" Value="এক স্তর ওপরে" />
+  <String Id="BrowseDlgNewFolderTooltip" Value="নতুন ফোল্ডার তৈরি করুন" />
+  <String Id="BrowseDlgPathLabel" Value="ফোল্ডারের নাম(&amp;F):" />
+  <String Id="BrowseDlgDescription" Value="গন্তব্য ফোল্ডারে যান" />
+  <String Id="BrowseDlgTitle" Value="{\WixUI_Font_Title}গন্তব্য ফোল্ডার বদলান" />
+  <String Id="CancelDlgText" Value="আপনি কি নিশ্চিত যে [ProductName]-এর ইনস্টলেশন বাতিল করতে চান?" />
+  <String Id="CancelDlgIconTooltip" Value="তথ্য আইকন" />
+  <String Id="DiskCostDlgText" Value="চিহ্নিত ড্রাইভগুলোতে নির্বাচিত বৈশিষ্ট্যের জন্য যথেষ্ট জায়গা নেই। আপনি চিহ্নিত ড্রাইভ থেকে কিছু ফাইল সরাতে, কম বৈশিষ্ট্য ইনস্টল করতে, বা অন্য গন্তব্য ড্রাইভ বেছে নিতে পারেন।" />
+  <String Id="DiskCostDlgDescription" Value="নির্বাচিত বৈশিষ্ট্য ইনস্টল করতে যতটা ডিস্কের জায়গা লাগবে।" />
+  <String Id="DiskCostDlgTitle" Value="{\WixUI_Font_Title}ডিস্কের জায়গার প্রয়োজন" />
+  <String Id="ErrorDlgErrorIconTooltip" Value="তথ্য আইকন" />
+  <String Id="ExitDialogDescription" Value="সেটআপ উইজার্ড থেকে বের হতে শেষ বোতামে ক্লিক করুন।" />
+  <String Id="ExitDialogTitle" Value="{\WixUI_Font_Bigger}[ProductName] সেটআপ উইজার্ড সম্পন্ন হয়েছে" />
+  <String Id="FatalErrorTitle" Value="{\WixUI_Font_Bigger}[ProductName] সেটআপ উইজার্ড আগেই থেমে গেছে" />
+  <String Id="FatalErrorDescription1" Value="একটি ত্রুটির কারণে [ProductName] সেটআপ উইজার্ড আগেই থেমে গেছে। আপনার সিস্টেমে কোনো পরিবর্তন হয়নি। পরে এই প্রোগ্রামটি ইনস্টল করতে আবার সেটআপ উইজার্ড চালান।" />
+  <String Id="FatalErrorDescription2" Value="সেটআপ উইজার্ড থেকে বের হতে শেষ বোতামে ক্লিক করুন।" />
+  <String Id="FilesInUseExit" Value="বের হন(&amp;X)" />
+  <String Id="FilesInUseText" Value="নিচের অ্যাপগুলো এমন ফাইল ব্যবহার করছে যা এই সেটআপকে আপডেট করতে হবে। অ্যাপগুলো বন্ধ করে সেটআপ চালিয়ে যেতে &#x27;আবার চেষ্টা&#x27; বা বের হতে &#x27;বের হন&#x27; ক্লিক করুন।" />
+  <String Id="FilesInUseDescription" Value="আপডেট করতে হবে এমন কিছু ফাইল এখন ব্যবহৃত হচ্ছে।" />
+  <String Id="FilesInUseTitle" Value="{\WixUI_Font_Title}ফাইল ব্যবহৃত হচ্ছে" />
+  <String Id="InstallDirDlgChange" Value="বদলান(&amp;C)..." />
+  <String Id="InstallDirDlgTitle" Value="{\WixUI_Font_Title}গন্তব্য ফোল্ডার" />
+  <String Id="InstallDirDlgDescription" Value="ডিফল্ট ফোল্ডারে ইনস্টল করতে &#x27;পরবর্তী&#x27; ক্লিক করুন, অথবা অন্যটি বেছে নিতে &#x27;বদলান&#x27; ক্লিক করুন।" />
+  <String Id="InstallDirDlgFolderLabel" Value="[ProductName] এখানে ইনস্টল করুন:" />
+  <String Id="InvalidDirDlgText" Value="ইনস্টলেশন ফোল্ডার অবশ্যই কোনো স্থানীয় হার্ড ড্রাইভে থাকতে হবে।" />
+  <String Id="InvalidDirDlgIconTooltip" Value="তথ্য আইকন" />
+  <String Id="LicenseAgreementDlgLicenseAcceptedCheckBox" Value="আমি লাইসেন্স চুক্তির শর্তাবলি মেনে নিচ্ছি(&amp;A)" />
+  <String Id="LicenseAgreementDlgDescription" Value="অনুগ্রহ করে নিচের লাইসেন্স চুক্তিটি মনোযোগ দিয়ে পড়ুন" />
+  <String Id="LicenseAgreementDlgTitle" Value="{\WixUI_Font_Title}ব্যবহারকারীর লাইসেন্স চুক্তি" />
+  <String Id="MaintenanceTypeDlgChangeButton" Value="বদলান(&amp;C)" />
+  <String Id="MaintenanceTypeDlgChangeButtonTooltip" Value="ইনস্টলেশন বদলান" />
+  <String Id="MaintenanceTypeDlgRepairButton" Value="মেরামত(&amp;P)" />
+  <String Id="MaintenanceTypeDlgRepairButtonTooltip" Value="ইনস্টলেশন মেরামত করুন" />
+  <String Id="MaintenanceTypeDlgRemoveButton" Value="সরান(&amp;R)" />
+  <String Id="MaintenanceTypeDlgRemoveButtonTooltip" Value="ইনস্টলেশন সরান" />
+  <String Id="MaintenanceTypeDlgDescription" Value="আপনি কোন কাজটি করতে চান বেছে নিন।" />
+  <String Id="MaintenanceTypeDlgTitle" Value="{\WixUI_Font_Title}ইনস্টলেশন বদলান, মেরামত করুন বা সরান" />
+  <String Id="MaintenanceTypeDlgChangeText" Value="বৈশিষ্ট্যগুলো কীভাবে ইনস্টল হবে তা বদলাতে দেয়।" />
+  <String Id="MaintenanceTypeDlgChangeDisabledText" Value="[ProductName]-এ আলাদাভাবে বেছে নেওয়ার মতো কোনো বৈশিষ্ট্য নেই।" />
+  <String Id="MaintenanceTypeDlgRemoveText" Value="আপনার কম্পিউটার থেকে [ProductName] সরায়।" />
+  <String Id="MaintenanceTypeDlgRemoveDisabledText" Value="[ProductName] সরানো যাবে না।" />
+  <String Id="MaintenanceTypeDlgRepairText" Value="হারানো বা নষ্ট ফাইল, শর্টকাট ও রেজিস্ট্রি এন্ট্রি ঠিক করে সর্বশেষ ইনস্টলেশনের ত্রুটি মেরামত করে।" />
+  <String Id="MaintenanceTypeDlgRepairDisabledText" Value="[ProductName] মেরামত করা যাবে না।" />
+  <String Id="MaintenanceWelcomeDlgDescription" Value="সেটআপ উইজার্ড দিয়ে আপনি আপনার কম্পিউটারে [ProductName]-এর বৈশিষ্ট্যগুলো কীভাবে ইনস্টল আছে তা বদলাতে বা এটি সরাতে পারেন। চালিয়ে যেতে &#x27;পরবর্তী&#x27;, আর সেটআপ উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="MaintenanceWelcomeDlgTitle" Value="{\WixUI_Font_Bigger}[ProductName] সেটআপ উইজার্ডে স্বাগতম" />
+  <String Id="MsiRMFilesInUseText" Value="নিচের অ্যাপগুলো এমন ফাইল ব্যবহার করছে যা এই সেটআপকে আপডেট করতে হবে। আপনি সেটআপ উইজার্ডকে এগুলো বন্ধ করে আবার চালু করার চেষ্টা করতে দিতে পারেন, অথবা পরে কম্পিউটার রিস্টার্ট করতে পারেন।" />
+  <String Id="MsiRMFilesInUseDescription" Value="আপডেট করতে হবে এমন কিছু ফাইল এখন ব্যবহৃত হচ্ছে।" />
+  <String Id="MsiRMFilesInUseTitle" Value="{\WixUI_Font_Title}ফাইল ব্যবহৃত হচ্ছে" />
+  <String Id="MsiRMFilesInUseUseRM" Value="অ্যাপগুলো বন্ধ করে আবার চালু করার চেষ্টা করুন(&amp;C)।" />
+  <String Id="MsiRMFilesInUseDontUseRM" Value="অ্যাপগুলো বন্ধ করবেন না(&amp;D)। রিস্টার্ট করতে হবে।" />
+  <String Id="OutOfDiskDlgText" Value="চিহ্নিত ড্রাইভগুলোতে এখন নির্বাচিত বৈশিষ্ট্যের জন্য যথেষ্ট জায়গা নেই। আপনি চিহ্নিত ড্রাইভ থেকে কিছু ফাইল সরাতে, কম বৈশিষ্ট্য ইনস্টল করতে, বা অন্য গন্তব্য ড্রাইভ বেছে নিতে পারেন।" />
+  <String Id="OutOfDiskDlgDescription" Value="ইনস্টলেশনের জন্য প্রয়োজনীয় জায়গা খালি জায়গার চেয়ে বেশি।" />
+  <String Id="OutOfDiskDlgTitle" Value="{\WixUI_Font_Title}ডিস্কে জায়গা নেই" />
+  <String Id="OutOfRbDiskDlgText" Value="চিহ্নিত ড্রাইভগুলোতে এখন নির্বাচিত বৈশিষ্ট্যের জন্য যথেষ্ট জায়গা নেই। আপনি চিহ্নিত ড্রাইভ থেকে কিছু ফাইল সরাতে, কম বৈশিষ্ট্য ইনস্টল করতে, বা অন্য গন্তব্য ড্রাইভ বেছে নিতে পারেন।" />
+  <String Id="OutOfRbDiskDlgDescription" Value="ইনস্টলেশনের জন্য প্রয়োজনীয় জায়গা খালি জায়গার চেয়ে বেশি।" />
+  <String Id="OutOfRbDiskDlgTitle" Value="{\WixUI_Font_Title}ডিস্কে জায়গা নেই" />
+  <String Id="OutOfRbDiskDlgText2" Value="বিকল্পভাবে, আপনি ইনস্টলারের রোলব্যাক সুবিধা বন্ধ করতে পারেন। রোলব্যাক বন্ধ থাকলে ইনস্টলেশন কোনোভাবে থেমে গেলে ইনস্টলার আপনার কম্পিউটারকে আগের অবস্থায় ফেরাতে পারবে না। রোলব্যাক বন্ধ করার ঝুঁকি নিতে চাইলে &#x27;হ্যাঁ&#x27; ক্লিক করুন।" />
+  <String Id="PrepareDlgDescription" Value="সেটআপ উইজার্ড আপনাকে ইনস্টলেশনে সাহায্য করার প্রস্তুতি নিচ্ছে, অনুগ্রহ করে অপেক্ষা করুন।" />
+  <String Id="PrepareDlgTitle" Value="{\WixUI_Font_Bigger}[ProductName] সেটআপ উইজার্ডে স্বাগতম" />
+  <String Id="ProgressDlgTextInstalling" Value="সেটআপ উইজার্ড [ProductName] ইনস্টল করছে, অনুগ্রহ করে অপেক্ষা করুন।" />
+  <String Id="ProgressDlgTitleInstalling" Value="{\WixUI_Font_Title}[ProductName] ইনস্টল হচ্ছে" />
+  <String Id="ProgressDlgTextChanging" Value="সেটআপ উইজার্ড [ProductName] বদলাচ্ছে, অনুগ্রহ করে অপেক্ষা করুন।" />
+  <String Id="ProgressDlgTitleChanging" Value="{\WixUI_Font_Title}[ProductName] বদলানো হচ্ছে" />
+  <String Id="ProgressDlgTextRepairing" Value="সেটআপ উইজার্ড [ProductName] মেরামত করছে, অনুগ্রহ করে অপেক্ষা করুন।" />
+  <String Id="ProgressDlgTitleRepairing" Value="{\WixUI_Font_Title}[ProductName] মেরামত হচ্ছে" />
+  <String Id="ProgressDlgTextRemoving" Value="সেটআপ উইজার্ড [ProductName] সরাচ্ছে, অনুগ্রহ করে অপেক্ষা করুন।" />
+  <String Id="ProgressDlgTitleRemoving" Value="{\WixUI_Font_Title}[ProductName] সরানো হচ্ছে" />
+  <String Id="ProgressDlgTextUpdating" Value="সেটআপ উইজার্ড [ProductName] আপডেট করছে, অনুগ্রহ করে অপেক্ষা করুন।" />
+  <String Id="ProgressDlgTitleUpdating" Value="{\WixUI_Font_Title}[ProductName] আপডেট হচ্ছে" />
+  <String Id="ProgressDlgProgressBar" Value="অগ্রগতি" />
+  <String Id="ProgressDlgStatusLabel" Value="অবস্থা:" />
+  <String Id="ResumeDlgInstall" Value="ইনস্টল(&amp;I)" />
+  <String Id="ResumeDlgDescription" Value="সেটআপ উইজার্ড আপনার কম্পিউটারে [ProductName]-এর ইনস্টলেশন শেষ করবে। চালিয়ে যেতে &#x27;ইনস্টল&#x27;, আর সেটআপ উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="ResumeDlgTitle" Value="{\WixUI_Font_Bigger}[ProductName] সেটআপ উইজার্ড আবার শুরু হচ্ছে" />
+  <String Id="UserExitTitle" Value="{\WixUI_Font_Bigger}[ProductName] সেটআপ উইজার্ড মাঝপথে থেমেছে" />
+  <String Id="UserExitDescription1" Value="[ProductName] সেটআপ মাঝপথে থেমেছে। আপনার সিস্টেমে কোনো পরিবর্তন হয়নি। পরে এই প্রোগ্রামটি ইনস্টল করতে আবার ইনস্টলেশন চালান।" />
+  <String Id="UserExitDescription2" Value="সেটআপ উইজার্ড থেকে বের হতে শেষ বোতামে ক্লিক করুন।" />
+  <String Id="VerifyReadyDlgInstall" Value="ইনস্টল(&amp;I)" />
+  <String Id="VerifyReadyDlgInstallText" Value="ইনস্টলেশন শুরু করতে &#x27;ইনস্টল&#x27; ক্লিক করুন। আপনার ইনস্টলেশন সেটিংস দেখতে বা বদলাতে &#x27;পেছনে&#x27; ক্লিক করুন। উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="VerifyReadyDlgInstallTitle" Value="{\WixUI_Font_Title}[ProductName] ইনস্টলের জন্য প্রস্তুত" />
+  <String Id="VerifyReadyDlgChange" Value="বদলান(&amp;C)" />
+  <String Id="VerifyReadyDlgChangeText" Value="শুরু করতে &#x27;বদলান&#x27; ক্লিক করুন। আপনার ইনস্টলেশন সেটিংস দেখতে বা বদলাতে &#x27;পেছনে&#x27; ক্লিক করুন। উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="VerifyReadyDlgChangeTitle" Value="{\WixUI_Font_Title}[ProductName] বদলানোর জন্য প্রস্তুত" />
+  <String Id="VerifyReadyDlgRepair" Value="মেরামত(&amp;P)" />
+  <String Id="VerifyReadyDlgRepairText" Value="[ProductName]-এর ইনস্টলেশন মেরামত করতে &#x27;মেরামত&#x27; ক্লিক করুন। আপনার ইনস্টলেশন সেটিংস দেখতে বা বদলাতে &#x27;পেছনে&#x27; ক্লিক করুন। উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="VerifyReadyDlgRepairTitle" Value="{\WixUI_Font_Title}[ProductName] মেরামতের জন্য প্রস্তুত" />
+  <String Id="VerifyReadyDlgRemove" Value="সরান(&amp;R)" />
+  <String Id="VerifyReadyDlgRemoveText" Value="আপনার কম্পিউটার থেকে [ProductName] সরাতে &#x27;সরান&#x27; ক্লিক করুন। আপনার ইনস্টলেশন সেটিংস দেখতে বা বদলাতে &#x27;পেছনে&#x27; ক্লিক করুন। উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="VerifyReadyDlgRemoveTitle" Value="{\WixUI_Font_Title}[ProductName] সরানোর জন্য প্রস্তুত" />
+  <String Id="VerifyReadyDlgUpdate" Value="আপডেট(&amp;U)" />
+  <String Id="VerifyReadyDlgUpdateText" Value="আপনার কম্পিউটারে [ProductName] আপডেট করতে &#x27;আপডেট&#x27; ক্লিক করুন। আপনার ইনস্টলেশন সেটিংস দেখতে বা বদলাতে &#x27;পেছনে&#x27; ক্লিক করুন। উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="VerifyReadyDlgUpdateTitle" Value="{\WixUI_Font_Title}[ProductName] আপডেটের জন্য প্রস্তুত" />
+  <String Id="WaitForCostingDlgReturn" Value="ফিরে যান(&amp;R)" />
+  <String Id="WaitForCostingDlgText" Value="ইনস্টলার আপনার ডিস্কের জায়গার প্রয়োজন হিসাব শেষ করছে, অনুগ্রহ করে অপেক্ষা করুন।" />
+  <String Id="WaitForCostingDlgIconTooltip" Value="সতর্কতা আইকন" />
+  <String Id="WelcomeDlgDescription" Value="সেটআপ উইজার্ড আপনার কম্পিউটারে [ProductName] ইনস্টল করবে। চালিয়ে যেতে &#x27;পরবর্তী&#x27;, আর সেটআপ উইজার্ড থেকে বের হতে &#x27;বাতিল&#x27; ক্লিক করুন।" />
+  <String Id="WelcomeDlgTitle" Value="{\WixUI_Font_Bigger}[ProductName] সেটআপ উইজার্ডে স্বাগতম" />
+  <String Id="ProgressTextInstallValidate" Value="ইনস্টলেশন যাচাই হচ্ছে" />
+  <String Id="ProgressTextInstallFiles" Value="নতুন ফাইল কপি হচ্ছে" />
+  <String Id="ProgressTextFileCost" Value="প্রয়োজনীয় জায়গা হিসাব হচ্ছে" />
+  <String Id="ProgressTextCostInitialize" Value="প্রয়োজনীয় জায়গা হিসাব হচ্ছে" />
+  <String Id="ProgressTextCostFinalize" Value="প্রয়োজনীয় জায়গা হিসাব হচ্ছে" />
+  <String Id="ProgressTextCreateShortcuts" Value="শর্টকাট তৈরি হচ্ছে" />
+  <String Id="ProgressTextPublishFeatures" Value="পণ্যের বৈশিষ্ট্য নিবন্ধিত হচ্ছে" />
+  <String Id="ProgressTextPublishProduct" Value="পণ্যের তথ্য নিবন্ধিত হচ্ছে" />
+  <String Id="ProgressTextAppSearch" Value="ইনস্টল করা অ্যাপ খোঁজা হচ্ছে" />
+  <String Id="ProgressTextCreateFolders" Value="ফোল্ডার তৈরি হচ্ছে" />
+  <String Id="ProgressTextDeleteServices" Value="সেবা মোছা হচ্ছে" />
+  <String Id="ProgressTextFindRelatedProducts" Value="সম্পর্কিত অ্যাপ খোঁজা হচ্ছে" />
+  <String Id="ProgressTextInstallServices" Value="নতুন সেবা ইনস্টল হচ্ছে" />
+  <String Id="ProgressTextLaunchConditions" Value="চালুর শর্ত যাচাই হচ্ছে" />
+  <String Id="ProgressTextMigrateFeatureStates" Value="সম্পর্কিত অ্যাপ থেকে বৈশিষ্ট্যের অবস্থা আনা হচ্ছে" />
+  <String Id="ProgressTextMoveFiles" Value="ফাইল সরানো হচ্ছে" />
+  <String Id="ProgressTextProcessComponents" Value="উপাদানের নিবন্ধন আপডেট হচ্ছে" />
+  <String Id="ProgressTextRegisterProduct" Value="পণ্য নিবন্ধিত হচ্ছে" />
+  <String Id="ProgressTextRegisterUser" Value="ব্যবহারকারী নিবন্ধিত হচ্ছে" />
+  <String Id="ProgressTextRemoveEnvironmentStrings" Value="এনভায়রনমেন্ট ভেরিয়েবল আপডেট হচ্ছে" />
+  <String Id="ProgressTextRemoveExistingProducts" Value="অ্যাপ সরানো হচ্ছে" />
+  <String Id="ProgressTextRemoveFiles" Value="ফাইল মোছা হচ্ছে" />
+  <String Id="ProgressTextRemoveFolders" Value="ফোল্ডার মোছা হচ্ছে" />
+  <String Id="ProgressTextRemoveRegistryValues" Value="সিস্টেম রেজিস্ট্রির মান মোছা হচ্ছে" />
+  <String Id="ProgressTextRemoveShortcuts" Value="শর্টকাট মোছা হচ্ছে" />
+  <String Id="ProgressTextStartServices" Value="সেবা চালু হচ্ছে" />
+  <String Id="ProgressTextStopServices" Value="সেবা বন্ধ হচ্ছে" />
+  <String Id="ProgressTextUnpublishFeatures" Value="পণ্যের বৈশিষ্ট্যের নিবন্ধন সরানো হচ্ছে" />
+  <String Id="ProgressTextWriteEnvironmentStrings" Value="এনভায়রনমেন্ট ভেরিয়েবল আপডেট হচ্ছে" />
+  <String Id="ProgressTextWriteRegistryValues" Value="সিস্টেম রেজিস্ট্রিতে মান লেখা হচ্ছে" />
+  <String Id="ProgressTextGenerateScript" Value="এই কাজের জন্য স্ক্রিপ্ট তৈরি হচ্ছে:" />
+  <String Id="ProgressTextRollback" Value="এই কাজ ফেরানো হচ্ছে:" />
+  <String Id="ProgressTextRollbackCleanup" Value="ব্যাকআপ ফাইল মোছা হচ্ছে" />
+  <String Id="ProgressTextUnpublishProduct" Value="পণ্যের তথ্যের নিবন্ধন সরানো হচ্ছে" />
+</WixLocalization>

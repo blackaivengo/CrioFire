@@ -21,6 +21,25 @@ pay the monthly maintenance fee. See https://docs.firegiant.com/wix/osmf/.
 | Upgrades | A newer MSI upgrades in place and keeps rules, mode, the install folder and the sign-in choice, and skips the Setup options page; downgrades are refused |
 | Running app | Asks the app to exit before replacing files (it exits on the end-session message) |
 
+## Languages
+
+One MSI speaks the app's 16 languages and follows the Windows display language (English
+otherwise). `build/package-msi.ps1` builds the installer once per language from
+`Strings/<culture>.wxl` plus the WiX UI extension's translations, all with the same ProductCode
+and the same cabinet, and stores each language in the English MSI as a transform named after its
+language ID (regional variants such as es-MX or fr-CA get the nearest one). Windows Installer
+applies the matching one by itself; `TRANSFORMS=:<id>` picks one by hand:
+
+```powershell
+msiexec /i criofire-0.1.0-x64.msi TRANSFORMS=:1041   # Japanese
+```
+
+Every language is stored as UTF-8 (code page 65001), the only one that also covers Hindi and
+Bengali. The pages keep the left-to-right layout in Arabic and Urdu (the text itself reads right
+to left), as with the WiX UI extension's own Arabic. The license is shown in English. How to change
+or add texts: `docs/TRANSLATING.md`. `./build/package-msi.ps1 -EnglishOnly` builds just English,
+for a quicker local build.
+
 ## Setup wizard
 
 Welcome, License, Install folder, **Setup options**, Ready, Finish (with "Open CrioFire now").
@@ -89,7 +108,9 @@ msiexec /i criofire-server-0.1.0-x64.msi /qn CRIOFIRE_SERVER_PORT=7443
 
 CI builds all four MSIs on every push, installs the x64 CrioFire one on the runner, checks the
 service, the Windows Filtering Platform registration, the mode, the sign-in entry, the shortcut and
-`PATH`, then uninstalls it and checks that nothing is left. It does the same with the x64 server
+`PATH`, then uninstalls it and checks that nothing is left; then again in Hindi, through the
+language stored in the MSI. Packaging itself checks that each language's transform is small (texts
+only), sets that language and translates the Setup options page. It does the same with the x64 server
 MSI: the service, the firewall rule, the data folder's permissions, the console answering over HTTPS
 and creating the first administrator, then uninstall (the server's data stays). Releases build the
 MSIs from the signed binaries and sign the MSIs too (see `docs/RELEASING.md`).
