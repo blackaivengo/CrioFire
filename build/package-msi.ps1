@@ -65,6 +65,179 @@ $variants = @{
 }
 if ($EnglishOnly) { $languages = [ordered]@{ 'en-US' = 1033 } }
 
+# Failures become GitHub annotations, so they can be read on the run page without signing in.
+function Write-Annotation([string] $text) {
+    if ($env:GITHUB_ACTIONS -eq 'true') {
+        $escaped = $text.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
+        Write-Host "::error title=MSI packaging failed ($Arch)::$escaped"
+    }
+}
+trap {
+    Write-Annotation "$($_.Exception.Message)`n$($_.InvocationInfo.PositionMessage)"
+    break
+}
+
+# Windows Installer's own functions (msi.dll), for making, checking and storing the transforms.
+if (-not ('CrioFireMsi' -as [type])) {
+    Add-Type -Language CSharp -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+
+public static class CrioFireMsi
+{
+    const uint NoData = 232, MoreData = 234, NoMoreItems = 259;
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiOpenDatabaseW(string path, IntPtr persist, out IntPtr database);
+    [DllImport("msi.dll")] static extern uint MsiCloseHandle(IntPtr handle);
+    [DllImport("msi.dll")] static extern uint MsiDatabaseCommit(IntPtr database);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiDatabaseGenerateTransformW(IntPtr database, IntPtr reference, string transform, int reserved1, int reserved2);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiCreateTransformSummaryInfoW(IntPtr database, IntPtr reference, string transform, int errorConditions, int validation);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiDatabaseApplyTransformW(IntPtr database, string transform, int errorConditions);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiDatabaseOpenViewW(IntPtr database, string query, out IntPtr view);
+    [DllImport("msi.dll")] static extern uint MsiViewExecute(IntPtr view, IntPtr record);
+    [DllImport("msi.dll")] static extern uint MsiViewFetch(IntPtr view, out IntPtr record);
+    [DllImport("msi.dll")] static extern uint MsiViewModify(IntPtr view, int mode, IntPtr record);
+    [DllImport("msi.dll")] static extern IntPtr MsiCreateRecord(uint fields);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiRecordGetStringW(IntPtr record, uint field, StringBuilder value, ref uint length);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiRecordSetStringW(IntPtr record, uint field, string value);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiRecordSetStreamW(IntPtr record, uint field, string file);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiGetSummaryInformationW(IntPtr database, string path, uint updateCount, out IntPtr summary);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiSummaryInfoGetPropertyW(IntPtr summary, uint property, out uint type, out int number, ref FILETIME time, StringBuilder value, ref uint length);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)] static extern uint MsiSummaryInfoSetPropertyW(IntPtr summary, uint property, uint type, int number, ref FILETIME time, string value);
+    [DllImport("msi.dll")] static extern uint MsiSummaryInfoPersist(IntPtr summary);
+
+    static void Check(uint result, string what)
+    {
+        if (result != 0) throw new InvalidOperationException(what + " failed: Windows Installer error " + result + ".");
+    }
+
+    static IntPtr Open(string path, bool write)
+    {
+        IntPtr database;
+        Check(MsiOpenDatabaseW(path, new IntPtr(write ? 1 : 0), out database), "Opening " + path);
+        return database;
+    }
+
+    static void Close(IntPtr handle)
+    {
+        if (handle != IntPtr.Zero) MsiCloseHandle(handle);
+    }
+
+    /// <summary>The first column of the first row the query finds, or null.</summary>
+    static string Query(IntPtr database, string sql)
+    {
+        IntPtr view, record;
+        Check(MsiDatabaseOpenViewW(database, sql, out view), "Query " + sql);
+        try
+        {
+            Check(MsiViewExecute(view, IntPtr.Zero), "Query " + sql);
+            uint fetched = MsiViewFetch(view, out record);
+            if (fetched == NoMoreItems) return null;
+            Check(fetched, "Query " + sql);
+            try
+            {
+                uint length = 1024;
+                var value = new StringBuilder((int)length);
+                uint result = MsiRecordGetStringW(record, 1, value, ref length);
+                if (result == MoreData)
+                {
+                    length++;
+                    value = new StringBuilder((int)length);
+                    result = MsiRecordGetStringW(record, 1, value, ref length);
+                }
+                Check(result, "Query " + sql);
+                return value.ToString();
+            }
+            finally { Close(record); }
+        }
+        finally { Close(view); }
+    }
+
+    /// <summary>
+    /// A transform from the English MSI to a localized one, applicable without validation or error
+    /// conditions. False when they do not differ.
+    /// </summary>
+    public static bool MakeTransform(string englishMsi, string localizedMsi, string transform)
+    {
+        IntPtr english = Open(englishMsi, false), localized = Open(localizedMsi, false);
+        try
+        {
+            uint result = MsiDatabaseGenerateTransformW(localized, english, transform, 0, 0);
+            if (result == NoData) return false;
+            Check(result, "Making " + transform);
+            Check(MsiCreateTransformSummaryInfoW(localized, english, transform, 0, 0), "Writing the summary of " + transform);
+            return true;
+        }
+        finally { Close(localized); Close(english); }
+    }
+
+    /// <summary>Answers to the queries after applying a transform to a scratch copy of an MSI (not saved).</summary>
+    public static string[] QueryTransformed(string scratchMsi, string transform, string[] queries)
+    {
+        IntPtr database = Open(scratchMsi, true);
+        try
+        {
+            Check(MsiDatabaseApplyTransformW(database, transform, 0), "Applying " + transform);
+            var answers = new string[queries.Length];
+            for (int i = 0; i < queries.Length; i++) answers[i] = Query(database, queries[i]);
+            return answers;
+        }
+        finally { Close(database); }
+    }
+
+    public static string QueryMsi(string msi, string query)
+    {
+        IntPtr database = Open(msi, false);
+        try { return Query(database, query); }
+        finally { Close(database); }
+    }
+
+    /// <summary>
+    /// Stores each transform as a substorage of the MSI under its name (a language ID) and sets the
+    /// Template summary property to the platform and the languages.
+    /// </summary>
+    public static string Embed(string msi, string[] names, string[] transforms, string languages)
+    {
+        IntPtr database = Open(msi, true), view = IntPtr.Zero, summary = IntPtr.Zero;
+        try
+        {
+            Check(MsiDatabaseOpenViewW(database, "SELECT `Name`, `Data` FROM `_Storages`", out view), "Opening _Storages");
+            Check(MsiViewExecute(view, IntPtr.Zero), "Opening _Storages");
+            for (int i = 0; i < names.Length; i++)
+            {
+                IntPtr record = MsiCreateRecord(2);
+                try
+                {
+                    Check(MsiRecordSetStringW(record, 1, names[i]), "Naming storage " + names[i]);
+                    Check(MsiRecordSetStreamW(record, 2, transforms[i]), "Reading " + transforms[i]);
+                    Check(MsiViewModify(view, 3 /* MSIMODIFY_ASSIGN */, record), "Storing " + names[i]);
+                }
+                finally { Close(record); }
+            }
+            Close(view);
+            view = IntPtr.Zero;
+
+            Check(MsiGetSummaryInformationW(database, null, 1, out summary), "Opening the summary information");
+            uint type, length = 256;
+            int number;
+            var time = new FILETIME();
+            var template = new StringBuilder((int)length);
+            Check(MsiSummaryInfoGetPropertyW(summary, 7, out type, out number, ref time, template, ref length), "Reading Template");
+            string platform = template.ToString().Split(';')[0];
+            string value = platform + ";" + languages;
+            Check(MsiSummaryInfoSetPropertyW(summary, 7, 30 /* VT_LPSTR */, 0, ref time, value), "Writing Template");
+            Check(MsiSummaryInfoPersist(summary), "Saving the summary information");
+            Check(MsiDatabaseCommit(database), "Saving " + msi);
+            return value;
+        }
+        finally { Close(summary); Close(view); Close(database); }
+    }
+}
+'@
+}
+
 $out = Join-Path $root 'out/msi'
 $work = Join-Path $root "out/msi-work/$Arch"
 $cabCache = Join-Path $work 'cabcache'
@@ -78,13 +251,15 @@ $fileName = "criofire-$numeric-$Arch.msi"
 foreach ($culture in $languages.Keys) {
     if ($culture -ne 'en-US') {
         # Reuse the English cabinet: same bytes, so the transforms do not carry the program files.
+        $cabinets = @(Get-ChildItem (Join-Path $cabCache 'en-US') -Filter *.cab -ErrorAction SilentlyContinue)
+        if ($cabinets.Count -eq 0) { throw "The English build left no cabinet in $cabCache\en-US to reuse" }
         New-Item -ItemType Directory -Force (Join-Path $cabCache $culture) | Out-Null
-        Copy-Item (Join-Path $cabCache 'en-US/*.cab') (Join-Path $cabCache $culture)
+        $cabinets | Copy-Item -Destination (Join-Path $cabCache $culture)
     }
     Write-Host "Building the $culture installer"
     # The Windows Installer validation (ICE) checks the structure, which every language shares.
     $suppressValidation = if ($culture -eq 'en-US') { 'false' } else { 'true' }
-    dotnet build (Join-Path $root 'installer/CrioFire.Installer.wixproj') `
+    $output = & dotnet build (Join-Path $root 'installer/CrioFire.Installer.wixproj') `
         --configuration Release `
         -p:InstallerPlatform=$Arch `
         -p:ProductVersion=$numeric `
@@ -93,8 +268,12 @@ foreach ($culture in $languages.Keys) {
         -p:SuppressValidation=$suppressValidation `
         -p:CrioFirePublishDir=$PublishDir `
         -p:CabinetCachePath="$cabCache\" `
-        -p:OutputPath="$work\"
-    if ($LASTEXITCODE -ne 0) { throw "MSI build failed ($culture)" }
+        -p:OutputPath="$work\" 2>&1
+    $output | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+        $errors = @($output | Select-String -Pattern ': (error|warning) ' | Select-Object -First 8 | ForEach-Object { $_.Line.Trim() })
+        throw "The $culture MSI build failed:`n$($errors -join "`n")"
+    }
     if (-not (Test-Path (Join-Path $work "$culture/$fileName"))) { throw "Expected $work\$culture\$fileName was not produced" }
 }
 
@@ -102,93 +281,36 @@ $msi = Join-Path $out $fileName
 Copy-Item (Join-Path $work "en-US/$fileName") $msi -Force
 
 if ($languages.Count -gt 1) {
-    # Windows Installer's automation interface, through late binding (it has no type library).
-    function Invoke-Method($object, [string] $name, [object[]] $arguments = @()) {
-        $object.GetType().InvokeMember($name, [Reflection.BindingFlags]::InvokeMethod, $null, $object, $arguments)
-    }
-    function Get-Property($object, [string] $name, [object[]] $arguments = @()) {
-        $object.GetType().InvokeMember($name, [Reflection.BindingFlags]::GetProperty, $null, $object, $arguments)
-    }
-    function Set-Property($object, [string] $name, [object[]] $arguments) {
-        [void] $object.GetType().InvokeMember($name, [Reflection.BindingFlags]::SetProperty, $null, $object, $arguments)
-    }
-    function Get-Value($database, [string] $query) {
-        $view = Invoke-Method $database 'OpenView' @($query)
-        Invoke-Method $view 'Execute' | Out-Null
-        $record = Invoke-Method $view 'Fetch'
-        $value = if ($record) { Get-Property $record 'StringData' @(1) } else { $null }
-        Invoke-Method $view 'Close' | Out-Null
-        Close-Com $record
-        Close-Com $view
-        return $value
-    }
-    function Close-Com($object) {
-        if ($object) { [void] [Runtime.InteropServices.Marshal]::FinalReleaseComObject($object) }
-    }
-
-    $installer = New-Object -ComObject WindowsInstaller.Installer
-    $readOnly = 0; $transact = 1; $msiViewModifyAssign = 3
-    $base = Invoke-Method $installer 'OpenDatabase' @($msi, $readOnly)
-    $englishTitle = Get-Value $base "SELECT ``Text`` FROM ``Control`` WHERE ``Dialog_``='CrioFireSettingsDlg' AND ``Control``='Title'"
-    $transforms = [ordered]@{}
+    $titleQuery = "SELECT ``Text`` FROM ``Control`` WHERE ``Dialog_``='CrioFireSettingsDlg' AND ``Control``='Title'"
+    $languageQuery = "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='ProductLanguage'"
+    $englishTitle = [CrioFireMsi]::QueryMsi($msi, $titleQuery)
+    $names = [Collections.Generic.List[string]]::new()
+    $files = [Collections.Generic.List[string]]::new()
 
     foreach ($culture in @($languages.Keys | Where-Object { $_ -ne 'en-US' })) {
         $lcid = $languages[$culture]
         $mst = Join-Path $work "$culture.mst"
-        $localized = Invoke-Method $installer 'OpenDatabase' @((Join-Path $work "$culture/$fileName"), $readOnly)
-        # The transform turns the English MSI into this language's. No validation and no error
-        # conditions, so it always applies to the package it is stored in.
-        if (-not (Invoke-Method $localized 'GenerateTransform' @($base, $mst))) { throw "No differences between English and $culture" }
-        Invoke-Method $localized 'CreateTransformSummaryInfo' @($base, $mst, 0, 0) | Out-Null
-        Close-Com $localized
+        if (-not [CrioFireMsi]::MakeTransform($msi, (Join-Path $work "$culture/$fileName"), $mst)) { throw "The $culture MSI does not differ from the English one" }
 
         # Check it: small (texts only), and it really switches the language and the texts.
         $size = (Get-Item $mst).Length
         if ($size -gt 2MB) { throw "The $culture transform is $([math]::Round($size / 1MB, 1)) MB: it carries more than texts" }
-        $check = Join-Path $work "check-$culture.msi"
-        Copy-Item $msi $check
-        $db = Invoke-Method $installer 'OpenDatabase' @($check, $transact)
-        Invoke-Method $db 'ApplyTransform' @($mst, 0) | Out-Null
-        $language = Get-Value $db "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='ProductLanguage'"
-        $title = Get-Value $db "SELECT ``Text`` FROM ``Control`` WHERE ``Dialog_``='CrioFireSettingsDlg' AND ``Control``='Title'"
-        Close-Com $db
-        [GC]::Collect(); [GC]::WaitForPendingFinalizers()
-        Remove-Item $check -ErrorAction SilentlyContinue
+        $scratch = Join-Path $work "check-$culture.msi"
+        Copy-Item $msi $scratch
+        $language, $title = [CrioFireMsi]::QueryTransformed($scratch, $mst, @($languageQuery, $titleQuery))
+        Remove-Item $scratch
         if ($language -ne "$lcid") { throw "The $culture transform sets ProductLanguage $language, not $lcid" }
-        if ($title -eq $englishTitle) { throw "The $culture transform leaves the Setup options page in English" }
+        if ($title -eq $englishTitle) { throw "The $culture transform leaves the Setup options page in English ($title)" }
 
         Write-Host ("{0} ({1}): {2:N0} KB" -f $culture, $lcid, ($size / 1KB))
-        $transforms["$lcid"] = $mst
-        foreach ($variant in @($variants[$culture])) { if ($variant) { $transforms["$variant"] = $mst } }
+        foreach ($id in @($lcid) + @($variants[$culture] | Where-Object { $_ })) {
+            $names.Add("$id")
+            $files.Add($mst)
+        }
     }
-    Close-Com $base
-    [GC]::Collect(); [GC]::WaitForPendingFinalizers()
 
-    # Store each transform as a substorage named after its language ID, and list the languages
-    # (English first: the default) in the Template summary property.
-    $db = Invoke-Method $installer 'OpenDatabase' @($msi, $transact)
-    $view = Invoke-Method $db 'OpenView' @('SELECT `Name`, `Data` FROM `_Storages`')
-    Invoke-Method $view 'Execute' | Out-Null
-    foreach ($name in $transforms.Keys) {
-        $record = Invoke-Method $installer 'CreateRecord' @(2)
-        Set-Property $record 'StringData' @(1, $name)
-        Invoke-Method $record 'SetStream' @(2, $transforms[$name]) | Out-Null
-        Invoke-Method $view 'Modify' @($msiViewModifyAssign, $record) | Out-Null
-        Close-Com $record
-    }
-    Invoke-Method $view 'Close' | Out-Null
-    Close-Com $view
-
-    $summary = Get-Property $db 'SummaryInformation' @(1)
-    $platform = ((Get-Property $summary 'Property' @(7)) -split ';')[0]
-    $template = "$platform;" + ((@('1033') + @($transforms.Keys)) -join ',')
-    Set-Property $summary 'Property' @(7, $template)
-    Invoke-Method $summary 'Persist' | Out-Null
-    Close-Com $summary
-    Invoke-Method $db 'Commit' | Out-Null
-    Close-Com $db
-    Close-Com $installer
-    [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+    # English first in the Template property: the default when no other language matches.
+    $template = [CrioFireMsi]::Embed($msi, $names.ToArray(), $files.ToArray(), ((@('1033') + $names) -join ','))
     Write-Host "Languages: $template"
 }
 
