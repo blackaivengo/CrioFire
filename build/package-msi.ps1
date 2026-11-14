@@ -268,17 +268,21 @@ foreach ($culture in $languages.Keys) {
         -p:SuppressValidation=$suppressValidation `
         -p:CrioFirePublishDir=$PublishDir `
         -p:CabinetCachePath="$cabCache\" `
-        -p:OutputPath="$work\" 2>&1
+        -p:OutputPath="$work\out\$culture\" 2>&1
     $output | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) {
         $errors = @($output | Select-String -Pattern ': (error|warning) ' | Select-Object -First 8 | ForEach-Object { $_.Line.Trim() })
         throw "The $culture MSI build failed:`n$($errors -join "`n")"
     }
-    if (-not (Test-Path (Join-Path $work "$culture/$fileName"))) { throw "Expected $work\$culture\$fileName was not produced" }
+    # Each language builds into a folder of its own and is copied out right away: a build's
+    # incremental clean deletes what an earlier build left in its output folder.
+    $built = Join-Path $work "out/$culture/$culture/$fileName"
+    if (-not (Test-Path $built)) { throw "Expected $built was not produced" }
+    Copy-Item $built (Join-Path $work "$culture.msi")
 }
 
 $msi = Join-Path $out $fileName
-Copy-Item (Join-Path $work "en-US/$fileName") $msi -Force
+Copy-Item (Join-Path $work 'en-US.msi') $msi -Force
 
 if ($languages.Count -gt 1) {
     $titleQuery = "SELECT ``Text`` FROM ``Control`` WHERE ``Dialog_``='CrioFireSettingsDlg' AND ``Control``='Title'"
@@ -290,7 +294,7 @@ if ($languages.Count -gt 1) {
     foreach ($culture in @($languages.Keys | Where-Object { $_ -ne 'en-US' })) {
         $lcid = $languages[$culture]
         $mst = Join-Path $work "$culture.mst"
-        if (-not [CrioFireMsi]::MakeTransform($msi, (Join-Path $work "$culture/$fileName"), $mst)) { throw "The $culture MSI does not differ from the English one" }
+        if (-not [CrioFireMsi]::MakeTransform($msi, (Join-Path $work "$culture.msi"), $mst)) { throw "The $culture MSI does not differ from the English one" }
 
         # Check it: small (texts only), and it really switches the language and the texts.
         $size = (Get-Item $mst).Length
