@@ -31,12 +31,12 @@ public partial class DashboardPage : UserControl, IPage
 
     public string Title => DateTime.Now.Hour switch
     {
-        < 12 => "Good morning",
-        < 18 => "Good afternoon",
-        _ => "Good evening",
+        < 12 => L.T("Good morning"),
+        < 18 => L.T("Good afternoon"),
+        _ => L.T("Good evening"),
     };
 
-    public string Subtitle => "Here is what CrioFire did on this PC in the last 24 hours.";
+    public string Subtitle => L.T("Here is what CrioFire did on this PC in the last 24 hours.");
 
     public FrameworkElement? Actions => null;
 
@@ -66,13 +66,13 @@ public partial class DashboardPage : UserControl, IPage
         var allowApps = rules.Where(r => r.Action == "allow").Select(r => r.App).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var blockApps = rules.Where(r => r.Action == "block").Select(r => r.App).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var temporary = rules.Where(r => r.ExpiresUtc is not null).Select(r => r.App).Distinct(StringComparer.OrdinalIgnoreCase).Count();
-        AllowChip.Text = (allowApps == 1 ? "1 program allowed" : $"{allowApps} programs allowed") + (temporary == 0 ? string.Empty : $" ({temporary} temporary)");
-        BlockChip.Text = blockApps == 1 ? "1 block rule" : $"{blockApps} block rules";
+        AllowChip.Text = (allowApps == 1 ? L.T("1 program allowed") : L.T($"{allowApps} programs allowed")) + (temporary == 0 ? string.Empty : $" ({temporary} temporary)");
+        BlockChip.Text = blockApps == 1 ? L.T("1 block rule") : L.T($"{blockApps} block rules");
         AutoChip.Text = AutoChipText();
 
         var live = data.Live.Where(c => c.Remote is not null).ToList();
         KpiLive.Text = Fmt.Count(live.Count);
-        KpiLiveNote.Text = $"from {live.Select(c => c.ProcessId).Distinct().Count()} programs";
+        KpiLiveNote.Text = L.T($"from {live.Select(c => c.ProcessId).Distinct().Count()} programs");
         LiveList.ItemsSource = live
             .Where(c => c.State == "Established")
             .OrderBy(c => c.ProcessPath, StringComparer.OrdinalIgnoreCase)
@@ -85,7 +85,7 @@ public partial class DashboardPage : UserControl, IPage
         if (report is null)
         {
             KpiBlocked.Text = "–";
-            KpiBlockedNote.Text = "Reports need the CrioFire service.";
+            KpiBlockedNote.Text = L.T("Reports need the CrioFire service.");
             HourBars.ItemsSource = null;
             TopApps.ItemsSource = null;
             ChartEmpty.Visibility = Visibility.Visible;
@@ -94,7 +94,7 @@ public partial class DashboardPage : UserControl, IPage
         }
 
         KpiBlocked.Text = Fmt.Count(report.Total);
-        KpiBlockedNote.Text = $"{Fmt.Count(report.ByRule)} by your rules · {Fmt.Count(report.ByMode)} with no rule";
+        KpiBlockedNote.Text = L.T($"{Fmt.Count(report.ByRule)} by your rules · {Fmt.Count(report.ByMode)} with no rule");
         HourBars.ItemsSource = Bars.From(report.Buckets, ChartHeight, _ => string.Empty, b => $"{Fmt.Time(b.StartUtc)}–{Fmt.Time(b.StartUtc.AddHours(1))}");
         ChartEmpty.Visibility = report.Total == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (report.Buckets.Count > 12)
@@ -113,16 +113,16 @@ public partial class DashboardPage : UserControl, IPage
     {
         if (_model.Mode == "learning")
         {
-            return "Learning: programs without a rule may connect";
+            return L.T("Learning: programs without a rule may connect");
         }
 
         var on = _model.AutoRules.Where(r => r.Enabled).Select(r => r.Name switch
         {
-            AutoRulePolicy.WindowsKernel => "the Windows kernel",
-            AutoRulePolicy.LocalNetwork => "the local network",
-            _ => "Windows services",
+            AutoRulePolicy.WindowsKernel => L.T("the Windows kernel"),
+            AutoRulePolicy.LocalNetwork => L.T("the local network"),
+            _ => L.T("Windows services"),
         }).ToList();
-        return on.Count == 0 ? "Only loopback is allowed automatically" : $"Loopback and {string.Join(" and ", on)} allowed automatically";
+        return on.Count == 0 ? L.T("Only loopback is allowed automatically") : L.T($"Loopback and {string.Join(" and ", on)} allowed automatically");
     }
 
     private void UpdateAllowed(ReportInfo? report)
@@ -130,7 +130,7 @@ public partial class DashboardPage : UserControl, IPage
         if (report is null)
         {
             KpiAllowed.Text = "–";
-            KpiAllowedNote.Text = "needs the CrioFire service";
+            KpiAllowedNote.Text = L.T("needs the CrioFire service");
             AllowedList.ItemsSource = null;
             AllowedNote.Text = string.Empty;
             AllowedEmpty.Visibility = Visibility.Visible;
@@ -138,8 +138,8 @@ public partial class DashboardPage : UserControl, IPage
         }
 
         KpiAllowed.Text = Fmt.Count(report.AllowedTotal);
-        KpiAllowedNote.Text = $"{Fmt.Count(report.AllowedAutomatic)} automatically · {Fmt.Count(report.AllowedProgramCount)} programs and services";
-        AllowedNote.Text = $"{Fmt.Count(report.AllowedTotal)} connections allowed, {Fmt.Count(report.AllowedAutomatic)} of them by automatic rules or with no rule.";
+        KpiAllowedNote.Text = L.T($"{Fmt.Count(report.AllowedAutomatic)} automatically · {Fmt.Count(report.AllowedProgramCount)} programs and services");
+        AllowedNote.Text = L.T($"{Fmt.Count(report.AllowedTotal)} connections allowed, {Fmt.Count(report.AllowedAutomatic)} of them by automatic rules or with no rule.");
 
         var chipIce = (System.Windows.Media.Brush)FindResource("ChipIceBrush");
         var chipIceText = (System.Windows.Media.Brush)FindResource("ChipIceTextBrush");
@@ -261,13 +261,13 @@ public partial class DashboardPage : UserControl, IPage
         if (status is null || !status.Installed)
         {
             Ring.Data = Arcs.Arc(0.02, 84, 72);
-            ProtectedText.Text = status is null ? "Offline" : "Not set up";
+            ProtectedText.Text = status is null ? L.T("Offline") : L.T("Not set up");
             ModeText.Text = string.Empty;
             ShieldIcon.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "FireTextBrush");
-            Headline.Text = status is null ? "The CrioFire service is not running" : "CrioFire is not registered yet";
+            Headline.Text = status is null ? L.T("The CrioFire service is not running") : L.T("CrioFire is not registered yet");
             Body.Text = status is null
-                ? (_model.Error ?? "Start it with 'sc start criofire' from an administrator prompt.")
-                : "Run 'criofire install' from an administrator prompt to register CrioFire with the Windows Filtering Platform.";
+                ? (_model.Error ?? L.T("Start it with 'sc start criofire' from an administrator prompt."))
+                : L.T("Run 'criofire install' from an administrator prompt to register CrioFire with the Windows Filtering Platform.");
             return;
         }
 
@@ -276,27 +276,27 @@ public partial class DashboardPage : UserControl, IPage
             var block = _model.PanicMode == "block";
             ShieldIcon.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "FireTextBrush");
             Ring.Data = Arcs.Arc(block ? 1 : 0.02, 84, 72);
-            ProtectedText.Text = "Panic";
-            ModeText.Text = block ? "Everything blocked" : "Rules paused";
-            Headline.Text = block ? "All network traffic is blocked" : "Everything is allowed for now";
+            ProtectedText.Text = L.T("Panic");
+            ModeText.Text = block ? L.T("Everything blocked") : L.T("Rules paused");
+            Headline.Text = block ? L.T("All network traffic is blocked") : L.T("Everything is allowed for now");
             Body.Text = (block
-                    ? "No new connection gets in or out, whatever your rules say. Programs on this PC can still talk to each other."
-                    : "Every program may connect. Your rules and the mode are paused, not deleted.")
-                + $" {AppModel.ModeName(mode)} mode and all your rules come back with 'Resume my rules' at the top.";
+                    ? L.T("No new connection gets in or out, whatever your rules say. Programs on this PC can still talk to each other.")
+                    : L.T("Every program may connect. Your rules and the mode are paused, not deleted."))
+                + L.T($" {AppModel.ModeName(mode)} mode and all your rules come back with 'Resume my rules' at the top.");
             return;
         }
 
         ShieldIcon.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "IceTextBrush");
-        ProtectedText.Text = "Protected";
+        ProtectedText.Text = L.T("Protected");
         ModeText.Text = $"{AppModel.ModeName(mode)} mode";
         (Ring.Data, Headline.Text, Body.Text) = mode switch
         {
-            "ask" => (Arcs.Arc(0.78, 84, 72), "New programs need your OK",
-                "A program without a rule is stopped the moment it tries to connect out, and CrioFire asks you: allow it, allow it for an hour, or keep it blocked."),
-            "allowlist" => (Arcs.Arc(1, 84, 72), "Only programs you trust",
-                "Programs without an allow rule are blocked silently. Nothing new reaches the network until you add it to your rules."),
-            _ => (Arcs.Arc(0.45, 84, 72), "Watching, not blocking",
-                "Programs without a rule may connect. CrioFire only blocks what your rules say, so you can see what talks to the network before you lock it down."),
+            "ask" => (Arcs.Arc(0.78, 84, 72), L.T("New programs need your OK"),
+                L.T("A program without a rule is stopped the moment it tries to connect out, and CrioFire asks you: allow it, allow it for an hour, or keep it blocked.")),
+            "allowlist" => (Arcs.Arc(1, 84, 72), L.T("Only programs you trust"),
+                L.T("Programs without an allow rule are blocked silently. Nothing new reaches the network until you add it to your rules.")),
+            _ => (Arcs.Arc(0.45, 84, 72), L.T("Watching, not blocking"),
+                L.T("Programs without a rule may connect. CrioFire only blocks what your rules say, so you can see what talks to the network before you lock it down.")),
         };
     }
 
@@ -304,11 +304,11 @@ public partial class DashboardPage : UserControl, IPage
     {
         var count = _model.Pending.Count;
         KpiWaiting.Text = Fmt.Count(count);
-        KpiWaitingNote.Text = _model.Mode == "ask" ? "new programs in Ask mode" : "alerts come in Ask mode";
+        KpiWaitingNote.Text = _model.Mode == "ask" ? L.T("new programs in Ask mode") : L.T("alerts come in Ask mode");
         PendingEmpty.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
         PendingEmpty.Text = _model.Mode == "ask"
-            ? "Nothing waiting. Programs without a rule show up here when they try to connect."
-            : "Nothing waiting. Switch to Ask mode to decide about each new program.";
+            ? L.T("Nothing waiting. Programs without a rule show up here when they try to connect.")
+            : L.T("Nothing waiting. Switch to Ask mode to decide about each new program.");
     }
 
     private void OnMode(object sender, RoutedEventArgs e)

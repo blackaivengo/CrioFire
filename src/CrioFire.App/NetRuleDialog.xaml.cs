@@ -63,10 +63,10 @@ public partial class NetRuleDialog : Window
         }
 
         PortsHint.Text = DirIn.IsChecked == true
-            ? "Ports on this PC that others connect to, e.g. 445 or 3389. Leave empty for any."
+            ? L.T("Ports on this PC that others connect to, e.g. 445 or 3389. Leave empty for any.")
             : DirBoth.IsChecked == true
-                ? "Remote ports outbound, local ports inbound, e.g. 80, 443 or 8000-8100. Leave empty for any."
-                : "Ports on the remote side, e.g. 80, 443 or 8000-8100. Leave empty for any.";
+                ? L.T("Remote ports outbound, local ports inbound, e.g. 80, 443 or 8000-8100. Leave empty for any.")
+                : L.T("Ports on the remote side, e.g. 80, 443 or 8000-8100. Leave empty for any.");
 
         var rule = Build(out var error);
         var appMissing = rule?.AppPath is { } app && !File.Exists(app);
@@ -74,19 +74,19 @@ public partial class NetRuleDialog : Window
         SaveButton.SetResourceReference(StyleProperty, ActionAllow.IsChecked == true ? "IceButton" : "FireButton");
         if (rule is null || appMissing)
         {
-            PreviewText.Text = appMissing ? "There is no program at that path." : error ?? string.Empty;
+            PreviewText.Text = appMissing ? L.T("There is no program at that path.") : error ?? string.Empty;
             PreviewBox.SetResourceReference(BackgroundProperty, "ChipFireBrush");
             PreviewText.SetResourceReference(ForegroundProperty, "ChipFireTextBrush");
             return;
         }
 
-        var who = rule.AppPath is null ? "Every program" : Path.GetFileName(rule.AppPath);
-        var verb = rule.Action == RuleAction.Block ? "is blocked" : "is allowed";
+        var who = rule.AppPath is null ? L.T("Every program") : Path.GetFileName(rule.AppPath);
+        var verb = rule.Action == RuleAction.Block ? L.T("is blocked") : L.T("is allowed");
         var direction = rule.Direction switch
         {
-            TrafficDirection.Inbound => "when others connect to it",
-            TrafficDirection.Both => "in both directions",
-            _ => "when it connects out",
+            TrafficDirection.Inbound => L.T("when others connect to it"),
+            TrafficDirection.Both => L.T("in both directions"),
+            _ => L.T("when it connects out"),
         };
         var conditions = new List<string>();
         if (rule.Protocol != NetProtocol.Any)
@@ -96,7 +96,7 @@ public partial class NetRuleDialog : Window
 
         if (rule.Ports.Length > 0)
         {
-            conditions.Add((rule.Direction == TrafficDirection.Inbound ? "local port " : "port ") + rule.Ports);
+            conditions.Add((rule.Direction == TrafficDirection.Inbound ? L.T("local port ") : "port ") + rule.Ports);
         }
 
         if (rule.Addresses.Length > 0)
@@ -112,7 +112,7 @@ public partial class NetRuleDialog : Window
 
     private void OnBrowse(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Filter = "Programs (*.exe)|*.exe", Title = "Choose the program this rule is for" };
+        var dialog = new OpenFileDialog { Filter = "Programs (*.exe)|*.exe", Title = L.T("Choose the program this rule is for") };
         if (dialog.ShowDialog(this) == true)
         {
             AppBox.Text = dialog.FileName;

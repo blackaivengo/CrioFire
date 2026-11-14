@@ -28,7 +28,7 @@ public partial class ReportsPage : UserControl, IPage
         }
     }
 
-    public string Title => "Reports";
+    public string Title => L.T("Reports");
 
     public string Subtitle { get; private set; } = string.Empty;
 
@@ -56,7 +56,7 @@ public partial class ReportsPage : UserControl, IPage
         var error = data.Error;
         if (_report is not { } r)
         {
-            Subtitle = error ?? "No report available.";
+            Subtitle = error ?? L.T("No report available.");
             ClearAll();
             return;
         }
@@ -64,29 +64,29 @@ public partial class ReportsPage : UserControl, IPage
         var c = CultureInfo.CurrentCulture;
         var lastDay = r.ToUtc.ToLocalTime().AddMinutes(-1);
         Subtitle = _period == ReportBuilder.Day
-            ? $"The 24 hours up to {lastDay.AddMinutes(1).ToString("HH:mm", c)} today"
+            ? L.T($"The 24 hours up to {lastDay.AddMinutes(1).ToString("HH:mm", c)} today")
             : $"{r.FromUtc.ToLocalTime().ToString("MMMM d", c)} – {lastDay.ToString("MMMM d", c)}";
 
         SumBlocked.Text = Fmt.Count(r.Total);
         if (r.PreviousTotal == 0)
         {
-            SumBlockedNote.Text = r.Total == 0 ? "nothing blocked" : "nothing in the period before";
+            SumBlockedNote.Text = r.Total == 0 ? L.T("nothing blocked") : L.T("nothing in the period before");
             SumBlockedNote.SetResourceReference(TextBlock.ForegroundProperty, "Text2Brush");
         }
         else
         {
             var change = (r.Total - r.PreviousTotal) * 100.0 / r.PreviousTotal;
-            SumBlockedNote.Text = $"{(change >= 0 ? "▲" : "▼")} {Math.Abs(change):0}% vs the period before";
+            SumBlockedNote.Text = L.T($"{(change >= 0 ? "▲" : "▼")} {Math.Abs(change):0}% vs the period before");
             SumBlockedNote.SetResourceReference(TextBlock.ForegroundProperty, change >= 0 ? "FireTextBrush" : "IceTextBrush");
         }
 
         SumPrograms.Text = Fmt.Count(r.ProgramCount);
         var modePrograms = r.TopPrograms.Count(p => p.ByRule < p.Count);
-        SumProgramsNote.Text = modePrograms == 0 ? "all stopped by your rules" : $"{modePrograms} of the top ones had no rule";
+        SumProgramsNote.Text = modePrograms == 0 ? L.T("all stopped by your rules") : L.T($"{modePrograms} of the top ones had no rule");
         SumDestinations.Text = Fmt.Count(r.DestinationCount);
         SumMode.Text = Fmt.Count(r.ByMode);
 
-        ChartTitle.Text = _period == ReportBuilder.Day ? "Blocked connections per hour" : "Blocked connections per day";
+        ChartTitle.Text = _period == ReportBuilder.Day ? L.T("Blocked connections per hour") : L.T("Blocked connections per day");
         var bars = Bars.From(r.Buckets, ChartHeight, b => BucketLabel(b, r.Buckets.Count), b => BucketTip(b));
         DayBars.ItemsSource = bars;
         DayLabels.ItemsSource = bars;
@@ -107,7 +107,7 @@ public partial class ReportsPage : UserControl, IPage
             var byRule = p.ByRule * 2 >= p.Count;
             return new ProgramRow(
                 Bars.Name(p.App), p.App, Fmt.Count(p.Count), (double)p.Count / top,
-                byRule ? "Your rule" : "No rule yet", Fmt.Ago(p.LastUtc),
+                byRule ? L.T("Your rule") : L.T("No rule yet"), Fmt.Ago(p.LastUtc),
                 byRule ? fire : ice, byRule ? chipFire : chipIce, byRule ? chipFireText : chipIceText);
         }).ToList();
         ProgramsEmpty.Visibility = r.TopPrograms.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -132,9 +132,9 @@ public partial class ReportsPage : UserControl, IPage
         var chipAuto = (Brush)FindResource("InsetBrush");
         var chipAutoText = (Brush)FindResource("Text2Brush");
         var change = r.AllowedPrevious == 0 ? string.Empty
-            : $" ({((r.AllowedTotal - r.AllowedPrevious) >= 0 ? "▲" : "▼")} {Math.Abs((r.AllowedTotal - r.AllowedPrevious) * 100.0 / r.AllowedPrevious):0}% vs the period before)";
-        AllowedHeadline.Text = $"{Fmt.Count(r.AllowedTotal)} connections from {Fmt.Count(r.AllowedProgramCount)} programs and services{change}; "
-            + $"{Fmt.Count(r.AllowedAutomatic)} were allowed by automatic rules or with no rule at all.";
+            : L.T($" ({((r.AllowedTotal - r.AllowedPrevious) >= 0 ? "▲" : "▼")} {Math.Abs((r.AllowedTotal - r.AllowedPrevious) * 100.0 / r.AllowedPrevious):0}% vs the period before)");
+        AllowedHeadline.Text = L.T($"{Fmt.Count(r.AllowedTotal)} connections from {Fmt.Count(r.AllowedProgramCount)} programs and services{change}; ")
+            + L.T($"{Fmt.Count(r.AllowedAutomatic)} were allowed by automatic rules or with no rule at all.");
 
         var programs = r.TopAllowedPrograms ?? [];
         var top = Math.Max(1, programs.Count == 0 ? 1 : programs.Max(p => p.Count));
@@ -212,14 +212,14 @@ public partial class ReportsPage : UserControl, IPage
     {
         if (_report is null)
         {
-            _model.Say("There is no report to export yet.");
+            _model.Say(L.T("There is no report to export yet."));
             return;
         }
 
         var dialog = new SaveFileDialog
         {
-            Title = "Export report",
-            Filter = "CSV file (*.csv)|*.csv",
+            Title = L.T("Export report"),
+            Filter = L.T("CSV file (*.csv)|*.csv"),
             FileName = $"criofire-report-{_period}-{DateTime.Now:yyyy-MM-dd}.csv",
         };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true)
@@ -231,7 +231,7 @@ public partial class ReportsPage : UserControl, IPage
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _model.Say($"Could not save the file: {ex.Message}");
+                _model.Say(L.T($"Could not save the file: {ex.Message}"));
             }
         }
     }
@@ -244,14 +244,14 @@ public partial class ReportsPage : UserControl, IPage
     {
         if (_report is null)
         {
-            _model.Say("There is no report to save yet.");
+            _model.Say(L.T("There is no report to save yet."));
             return;
         }
 
         var dialog = new SaveFileDialog
         {
-            Title = "Save report as PDF",
-            Filter = "PDF document (*.pdf)|*.pdf",
+            Title = L.T("Save report as PDF"),
+            Filter = L.T("PDF document (*.pdf)|*.pdf"),
             FileName = $"criofire-report-{_period}-{DateTime.Now:yyyy-MM-dd}.pdf",
         };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true)
@@ -270,11 +270,11 @@ public partial class ReportsPage : UserControl, IPage
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
-            _model.Say($"Could not save the PDF: {ex.Message}");
+            _model.Say(L.T($"Could not save the PDF: {ex.Message}"));
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException)
         {
-            _model.Say($"Could not create the PDF: {ex.Message}");
+            _model.Say(L.T($"Could not create the PDF: {ex.Message}"));
         }
     }
 

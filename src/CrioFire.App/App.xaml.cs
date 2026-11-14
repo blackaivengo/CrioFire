@@ -29,6 +29,7 @@ public partial class App : Application
         // instead of hiding in the tray.
         SessionEnding += (_, _) => (MainWindow as MainWindow)?.PrepareToExit();
 
+        UiText.WaitForPrevious(e.Args);   // restarted to switch language: let the old copy exit first
         _instance = new SingleInstance();
         if (!_instance.IsFirst)
         {
@@ -40,6 +41,7 @@ public partial class App : Application
         }
 
         ThemeManager.Initialize();
+        UiText.Start();
         var window = new MainWindow();
         MainWindow = window;
         _instance.OnShowRequested(() => Dispatcher.BeginInvoke(() => window.ShowFromTray()));

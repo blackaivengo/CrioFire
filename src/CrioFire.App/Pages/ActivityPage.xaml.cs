@@ -39,9 +39,9 @@ public partial class ActivityPage : UserControl, IPage
         };
     }
 
-    public string Title => "Activity";
+    public string Title => L.T("Activity");
 
-    public string Subtitle { get; private set; } = "Everything CrioFire blocked or allowed.";
+    public string Subtitle { get; private set; } = L.T("Everything CrioFire blocked or allowed.");
 
     public FrameworkElement? Actions => null;
 
@@ -95,9 +95,9 @@ public partial class ActivityPage : UserControl, IPage
         UpdateScope();
         if (page is null)
         {
-            Subtitle = error ?? "Could not read the traffic history.";
+            Subtitle = error ?? L.T("Could not read the traffic history.");
             Table.ItemsSource = null;
-            Empty.Text = "The traffic history comes from the CrioFire service, which records every blocked and allowed connection while it runs.";
+            Empty.Text = L.T("The traffic history comes from the CrioFire service, which records every blocked and allowed connection while it runs.");
             Empty.Visibility = Visibility.Visible;
             PageText.Text = string.Empty;
             PrevButton.IsEnabled = NextButton.IsEnabled = false;
@@ -118,14 +118,14 @@ public partial class ActivityPage : UserControl, IPage
         _quiet = false;
 
         Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        Empty.Text = $"Nothing {(Kind == "allowed" ? "allowed" : Kind == "blocked" ? "blocked" : "recorded")} in the last {WindowText} matches these filters.";
+        Empty.Text = L.T($"Nothing {(Kind == "allowed" ? "allowed" : Kind == "blocked" ? "blocked" : "recorded")} in the last {WindowText} matches these filters.");
         PageText.Text = page.Total == 0 ? string.Empty
             : $"Rows {Fmt.Count(page.Offset + 1)}–{Fmt.Count(page.Offset + rows.Count)} of {Fmt.Count(page.Total)}";
         PrevButton.IsEnabled = page.Offset > 0;
         NextButton.IsEnabled = page.Offset + rows.Count < page.Total;
 
-        var what = Kind switch { "allowed" => "Allowed", "all" => "Blocked and allowed", _ => "Blocked" };
-        Subtitle = $"{what} in the last {WindowText}: {Fmt.Count(page.Connections)} connections in {Fmt.Count(page.Total)} rows.";
+        var what = Kind switch { "allowed" => L.T("Allowed"), "all" => L.T("Blocked and allowed"), _ => L.T("Blocked") };
+        Subtitle = L.T($"{what} in the last {WindowText}: {Fmt.Count(page.Connections)} connections in {Fmt.Count(page.Total)} rows.");
         UpdateSelection();
     }
 
@@ -193,7 +193,7 @@ public partial class ActivityPage : UserControl, IPage
             i,
             time,
             Fmt.Count(i.Count),
-            (i.Allowed ? string.Empty : "Blocked: ") + i.WhyLabel,
+            (i.Allowed ? string.Empty : L.T("Blocked: ")) + i.WhyLabel,
             i.Direction ?? "?",
             Endpoint(i.Remote, i.Allowed || i.Direction == "out" ? i.Port : 0),
             portName,
@@ -225,16 +225,16 @@ public partial class ActivityPage : UserControl, IPage
         var selected = Table.SelectedItems.OfType<TrafficRow>().ToList();
         SelectionText.Text = selected.Count switch
         {
-            0 => "Ctrl or Shift selects several rows.",
-            1 => "1 row selected.",
-            _ => $"{selected.Count} rows selected: Allow and Block apply to all of them.",
+            0 => L.T("Ctrl or Shift selects several rows."),
+            1 => L.T("1 row selected."),
+            _ => L.T($"{selected.Count} rows selected: Allow and Block apply to all of them."),
         };
         ShowDetails(Table.SelectedItem as TrafficRow ?? selected.FirstOrDefault());
     }
 
     private void UpdateScope()
     {
-        var scope = _service is not null ? $"Service: {_service}" : _app is not null ? $"Program: {KnownApps.DisplayName(_app)}" : null;
+        var scope = _service is not null ? L.T($"Service: {_service}") : _app is not null ? L.T($"Program: {KnownApps.DisplayName(_app)}") : null;
         ScopeChip.Visibility = scope is null ? Visibility.Collapsed : Visibility.Visible;
         ScopeText.Text = scope ?? string.Empty;
         ScopeChip.ToolTip = _app;
@@ -259,7 +259,7 @@ public partial class ActivityPage : UserControl, IPage
         DetailChip.Background = row.ChipBrush;
         DetailWhy.Foreground = row.ChipTextBrush;
         DetailFacts.ItemsSource = ConnectionFacts.For(Target(i), _model);
-        OnlyThisButton.Content = i.Service is not null && !i.Service.Contains(',', StringComparison.Ordinal) ? "Only this service" : "Only this program";
+        OnlyThisButton.Content = i.Service is not null && !i.Service.Contains(',', StringComparison.Ordinal) ? L.T("Only this service") : L.T("Only this program");
         OnlyThisButton.IsEnabled = i.App is not null;
         OpenFolderButton.IsEnabled = i.App is not null && File.Exists(i.App);
 

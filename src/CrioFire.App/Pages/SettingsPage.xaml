@@ -18,6 +18,16 @@
 
     <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
       <StackPanel>
+        <TextBlock Text="Language" Style="{StaticResource H2}" />
+        <TextBlock x:Name="LanguageText" Margin="0,6,0,6" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,14" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                   Text="CrioFire follows the Windows display language when it is one of its 16 languages, and uses English otherwise. Pick another one here; the app restarts to switch." />
+        <Button x:Name="LanguageButton" Content="Change language..." Style="{StaticResource OutlineIceButton}" HorizontalAlignment="Left" Click="OnLanguage" />
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
         <TextBlock Text="Startup and notification area" Style="{StaticResource H2}" />
         <TextBlock Text="In Ask mode, CrioFire can only ask about new programs while the app is running." Style="{StaticResource Muted}" Margin="0,6,0,18" />
         <CheckBox x:Name="AutostartSwitch" Style="{StaticResource Switch}" Click="OnAutostart" Margin="0,0,0,16">

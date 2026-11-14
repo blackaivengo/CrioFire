@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using CrioFire.Core;
 using CrioFire.Core.Api;
 
 namespace CrioFire.App;
@@ -39,7 +40,7 @@ public partial class AlertWindow : Window
     {
         ArgumentNullException.ThrowIfNull(blocked);
         InitializeComponent();
-        Headline.Text = $"{Path.GetFileName(blocked.App) ?? "A program"} wants to connect";
+        Headline.Text = L.T($"{Path.GetFileName(blocked.App) ?? "A program"} wants to connect");
         Details.Text = $"{blocked.Protocol} → {blocked.Remote ?? "unknown address"} · {blocked.App}";
         Details.ToolTip = blocked.App;
 
@@ -193,7 +194,7 @@ public partial class AlertWindow : Window
     {
         Minutes = minutes;
         TimedText.Text = Durations.First(d => d.Minutes == minutes).Button;
-        TimedButton.ToolTip = "Press to confirm, or hold for more choices";
+        TimedButton.ToolTip = L.T("Press to confirm, or hold for more choices");
         DurationPopup.IsOpen = false;
         UpdateDurations(null);
         TimedButton.Focus();

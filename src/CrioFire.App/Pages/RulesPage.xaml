@@ -101,7 +101,7 @@
               <GridViewColumn Header="ACTION" Width="100">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate>
-                    <Button Style="{StaticResource ChipButton}" Content="{Binding Action}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
+                    <Button Style="{StaticResource ChipButton}" Content="{Binding ActionText}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
                             Tag="{Binding Info}" ToolTip="{Binding FlipHint}" Click="OnFlip" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
@@ -137,7 +137,7 @@
               <GridViewColumn Header="ACTION" Width="100">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate>
-                    <Button Style="{StaticResource ChipButton}" Content="{Binding Action}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
+                    <Button Style="{StaticResource ChipButton}" Content="{Binding ActionText}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
                             Tag="{Binding Info}" ToolTip="{Binding FlipHint}" Click="OnFlip" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
@@ -176,7 +176,7 @@
               <GridViewColumn Header="ACTION" Width="100">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate>
-                    <Button Style="{StaticResource ChipButton}" Content="{Binding Action}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
+                    <Button Style="{StaticResource ChipButton}" Content="{Binding ActionText}" Background="{Binding ChipBrush}" Foreground="{Binding ChipTextBrush}"
                             Tag="{Binding Info}" ToolTip="{Binding FlipHint}" Click="OnFlip" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
@@ -213,7 +213,7 @@
                   <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="12,0,0,0"
                           Tag="{Binding Info}" IsEnabled="{Binding CanRemove}" ToolTip="{Binding RemoveHint}" Click="OnRemoveDomain" />
                   <Border DockPanel.Dock="Left" CornerRadius="8" Padding="10,3" Margin="0,0,14,0" VerticalAlignment="Center" Background="{Binding ChipBrush}">
-                    <TextBlock Text="{Binding Action}" Foreground="{Binding ChipTextBrush}" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Text="{Binding ActionText}" Foreground="{Binding ChipTextBrush}" FontWeight="SemiBold" FontSize="12" />
                   </Border>
                   <StackPanel>
                     <TextBlock Text="{Binding Domain}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />

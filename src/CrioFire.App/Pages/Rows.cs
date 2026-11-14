@@ -29,12 +29,12 @@ public sealed record UsageRow(string Program, string App, string SentText, strin
         var share = total <= 0 ? 0 : (double)usage.Total / total;
         return new(
             DataSize.ProgramName(usage.App),
-            usage.App == AppUsage.UnknownApp ? "Processes that ended within a second of using the network" : usage.App,
+            usage.App == AppUsage.UnknownApp ? L.T("Processes that ended within a second of using the network") : usage.App,
             DataSize.Text(usage.Sent, culture),
             DataSize.Text(usage.Received, culture),
             DataSize.Text(usage.Total, culture),
             share,
-            share.ToString("P0", culture) + " of all data");
+            share.ToString("P0", culture) + L.T(" of all data"));
     }
 }
 
@@ -47,11 +47,11 @@ public sealed record LiveRow(string Program, string Path, string Local, string R
     {
         var names = services is not null && services.TryGetValue(c.ProcessId, out var n) ? string.Join(", ", n) : string.Empty;
         var program = c.ProcessId == 4
-            ? "Windows kernel (System)"
+            ? L.T("Windows kernel (System)")
             : System.IO.Path.GetFileName(c.ProcessPath) is { Length: > 0 } file ? file : $"PID {c.ProcessId}";
         return new(
             program,
-            c.ProcessPath ?? "(not visible to this user)",
+            c.ProcessPath ?? L.T("(not visible to this user)"),
             c.Local.ToString(),
             c.Remote?.ToString() ?? string.Empty,
             c.ProtocolName,
@@ -70,7 +70,7 @@ internal static class Bars
         return buckets.Select(b => new ChartBar(
             b.ByRule * height / max,
             b.ByMode * height / max,
-            $"{when(b)}: {b.ByRule} by your rules, {b.ByMode} with no rule yet",
+            L.T($"{when(b)}: {b.ByRule} by your rules, {b.ByMode} with no rule yet"),
             label(b),
             b.Total == 0 ? string.Empty : b.Total.ToString("N0", CultureInfo.CurrentCulture))).ToList();
     }
@@ -95,15 +95,21 @@ public sealed record ActivityRow(string Time, string Why, string Direction, stri
 public sealed record RuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Program, string App, string Until,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
 {
-    public string FlipHint => Info.Managed ? "Set by your organization; it cannot be changed on this PC."
-        : Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+    /// <summary>Allow or Block as shown (translated); <see cref="Action"/> stays English for comparisons and sorting.</summary>
+    public string ActionText => L.T(Action);
+
+    public string FlipHint => Info.Managed ? L.T("Set by your organization; it cannot be changed on this PC.")
+        : Action == "Allow" ? L.T("Allowed. Click to block it instead.") : L.T("Blocked. Click to allow it instead.");
 }
 
 public sealed record NetRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Rule, string Program, string? App, ulong FilterId,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
 {
-    public string FlipHint => Info.Managed ? "Set by your organization; it cannot be changed on this PC."
-        : Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+    /// <summary>Allow or Block as shown (translated); <see cref="Action"/> stays English for comparisons and sorting.</summary>
+    public string ActionText => L.T(Action);
+
+    public string FlipHint => Info.Managed ? L.T("Set by your organization; it cannot be changed on this PC.")
+        : Action == "Allow" ? L.T("Allowed. Click to block it instead.") : L.T("Blocked. Click to allow it instead.");
 }
 
 /// <summary>A program or a single Windows service that was allowed to connect.</summary>
@@ -123,8 +129,11 @@ public sealed record AllowedActivityRow(string Time, string Why, string Directio
 public sealed record ServiceRuleRow(CrioFire.Core.Api.RuleInfo Info, string Action, string Direction, string Service, string DisplayName,
     System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush)
 {
-    public string FlipHint => Info.Managed ? "Set by your organization; it cannot be changed on this PC."
-        : Action == "Allow" ? "Allowed. Click to block it instead." : "Blocked. Click to allow it instead.";
+    /// <summary>Allow or Block as shown (translated); <see cref="Action"/> stays English for comparisons and sorting.</summary>
+    public string ActionText => L.T(Action);
+
+    public string FlipHint => Info.Managed ? L.T("Set by your organization; it cannot be changed on this PC.")
+        : Action == "Allow" ? L.T("Allowed. Click to block it instead.") : L.T("Blocked. Click to allow it instead.");
 }
 
 /// <summary>One of CrioFire's automatic permits or always-on behaviours, shown on the Rules page.</summary>
@@ -137,23 +146,23 @@ internal static class Who
     {
         if (!string.IsNullOrEmpty(service))
         {
-            return ($"Service: {service}", app ?? "svchost.exe");
+            return (L.T($"Service: {service}"), app ?? "svchost.exe");
         }
 
         if (KnownApps.IsKernel(app))
         {
-            return (KnownApps.DisplayName(app), "Kernel-mode traffic: file sharing, NetBIOS, ICMP…");
+            return (KnownApps.DisplayName(app), L.T("Kernel-mode traffic: file sharing, NetBIOS, ICMP…"));
         }
 
         if (KnownApps.IsServiceHost(app))
         {
-            return ("Windows services (svchost.exe)", app!);
+            return (L.T("Windows services (svchost.exe)"), app!);
         }
 
-        return (KnownApps.DisplayName(app), app ?? "(unknown program)");
+        return (KnownApps.DisplayName(app), app ?? L.T("(unknown program)"));
     }
 
-    public static string Direction(string? d) => d switch { "in" => "Inbound", "both" => "Both", "out" => "Outbound", _ => "?" };
+    public static string Direction(string? d) => d switch { "in" => L.T("Inbound"), "both" => L.T("Both"), "out" => L.T("Outbound"), _ => "?" };
 }
 
 /// <summary>A row of the Activity page: blocked or allowed connections grouped by program, destination and reason.</summary>
@@ -169,4 +178,7 @@ public sealed record Fact(string Label, string Value);
 
 /// <summary>A domain rule on the Rules page.</summary>
 public sealed record DomainRuleRow(CrioFire.Core.Api.DomainRuleInfo Info, string Action, string Domain, string Details,
-    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush, bool CanRemove, string RemoveHint);
+    System.Windows.Media.Brush ChipBrush, System.Windows.Media.Brush ChipTextBrush, bool CanRemove, string RemoveHint)
+{
+    public string ActionText => L.T(Action);
+}

@@ -31,6 +31,12 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Every text of the app is listed in Strings/en.json for translators, and no translation
+      # keeps texts the app no longer has.
+      - name: Check the translatable texts
+        if: matrix.arch == 'x64'
+        run: python build/extract-strings.py --check
+
       - name: Restore
         run: dotnet restore CrioFire.slnx
 

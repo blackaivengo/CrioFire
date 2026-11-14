@@ -18,7 +18,7 @@ internal static class Service
             using var client = CrioFireClient.TryConnect(timeoutMs: 500);
             if (client is null)
             {
-                error = "The CrioFire service is not running. Start it with 'sc start criofire' from an administrator prompt.";
+                error = L.T("The CrioFire service is not running. Start it with 'sc start criofire' from an administrator prompt.");
                 return null;
             }
 
@@ -33,7 +33,7 @@ internal static class Service
         }
         catch (IOException ex)
         {
-            error = $"Lost the connection to the CrioFire service: {ex.Message}";
+            error = L.T($"Lost the connection to the CrioFire service: {ex.Message}");
             return null;
         }
     }
@@ -41,7 +41,7 @@ internal static class Service
     /// <summary>An older service does not know the newer operations; say so plainly.</summary>
     private static string? Explain(string? op, string? error) =>
         error is not null && error.StartsWith("Unknown operation", StringComparison.Ordinal)
-            ? $"The CrioFire service on this PC is older than this app and can't answer '{op}' yet. Install the latest CrioFire (it updates the service too), then open this view again."
+            ? L.T($"The CrioFire service on this PC is older than this app and can't answer '{op}' yet. Install the latest CrioFire (it updates the service too), then open this view again.")
             : error;
 }
 
@@ -60,14 +60,14 @@ internal static class Elevated
         var cli = Path.Combine(AppContext.BaseDirectory, "criofire.exe");
         if (!File.Exists(cli))
         {
-            error = "Tamper protection is on, and CrioFire's command line was not found next to the app to ask for approval.";
+            error = L.T("Tamper protection is on, and CrioFire's command line was not found next to the app to ask for approval.");
             return null;
         }
 
         var argument = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(ApiJson.Serialize(request)));
         if (argument.Length > MaxArgument)
         {
-            error = "Tamper protection is on and this change is too large to approve from the app. Use 'criofire import' from an administrator prompt.";
+            error = L.T("Tamper protection is on and this change is too large to approve from the app. Use 'criofire import' from an administrator prompt.");
             return null;
         }
 
@@ -83,22 +83,22 @@ internal static class Elevated
             using var process = System.Diagnostics.Process.Start(start);
             if (process is null || !process.WaitForExit(TimeSpan.FromMinutes(2)) || !File.Exists(result))
             {
-                error = "The change was not made: approval did not finish.";
+                error = L.T("The change was not made: approval did not finish.");
                 return null;
             }
 
             var response = ApiJson.DeserializeResponse(File.ReadAllText(result));
-            error = response is { Ok: true } ? null : response?.Error ?? "The change failed.";
+            error = response is { Ok: true } ? null : response?.Error ?? L.T("The change failed.");
             return response is { Ok: true } ? response : null;
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            error = "The change was not made: it was not approved.";
+            error = L.T("The change was not made: it was not approved.");
             return null;
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or System.Text.Json.JsonException)
         {
-            error = $"The change was not made: {ex.Message}";
+            error = L.T($"The change was not made: {ex.Message}");
             return null;
         }
         finally
@@ -126,7 +126,7 @@ internal sealed record PendingAlert(EventInfo Event)
 {
     public string App => Event.App ?? "?";
 
-    public string Name => Path.GetFileName(Event.App) ?? "A program";
+    public string Name => Path.GetFileName(Event.App) ?? L.T("A program");
 
     public string Detail => $"{Event.Protocol} → {Event.Remote ?? "unknown address"} · {Event.App}";
 }
@@ -190,7 +190,7 @@ internal sealed class AppModel
         if (ok)
         {
             var where = NetworkScope.Normalize(networks) == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(networks)}";
-            Message?.Invoke(this, action == "allow" ? $"Allowed the service {service}{where}." : $"Blocked the service {service}{where}.");
+            Message?.Invoke(this, action == "allow" ? L.T($"Allowed the service {service}{where}.") : L.T($"Blocked the service {service}{where}."));
             NotifyChanged();
         }
 
@@ -202,7 +202,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.RemoveServiceRules, Service = service }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, $"Removed the rules for the service {service}.");
+            Message?.Invoke(this, L.T($"Removed the rules for the service {service}."));
             NotifyChanged();
         }
 
@@ -216,9 +216,9 @@ internal sealed class AppModel
         if (!enabled)
         {
             var warning = name == AutoRulePolicy.WindowsServices
-                ? "Windows services such as DNS (name lookups), DHCP and Windows Update will need their own rules. Until you add them, programs without a rule may not reach anything by name.\n\nTip: block or allow single services under Rules instead."
-                : "Kernel traffic such as file and printer sharing (SMB) and NetBIOS will need its own rule.";
-            var choice = ChoiceDialog.Ask(owner, $"Stop allowing {what} automatically?", warning + "\n\nThis applies in Ask and Allow-list modes.",
+                ? L.T("Windows services such as DNS (name lookups), DHCP and Windows Update will need their own rules. Until you add them, programs without a rule may not reach anything by name.\n\nTip: block or allow single services under Rules instead.")
+                : L.T("Kernel traffic such as file and printer sharing (SMB) and NetBIOS will need its own rule.");
+            var choice = ChoiceDialog.Ask(owner, L.T($"Stop allowing {what} automatically?"), warning + L.T("\n\nThis applies in Ask and Allow-list modes."),
                 ["Stop allowing automatically", "Cancel"], defaultIndex: 1, danger: true);
             if (choice != 0)
             {
@@ -231,7 +231,7 @@ internal sealed class AppModel
         if (result is not null)
         {
             AutoRules = result.AutoRules ?? AutoRules;
-            Message?.Invoke(this, enabled ? $"{what} are allowed automatically again." : $"{what} are no longer allowed automatically.");
+            Message?.Invoke(this, enabled ? L.T($"{what} are allowed automatically again.") : L.T($"{what} are no longer allowed automatically."));
         }
 
         RefreshCore();
@@ -241,9 +241,9 @@ internal sealed class AppModel
 
     public static string AutoRuleName(string name) => name switch
     {
-        AutoRulePolicy.WindowsKernel => "Windows kernel connections",
-        AutoRulePolicy.LocalNetwork => "Local network connections",
-        _ => "Windows services",
+        AutoRulePolicy.WindowsKernel => L.T("Windows kernel connections"),
+        AutoRulePolicy.LocalNetwork => L.T("Local network connections"),
+        _ => L.T("Windows services"),
     };
 
     /// <summary>
@@ -254,7 +254,7 @@ internal sealed class AppModel
     {
         if (string.IsNullOrEmpty(app))
         {
-            Say("CrioFire could not tell which program made this connection.");
+            Say(L.T("CrioFire could not tell which program made this connection."));
             return false;
         }
 
@@ -264,20 +264,20 @@ internal sealed class AppModel
         }
 
         var names = (services ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var verb = action == "allow" ? "Allow" : "Block";
+        var verb = action == "allow" ? L.T("Allow") : L.T("Block");
         if (names.Length == 1)
         {
             return SetServiceRule(names[0], action);
         }
 
-        var choices = names.Select(n => $"{verb} the service {n}").ToList();
+        var choices = names.Select(n => L.T($"{verb} the service {n}")).ToList();
         choices.Add("Choose a service...");
         choices.Add($"{verb} every Windows service (svchost.exe)");
         choices.Add("Cancel");
         var message = names.Length == 0
             ? "This connection came from svchost.exe, which runs many Windows services, and the socket was already closed so CrioFire could not tell which service it was. Pick the service, or look for it under Live connections while it is connected."
             : "This connection came from a svchost.exe process that runs several services. Which one?";
-        var choice = ChoiceDialog.Ask(owner, $"{verb} a Windows service", message, choices, defaultIndex: 0, danger: action == "block");
+        var choice = ChoiceDialog.Ask(owner, L.T($"{verb} a Windows service"), message, choices, defaultIndex: 0, danger: action == "block");
         if (choice is null || choice == choices.Count - 1)
         {
             return false;
@@ -293,8 +293,8 @@ internal sealed class AppModel
             return ServiceRuleDialog.Ask(owner, null, action) is { } picked && SetServiceRule(picked.Service, picked.Action, picked.Direction, picked.Networks);
         }
 
-        if (action == "block" && ChoiceDialog.Ask(owner, "Block every Windows service?",
-                "DNS, DHCP, Windows Update and dozens of other services will lose network access, and programs will no longer find anything by name. Undo it under Rules.",
+        if (action == "block" && ChoiceDialog.Ask(owner, L.T("Block every Windows service?"),
+                L.T("DNS, DHCP, Windows Update and dozens of other services will lose network access, and programs will no longer find anything by name. Undo it under Rules."),
                 ["Block svchost.exe", "Cancel"], defaultIndex: 1, danger: true) != 0)
         {
             return false;
@@ -308,7 +308,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.SetDomainRule, Domain = domain, Action = action, App = app, Networks = NetworkScope.TextOrNull(networks) }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, $"{(action == "allow" ? "Allowing" : "Blocking")} {domain} and every name under it. The addresses follow name lookups and apply within a few seconds.");
+            Message?.Invoke(this, L.T($"{(action == "allow" ? "Allowing" : "Blocking")} {domain} and every name under it. The addresses follow name lookups and apply within a few seconds."));
             NotifyChanged();
         }
 
@@ -321,7 +321,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.RemoveDomainRule, DomainRuleId = rule.Id }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, $"Removed the rule for {rule.Domain}.");
+            Message?.Invoke(this, L.T($"Removed the rule for {rule.Domain}."));
             NotifyChanged();
         }
 
@@ -356,7 +356,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = filterId }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, $"Removed the rule for {what}.");
+            Message?.Invoke(this, L.T($"Removed the rule for {what}."));
             NotifyChanged();
         }
 
@@ -420,7 +420,7 @@ internal sealed class AppModel
             Resolve(app);
             var name = KnownApps.DisplayName(app);
             Message?.Invoke(this, action == "allow"
-                ? (expiresMinutes is int m ? $"Allowed {name} for {m} minutes." : $"Allowed {name}.")
+                ? (expiresMinutes is int m ? L.T($"Allowed {name} for {m} minutes.") : $"Allowed {name}.")
                 : $"Blocked {name}.");
             NotifyChanged();
         }
@@ -476,8 +476,8 @@ internal sealed class AppModel
         var what = networks is not null ? $"to {NetworkScope.Label(NetworkScope.TryParse(networks, out var label) ? label : NetworkProfiles.Any)}"
             : action is null ? $"to {(direction == "in" ? "inbound" : direction == "both" ? "both directions" : "outbound")}" : $"to {action}";
         Message?.Invoke(this, changed == 0 && failed == 0
-            ? "Nothing to change."
-            : $"Switched {changed} rule{(changed == 1 ? string.Empty : "s")} {what}." + (failed > 0 ? $" {failed} could not be changed." : string.Empty));
+            ? L.T("Nothing to change.")
+            : L.T($"Switched {changed} rule{(changed == 1 ? string.Empty : "s")} {what}.") + (failed > 0 ? L.T($" {failed} could not be changed.") : string.Empty));
         RefreshCore();
         NotifyChanged();
     }
@@ -525,7 +525,7 @@ internal sealed class AppModel
             removed += ok ? 1 : 0;
         }
 
-        Message?.Invoke(this, $"Removed {removed} rule{(removed == 1 ? string.Empty : "s")}.");
+        Message?.Invoke(this, L.T($"Removed {removed} rule{(removed == 1 ? string.Empty : "s")}."));
         RefreshCore();
         NotifyChanged();
     }
@@ -535,7 +535,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.RemoveRules, App = app }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, $"Removed the rules for {KnownApps.DisplayName(app)}.");
+            Message?.Invoke(this, L.T($"Removed the rules for {KnownApps.DisplayName(app)}."));
             NotifyChanged();
         }
 
@@ -559,8 +559,8 @@ internal sealed class AppModel
         {
             var choice = ChoiceDialog.Ask(
                 owner,
-                "Switch to a blocking mode",
-                "Programs without an allow rule will no longer be able to connect out.\n\nAlso allow every program that is running right now? This is the easy way to start.",
+                L.T("Switch to a blocking mode"),
+                L.T("Programs without an allow rule will no longer be able to connect out.\n\nAlso allow every program that is running right now? This is the easy way to start."),
                 ["Allow running programs", "Don't allow them", "Cancel"],
                 defaultIndex: 0);
             if (choice is null or 2)
@@ -586,13 +586,13 @@ internal sealed class AppModel
         if (mode != "learning" && new ConfirmModeWindow { Owner = owner }.ShowDialog() != true)
         {
             Call(new ApiRequest { Op = ApiOps.SetMode, Mode = previous });
-            Message?.Invoke(this, $"Switched back to {previous} mode.");
+            Message?.Invoke(this, L.T($"Switched back to {previous} mode."));
             RefreshCore();
             NotifyChanged();
             return false;
         }
 
-        Message?.Invoke(this, $"{ModeName(mode)} mode is on.");
+        Message?.Invoke(this, L.T($"{ModeName(mode)} mode is on."));
         OfferAutostart(owner, mode);
         return true;
     }
@@ -609,15 +609,15 @@ internal sealed class AppModel
         Prefs.Save();
         var choice = ChoiceDialog.Ask(
             owner,
-            "Start CrioFire with Windows?",
-            "In Ask mode CrioFire asks you about each new program, but it can only ask while the app is running. Start it quietly in the notification area when you sign in?",
+            L.T("Start CrioFire with Windows?"),
+            L.T("In Ask mode CrioFire asks you about each new program, but it can only ask while the app is running. Start it quietly in the notification area when you sign in?"),
             ["Start with Windows", "Not now"],
             defaultIndex: 0);
         if (choice == 0)
         {
             Message?.Invoke(this, Autostart.Set(true)
-                ? "CrioFire will start when you sign in to Windows."
-                : "Could not change the Windows startup setting.");
+                ? L.T("CrioFire will start when you sign in to Windows.")
+                : L.T("Could not change the Windows startup setting."));
         }
     }
 
@@ -638,8 +638,8 @@ internal sealed class AppModel
             var count = Rules.Count(r => r.Kind is nameof(FilterKind.AppRule) or nameof(FilterKind.NetRule) or nameof(FilterKind.ServiceRule));
             var confirm = ChoiceDialog.Ask(
                 owner,
-                "Delete every rule?",
-                $"This deletes all {count} filters of your program, network and service rules and switches to Learning mode. It cannot be undone.\n\n'Allow everything, pause my rules' gets you connected too, and keeps them.",
+                L.T("Delete every rule?"),
+                L.T($"This deletes all {count} filters of your program, network and service rules and switches to Learning mode. It cannot be undone.\n\n'Allow everything, pause my rules' gets you connected too, and keeps them."),
                 ["Delete every rule", "Pause them instead", "Cancel"],
                 defaultIndex: 2,
                 danger: true);
@@ -679,8 +679,8 @@ internal sealed class AppModel
         if (ok)
         {
             Message?.Invoke(this, on
-                ? "Tamper protection is on: rule changes ask for administrator approval."
-                : "Tamper protection is off.");
+                ? L.T("Tamper protection is on: rule changes ask for administrator approval.")
+                : L.T("Tamper protection is off."));
             RefreshCore();
             NotifyChanged();
         }
@@ -705,7 +705,7 @@ internal sealed class AppModel
         }
 
         Message?.Invoke(this, $"Imported: {plan.Add} added, {plan.Change} changed, {plan.Remove} removed"
-            + (plan.Missing.Count > 0 ? $", {plan.Missing.Count} skipped (program not on this PC)." : "."));
+            + (plan.Missing.Count > 0 ? L.T($", {plan.Missing.Count} skipped (program not on this PC).") : "."));
         RefreshCore();
         NotifyChanged();
         return true;
@@ -722,8 +722,8 @@ internal sealed class AppModel
         if (own.Count < rules.Count)
         {
             Message?.Invoke(this, own.Count == 0
-                ? "Rules set by your organization cannot be changed on this PC."
-                : "Rules set by your organization were left as they are.");
+                ? L.T("Rules set by your organization cannot be changed on this PC.")
+                : L.T("Rules set by your organization were left as they are."));
         }
 
         rules = own;
@@ -745,7 +745,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.SetUpdateCheck, Enabled = enabled }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, enabled ? "CrioFire will look for a newer version once a day." : "CrioFire will not look for newer versions.");
+            Message?.Invoke(this, enabled ? L.T("CrioFire will look for a newer version once a day.") : L.T("CrioFire will not look for newer versions."));
         }
 
         return ok;
@@ -759,7 +759,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.SetLogs, LogSettings = settings }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, "History settings saved; they apply within a minute.");
+            Message?.Invoke(this, L.T("History settings saved; they apply within a minute."));
         }
 
         return ok;
@@ -770,7 +770,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.ClearLogs }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, "Connection history cleared.");
+            Message?.Invoke(this, L.T("Connection history cleared."));
             NotifyChanged();
         }
 
@@ -792,7 +792,7 @@ internal sealed class AppModel
             return false;
         }
 
-        Message?.Invoke(this, $"Restored the backup: {plan.Add} added, {plan.Change} changed, {plan.Remove} removed.");
+        Message?.Invoke(this, L.T($"Restored the backup: {plan.Add} added, {plan.Change} changed, {plan.Remove} removed."));
         RefreshCore();
         NotifyChanged();
         return true;
@@ -809,7 +809,7 @@ internal sealed class AppModel
         var ok = Call(new ApiRequest { Op = ApiOps.Trust, App = program.App, Direction = program.Direction }) is not null;
         if (ok)
         {
-            Message?.Invoke(this, $"Allowed {KnownApps.DisplayName(program.App)} again as it is now.");
+            Message?.Invoke(this, L.T($"Allowed {KnownApps.DisplayName(program.App)} again as it is now."));
             RefreshCore();
             NotifyChanged();
         }
@@ -859,10 +859,10 @@ internal sealed class AppModel
 
         Message?.Invoke(this, action switch
         {
-            "remove" => $"Removed {result.Count} filters. Every rule is gone and CrioFire is in Learning mode.",
-            "block" => "Panic: all network traffic is blocked. Your rules are kept; Resume brings them back.",
-            "allow" => "Panic: everything is allowed and your rules are paused. Resume brings them back.",
-            _ => "Panic is off. Your rules apply again.",
+            "remove" => L.T($"Removed {result.Count} filters. Every rule is gone and CrioFire is in Learning mode."),
+            "block" => L.T("Panic: all network traffic is blocked. Your rules are kept; Resume brings them back."),
+            "allow" => L.T("Panic: everything is allowed and your rules are paused. Resume brings them back."),
+            _ => L.T("Panic is off. Your rules apply again."),
         });
         RefreshCore();
         NotifyChanged();
@@ -910,7 +910,7 @@ internal sealed class AppModel
     {
         if (items.Count == 0)
         {
-            Say("Select one or more rows first (Ctrl or Shift to select several).");
+            Say(L.T("Select one or more rows first (Ctrl or Shift to select several)."));
             return;
         }
 
@@ -979,7 +979,7 @@ internal sealed class AppModel
             Add(apps, item.App, direction);
         }
 
-        var verb = action == "allow" ? (minutes is int m ? $"Allow for {m} minutes" : "Allow") : "Block";
+        var verb = action == "allow" ? (minutes is int m ? L.T($"Allow for {m} minutes") : L.T("Allow")) : L.T("Block");
         var notes = new List<string>();
         if (panic > 0)
         {
@@ -999,7 +999,7 @@ internal sealed class AppModel
         var count = apps.Count + services.Count + netRules.Count;
         if (count == 0)
         {
-            Say(notes.Count > 0 ? string.Join(" ", notes) : "Nothing to change.");
+            Say(notes.Count > 0 ? string.Join(" ", notes) : L.T("Nothing to change."));
             return;
         }
 
@@ -1007,15 +1007,15 @@ internal sealed class AppModel
         {
             var names = apps.Keys.Select(KnownApps.DisplayName).Concat(services.Keys.Select(s => $"service {s}")).ToList();
             var text = names.Count == 0 ? string.Empty
-                : string.Join(", ", names.Take(8)) + (names.Count > 8 ? $" and {names.Count - 8} more" : string.Empty) + ".";
+                : string.Join(", ", names.Take(8)) + (names.Count > 8 ? L.T($" and {names.Count - 8} more") : string.Empty) + ".";
             if (netRules.Count > 0)
             {
-                text += $"{(text.Length > 0 ? "\n\n" : string.Empty)}Also remove {netRules.Count} port/address rule{(netRules.Count == 1 ? string.Empty : "s")} that blocked them. They may cover other programs too.";
+                text += L.T($"{(text.Length > 0 ? "\n\n" : string.Empty)}Also remove {netRules.Count} port/address rule{(netRules.Count == 1 ? string.Empty : "s")} that blocked them. They may cover other programs too.");
             }
 
             if (minutes is not null && services.Count > 0)
             {
-                text += "\n\nService rules have no time limit: services are allowed until you change it.";
+                text += L.T("\n\nService rules have no time limit: services are allowed until you change it.");
             }
 
             if (notes.Count > 0)
@@ -1023,8 +1023,8 @@ internal sealed class AppModel
                 text += "\n\n" + string.Join("\n", notes);
             }
 
-            var title = $"{verb}: {apps.Count + services.Count} program{(apps.Count + services.Count == 1 ? string.Empty : "s")} and services";
-            if (ChoiceDialog.Ask(owner, title, text, [verb, "Cancel"], defaultIndex: 0, danger: action == "block") != 0)
+            var title = L.T($"{verb}: {apps.Count + services.Count} program{(apps.Count + services.Count == 1 ? string.Empty : "s")} and services");
+            if (ChoiceDialog.Ask(owner, title, text, [verb, L.T("Cancel")], defaultIndex: 0, danger: action == "block") != 0)
             {
                 return;
             }
@@ -1053,7 +1053,7 @@ internal sealed class AppModel
             done += Call(new ApiRequest { Op = ApiOps.RemoveFilter, FilterId = id }) is not null ? 1 : 0;
         }
 
-        Message?.Invoke(this, $"{(action == "allow" ? "Allowed" : "Blocked")}: {done} of {count} done." + (notes.Count > 0 ? " " + string.Join(" ", notes) : string.Empty));
+        Message?.Invoke(this, L.T($"{(action == "allow" ? "Allowed" : "Blocked")}: {done} of {count} done.") + (notes.Count > 0 ? " " + string.Join(" ", notes) : string.Empty));
         RefreshCore();
         NotifyChanged();
 
@@ -1077,9 +1077,9 @@ internal sealed class AppModel
 
     public static string ModeName(string mode) => mode switch
     {
-        "ask" => "Ask",
-        "allowlist" => "Allow-list",
-        _ => "Learning",
+        "ask" => L.T("Ask"),
+        "allowlist" => L.T("Allow-list"),
+        _ => L.T("Learning"),
     };
 
     private static List<string> RunningPrograms()
@@ -1133,9 +1133,9 @@ internal static class Fmt
     public static string Ago(DateTime utc)
     {
         var span = DateTime.UtcNow - utc;
-        return span.TotalMinutes < 1 ? "just now"
-            : span.TotalHours < 1 ? $"{(int)span.TotalMinutes} min ago"
-            : span.TotalDays < 1 ? $"{(int)span.TotalHours} h ago"
+        return span.TotalMinutes < 1 ? L.T("just now")
+            : span.TotalHours < 1 ? L.T($"{(int)span.TotalMinutes} min ago")
+            : span.TotalDays < 1 ? L.T($"{(int)span.TotalHours} h ago")
             : utc.ToLocalTime().ToString("ddd d MMM", CultureInfo.CurrentCulture);
     }
 }

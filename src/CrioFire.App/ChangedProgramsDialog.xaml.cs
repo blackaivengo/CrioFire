@@ -37,7 +37,7 @@ public partial class ChangedProgramsDialog : Window
         var programs = AppModel.ChangedPrograms();
         if (programs.Count == 0)
         {
-            model.Say("Every allowed program is still the file you allowed.");
+            model.Say(L.T("Every allowed program is still the file you allowed."));
             return;
         }
 
@@ -55,16 +55,16 @@ public partial class ChangedProgramsDialog : Window
             TextWrapping = TextWrapping.Wrap,
         });
         body.Children.Add(Muted(string.Join("\n", TextWrap.Path(program.App, 90))));
-        body.Children.Add(Line($"Publisher when you allowed it: {program.WasPublisher ?? "unsigned"}"));
-        body.Children.Add(Line($"Publisher now: {program.NowPublisher ?? "unsigned"}"));
+        body.Children.Add(Line(L.T($"Publisher when you allowed it: {program.WasPublisher ?? "unsigned"}")));
+        body.Children.Add(Line(L.T($"Publisher now: {program.NowPublisher ?? "unsigned"}")));
         body.Children.Add(Line(program.WasPublisher is null && program.NowPublisher is null
-            ? "The contents of this unsigned program are different."
+            ? L.T("The contents of this unsigned program are different.")
             : program.NowPublisher is null
-                ? "The file is no longer signed."
-                : "Another publisher signed this file."));
+                ? L.T("The file is no longer signed.")
+                : L.T("Another publisher signed this file.")));
         body.Children.Add(Muted(program.Blocked
-            ? $"Noticed {program.DetectedUtc.ToLocalTime():g}. Blocked until you decide."
-            : $"Noticed {program.DetectedUtc.ToLocalTime():g}. Not blocked: in Learning mode programs without a rule may connect."));
+            ? L.T($"Noticed {program.DetectedUtc.ToLocalTime():g}. Blocked until you decide.")
+            : L.T($"Noticed {program.DetectedUtc.ToLocalTime():g}. Not blocked: in Learning mode programs without a rule may connect.")));
 
         var buttons = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         var card = new Border
@@ -78,11 +78,11 @@ public partial class ChangedProgramsDialog : Window
         card.SetResourceReference(Border.BorderBrushProperty, "CardBorderBrush");
         card.SetResourceReference(Border.BackgroundProperty, "InsetBrush");
 
-        buttons.Children.Add(MakeButton("Allow again", "OutlineIceButton", () => Done(card, _model.TrustChanged(program))));
-        buttons.Children.Add(MakeButton(program.Blocked ? "Keep it blocked" : "Block it", "FireButton", () => Done(card, _model.BlockChanged(program))));
+        buttons.Children.Add(MakeButton(L.T("Allow again"), "OutlineIceButton", () => Done(card, _model.TrustChanged(program))));
+        buttons.Children.Add(MakeButton(program.Blocked ? L.T("Keep it blocked") : L.T("Block it"), "FireButton", () => Done(card, _model.BlockChanged(program))));
         if (File.Exists(program.App))
         {
-            buttons.Children.Add(MakeButton("Open file location", "GhostButton", () => RowMenu.OpenFolder(program.App)));
+            buttons.Children.Add(MakeButton(L.T("Open file location"), "GhostButton", () => RowMenu.OpenFolder(program.App)));
         }
 
         return card;

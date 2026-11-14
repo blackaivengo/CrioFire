@@ -115,8 +115,8 @@ public partial class MainWindow : Window
         {
             var enable = !Autostart.IsEnabled;
             ShowMessage(Autostart.Set(enable)
-                ? (enable ? "CrioFire will start when you sign in to Windows." : "CrioFire won't start with Windows any more.")
-                : "Could not change the Windows startup setting.");
+                ? (enable ? L.T("CrioFire will start when you sign in to Windows.") : L.T("CrioFire won't start with Windows any more."))
+                : L.T("Could not change the Windows startup setting."));
             RefreshPage();
         };
         _tray.ExitRequested += (_, _) => ExitApp();
@@ -187,8 +187,8 @@ public partial class MainWindow : Window
             Prefs.Current.TrayHintShown = true;
             Prefs.Save();
             _tray?.ShowHint(
-                "CrioFire is still protecting you",
-                "It keeps running here, next to the clock. Click the icon to open it; right-click for options.");
+                L.T("CrioFire is still protecting you"),
+                L.T("It keeps running here, next to the clock. Click the icon to open it; right-click for options."));
         }
     }
 
@@ -339,7 +339,7 @@ public partial class MainWindow : Window
                 }
 
                 var version = _navigation;
-                using (busy ? Busy("Updating…", immediately: false, cover: false) : null)
+                using (busy ? Busy(L.T("Updating…"), immediately: false, cover: false) : null)
                 {
                     await LoadSafely(page);
                 }
@@ -566,39 +566,39 @@ public partial class MainWindow : Window
         var panic = _model.PanicMode;
         PanicBanner.Visibility = panic == "off" ? Visibility.Collapsed : Visibility.Visible;
         PanicBannerText.Text = panic == "block"
-            ? "Panic: all network traffic is blocked. Your rules are kept."
-            : "Panic: everything is allowed. Your rules are paused, not deleted.";
-        PanicButton.Content = panic == "off" ? "Panic..." : "Panic options...";
+            ? L.T("Panic: all network traffic is blocked. Your rules are kept.")
+            : L.T("Panic: everything is allowed. Your rules are paused, not deleted.");
+        PanicButton.Content = panic == "off" ? L.T("Panic...") : L.T("Panic options...");
 
         var changed = status?.ChangedPrograms ?? 0;
         ChangedBanner.Visibility = changed > 0 ? Visibility.Visible : Visibility.Collapsed;
         ChangedBannerText.Text = changed == 1
-            ? "An allowed program changed since you allowed it (another publisher, or different contents). Check it before it connects again."
-            : $"{changed} allowed programs changed since you allowed them (another publisher, or different contents). Check them before they connect again.";
+            ? L.T("An allowed program changed since you allowed it (another publisher, or different contents). Check it before it connects again.")
+            : L.T($"{changed} allowed programs changed since you allowed them (another publisher, or different contents). Check them before they connect again.");
         if (changed > _changedSeen)
         {
-            _tray?.ShowHint("A program changed", "An allowed program is no longer the file you allowed. Open CrioFire to review it.");
+            _tray?.ShowHint(L.T("A program changed"), L.T("An allowed program is no longer the file you allowed. Open CrioFire to review it."));
         }
 
         _changedSeen = changed;
         ShowUpdate(status);
         if (status is null)
         {
-            ServiceText.Text = "Not running";
+            ServiceText.Text = L.T("Not running");
             ServiceDot.SetResourceReference(Shape.FillProperty, "FireBrush");
             ServiceDotGlow.Color = Color.FromRgb(0xFF, 0x4A, 0x32);
         }
         else
         {
             var mismatch = status.Version != "unknown" && AppVersion.Length > 0 && ShortVersion(status.Version) != ShortVersion(AppVersion);
-            ServiceText.Text = !status.Installed ? "Running · not set up"
+            ServiceText.Text = !status.Installed ? L.T("Running · not set up")
                 : mismatch ? $"Service {ShortVersion(status.Version)} · app {ShortVersion(AppVersion)}"
                 : $"Running · {ShortVersion(status.Version)}";
             if (mismatch && !_toldVersion)
             {
                 _toldVersion = true;
-                ShowMessage($"The CrioFire service ({ShortVersion(status.Version)}) and this app ({ShortVersion(AppVersion)}) are different builds. "
-                    + "Some views may stay empty until you install the latest CrioFire, which updates both.");
+                ShowMessage(L.T($"The CrioFire service ({ShortVersion(status.Version)}) and this app ({ShortVersion(AppVersion)}) are different builds. ")
+                    + L.T("Some views may stay empty until you install the latest CrioFire, which updates both."));
             }
             ServiceDot.SetResourceReference(Shape.FillProperty, "IceBrush");
             ServiceDotGlow.Color = Color.FromRgb(0x7D, 0xD8, 0xFF);
@@ -644,12 +644,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        UpdateBannerText.Text = $"CrioFire {version} is available. Download it from the release page; installing it keeps your rules and settings.";
+        UpdateBannerText.Text = L.T($"CrioFire {version} is available. Download it from the release page; installing it keeps your rules and settings.");
         if (!string.Equals(version, Prefs.Current.AnnouncedUpdate, StringComparison.OrdinalIgnoreCase))
         {
             Prefs.Current.AnnouncedUpdate = version;
             Prefs.Save();
-            _tray?.ShowHint("A new CrioFire is available", $"Version {version}. Open CrioFire to see what's new.");
+            _tray?.ShowHint(L.T("A new CrioFire is available"), L.T($"Version {version}. Open CrioFire to see what's new."));
         }
     }
 
@@ -674,7 +674,7 @@ public partial class MainWindow : Window
     private void UpdateThemeButton()
     {
         var dark = ThemeManager.IsDark;
-        ThemeButton.ToolTip = dark ? "Switch to light mode" : "Switch to dark mode";
+        ThemeButton.ToolTip = dark ? L.T("Switch to light mode") : L.T("Switch to dark mode");
         SunSpot.SetResourceReference(Border.BackgroundProperty, dark ? "TransparentBrush" : "SegOnBrush");
         MoonSpot.SetResourceReference(Border.BackgroundProperty, dark ? "SegOnBrush" : "TransparentBrush");
         SunSpot.SetResourceReference(Border.BorderBrushProperty, dark ? "TransparentBrush" : "SegOnBorderBrush");

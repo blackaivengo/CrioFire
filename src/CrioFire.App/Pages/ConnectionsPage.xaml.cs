@@ -28,7 +28,7 @@ public partial class ConnectionsPage : UserControl, IPage
 
     private bool ShowingUsage => ShowUsage.IsChecked == true;
 
-    public string Title => ShowingUsage ? "Data used" : "Live connections";
+    public string Title => ShowingUsage ? L.T("Data used") : L.T("Live connections");
 
     public string Subtitle { get; private set; } = string.Empty;
 
@@ -52,7 +52,7 @@ public partial class ConnectionsPage : UserControl, IPage
     private static (UsageInfo? Usage, string? Error) ReadUsage(string period)
     {
         var response = Service.Call(new ApiRequest { Op = ApiOps.Usage, Period = period }, out var error);
-        return (response?.Usage, response is null ? error : response.Usage is null ? "This version of the CrioFire service does not count data yet." : null);
+        return (response?.Usage, response is null ? error : response.Usage is null ? L.T("This version of the CrioFire service does not count data yet.") : null);
     }
 
     private static (IReadOnlyList<LiveConnection> Connections, IReadOnlyDictionary<int, string[]> Services) Read() =>
@@ -87,7 +87,7 @@ public partial class ConnectionsPage : UserControl, IPage
         }
 
         var programs = rows.Select(r => r.ProcessId).Distinct().Count();
-        Subtitle = $"{Fmt.Count(rows.Count)} {(all ? "sockets" : "connections")} from {programs} programs. Updates every 3 seconds.";
+        Subtitle = L.T($"{Fmt.Count(rows.Count)} {(all ? "sockets" : "connections")} from {programs} programs. Updates every 3 seconds.");
     }
 
     private void RefreshUsage()
@@ -103,10 +103,10 @@ public partial class ConnectionsPage : UserControl, IPage
         UsageTable.SelectedItem = rows.FirstOrDefault(r => string.Equals(r.App, selected, StringComparison.OrdinalIgnoreCase));
         UsageTable.Visibility = rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         UsageEmpty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        var when = _period switch { "7d" => "in the last 7 days", "30d" => "in the last 30 days", _ => "today" };
+        var when = _period switch { "7d" => L.T("in the last 7 days"), "30d" => L.T("in the last 30 days"), _ => L.T("today") };
         Subtitle = error ?? (info is null || rows.Count == 0
-            ? $"Nothing counted {when} yet."
-            : $"{DataSize.Text(info.Sent, culture)} sent and {DataSize.Text(info.Received, culture)} received {when}, by {Fmt.Count(rows.Count)} programs. Traffic that stays on this PC is not counted.");
+            ? L.T($"Nothing counted {when} yet.")
+            : L.T($"{DataSize.Text(info.Sent, culture)} sent and {DataSize.Text(info.Received, culture)} received {when}, by {Fmt.Count(rows.Count)} programs. Traffic that stays on this PC is not counted."));
     }
 
     private void OnShow(object sender, RoutedEventArgs e) => _model.NotifyChanged();   // the window reloads this page and its title
@@ -123,7 +123,7 @@ public partial class ConnectionsPage : UserControl, IPage
     private void OnClearUsage(object sender, RoutedEventArgs e)
     {
         if (Window.GetWindow(this) is not { } owner
-            || ChoiceDialog.Ask(owner, "Clear the data counts?", "CrioFire forgets how much every program sent and received, for every day, and starts again from zero.",
+            || ChoiceDialog.Ask(owner, L.T("Clear the data counts?"), L.T("CrioFire forgets how much every program sent and received, for every day, and starts again from zero."),
                 ["Clear counts", "Cancel"], defaultIndex: 1, danger: true) != 0)
         {
             return;
@@ -131,7 +131,7 @@ public partial class ConnectionsPage : UserControl, IPage
 
         if (_model.Call(new ApiRequest { Op = ApiOps.ResetUsage }) is not null)
         {
-            _model.Say("Data counts cleared.");
+            _model.Say(L.T("Data counts cleared."));
             _model.NotifyChanged();
         }
     }
@@ -144,14 +144,14 @@ public partial class ConnectionsPage : UserControl, IPage
     {
         if (Table.SelectedItem is not LiveRow row)
         {
-            _model.Say("Select a connection in the list first.");
+            _model.Say(L.T("Select a connection in the list first."));
             return;
         }
 
         var app = row.ProcessId == 4 ? KnownApps.Kernel : row.Path;
         if (row.ProcessId != 4 && !System.IO.Path.IsPathRooted(app))
         {
-            _model.Say("CrioFire can't see this program's path (it runs as another user). Open CrioFire as administrator to make a rule for it.");
+            _model.Say(L.T("CrioFire can't see this program's path (it runs as another user). Open CrioFire as administrator to make a rule for it."));
             return;
         }
 

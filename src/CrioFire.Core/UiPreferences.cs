@@ -22,6 +22,13 @@ public sealed class UiPreferences
         set => _values["theme"] = value;
     }
 
+    /// <summary>The app's language: "system" (follow Windows) or a code from <see cref="Languages"/>.</summary>
+    public string Language
+    {
+        get => Languages.Find(Get("language")) is { } chosen ? chosen.Code : Languages.System;
+        set => Set("language", value == Languages.System ? null : value);
+    }
+
     /// <summary>Closing the window keeps CrioFire running in the notification area.</summary>
     public bool CloseToTray
     {

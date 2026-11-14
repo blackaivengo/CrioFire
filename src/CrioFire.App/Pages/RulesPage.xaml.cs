@@ -33,7 +33,7 @@ public partial class RulesPage : UserControl, IPage
         }
     }
 
-    public string Title => "Rules";
+    public string Title => L.T("Rules");
 
     public string Subtitle { get; private set; } = string.Empty;
 
@@ -80,9 +80,9 @@ public partial class RulesPage : UserControl, IPage
         Table.ItemsSource = rows;
         Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         Empty.Text = allPrograms.Count == 0
-            ? "No rules yet. Allow or block a program above, or answer an alert in Ask mode."
-            : "No program rule matches the filters.";
-        ProgramsTitle.Text = Count("Programs", rows.Count, allPrograms.Count);
+            ? L.T("No rules yet. Allow or block a program above, or answer an alert in Ask mode.")
+            : L.T("No program rule matches the filters.");
+        ProgramsTitle.Text = Count(L.T("Programs"), rows.Count, allPrograms.Count);
 
         var allNet = _model.NetRules.ToList();
         var netRows = allNet.Where(Show)
@@ -94,7 +94,7 @@ public partial class RulesPage : UserControl, IPage
                 var rule = string.Join(" · ", new[]
                 {
                     r.Protocol is null or "any" ? null : r.Protocol.ToUpperInvariant(),
-                    r.Ports is null ? null : (r.Direction == "in" ? "local port " : "port ") + r.Ports + PortNames(r.Ports),
+                    r.Ports is null ? null : (r.Direction == "in" ? L.T("local port ") : "port ") + r.Ports + PortNames(r.Ports),
                     r.Addresses,
                 }.Where(p => p is not null));
                 return new NetRuleRow(
@@ -102,7 +102,7 @@ public partial class RulesPage : UserControl, IPage
                     allow ? "Allow" : "Block",
                     Who.Direction(r.Direction) + Networks(r),
                     rule,
-                    (r.App is null ? "Any program" : KnownApps.DisplayName(r.App)) + Organization(r),
+                    (r.App is null ? L.T("Any program") : KnownApps.DisplayName(r.App)) + Organization(r),
                     r.App,
                     r.FilterId,
                     allow ? chipIce : chipFire,
@@ -112,9 +112,9 @@ public partial class RulesPage : UserControl, IPage
         NetTable.ItemsSource = netRows;
         NetEmpty.Visibility = netRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         NetEmpty.Text = allNet.Count == 0
-            ? "No network rules. Add one to block a port like 445 inbound, keep a program to port 443, or block an address range."
-            : "No port or address rule matches the filters.";
-        NetTitle.Text = Count("Ports and addresses", netRows.Count, allNet.Count);
+            ? L.T("No network rules. Add one to block a port like 445 inbound, keep a program to port 443, or block an address range.")
+            : L.T("No port or address rule matches the filters.");
+        NetTitle.Text = Count(L.T("Ports and addresses"), netRows.Count, allNet.Count);
 
         var displayNames = _displayNames ?? ServiceDisplayNames();
         _displayNames = null;
@@ -140,9 +140,9 @@ public partial class RulesPage : UserControl, IPage
         ServiceTable.ItemsSource = serviceRows;
         ServiceEmpty.Visibility = serviceRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ServiceEmpty.Text = allServices.Count == 0
-            ? "No service rules. Block or allow one with 'Service rule...', or from Activity."
-            : "No service rule matches the filters.";
-        ServiceTitle.Text = Count("Windows services", serviceRows.Count, allServices.Count);
+            ? L.T("No service rules. Block or allow one with 'Service rule...', or from Activity.")
+            : L.T("No service rule matches the filters.");
+        ServiceTitle.Text = Count(L.T("Windows services"), serviceRows.Count, allServices.Count);
 
         ProgramsCard.Visibility = ShowNet.IsChecked == true || ShowServices.IsChecked == true ? Visibility.Collapsed : Visibility.Visible;
         NetCard.Visibility = ShowPrograms.IsChecked == true || ShowServices.IsChecked == true ? Visibility.Collapsed : Visibility.Visible;
@@ -162,12 +162,12 @@ public partial class RulesPage : UserControl, IPage
                 d.Action == "allow" ? chipIce : chipFire,
                 d.Action == "allow" ? chipIceText : chipFireText,
                 !d.Managed,
-                d.Managed ? "Set by your organization" : "Remove this rule"))
+                d.Managed ? L.T("Set by your organization") : L.T("Remove this rule")))
             .ToList();
         DomainList.ItemsSource = domainRows;
         DomainEmpty.Visibility = domainRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        DomainEmpty.Text = _model.DomainRules.Count == 0 ? "No domain rules. Add one with 'Domain rule...'." : "No domain rule matches the filters.";
-        DomainTitle.Text = Count("Domains", domainRows.Count, _model.DomainRules.Count);
+        DomainEmpty.Text = _model.DomainRules.Count == 0 ? L.T("No domain rules. Add one with 'Domain rule...'.") : L.T("No domain rule matches the filters.");
+        DomainTitle.Text = Count(L.T("Domains"), domainRows.Count, _model.DomainRules.Count);
         DomainCard.Visibility = ShowAll.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (var list in Lists)
@@ -180,8 +180,8 @@ public partial class RulesPage : UserControl, IPage
 
         var allowed = allPrograms.Count(r => r.Action == "allow");
         Subtitle = _model.Status is null
-            ? (_model.Error ?? "The CrioFire service is not running.")
-            : $"{allowed} programs allowed, {allPrograms.Count - allowed} blocked, {allNet.Count} port and address rules, {allServices.Count} service rules.";
+            ? (_model.Error ?? L.T("The CrioFire service is not running."))
+            : L.T($"{allowed} programs allowed, {allPrograms.Count - allowed} blocked, {allNet.Count} port and address rules, {allServices.Count} service rules.");
     }
 
     private static string Count(string title, int shown, int total) =>
@@ -205,15 +205,15 @@ public partial class RulesPage : UserControl, IPage
         var blockedServices = services.Count(r => r.Action == "block");
         var mode = _model.PanicMode switch
         {
-            "block" => "Panic is on: all network traffic is blocked, whatever the rules say.",
-            "allow" => "Panic is on: everything is allowed and these rules are paused.",
+            "block" => L.T("Panic is on: all network traffic is blocked, whatever the rules say."),
+            "allow" => L.T("Panic is on: everything is allowed and these rules are paused."),
             _ => _model.Mode == "learning"
-                ? "Learning mode: programs without a rule may connect."
-                : $"{AppModel.ModeName(_model.Mode)} mode: programs without a rule are blocked when they connect out.",
+                ? L.T("Learning mode: programs without a rule may connect.")
+                : L.T($"{AppModel.ModeName(_model.Mode)} mode: programs without a rule are blocked when they connect out."),
         };
-        GlanceText.Text = $"{mode} By rule: {blockedPrograms} program{(blockedPrograms == 1 ? string.Empty : "s")}, "
+        GlanceText.Text = L.T($"{mode} By rule: {blockedPrograms} program{(blockedPrograms == 1 ? string.Empty : "s")}, ")
             + $"{blockedServices} service{(blockedServices == 1 ? string.Empty : "s")}, {ports.Count} port{(ports.Count == 1 ? string.Empty : "s")} "
-            + $"and {addresses.Count} address{(addresses.Count == 1 ? string.Empty : "es")} blocked.";
+            + L.T($"and {addresses.Count} address{(addresses.Count == 1 ? string.Empty : "es")} blocked.");
     }
 
     // ---- sorting ----
@@ -226,16 +226,7 @@ public partial class RulesPage : UserControl, IPage
         }
 
         var header = Plain(column.Header as string);
-        var property = header switch
-        {
-            "ACTION" => "Action",
-            "DIRECTION" => "Direction",
-            "PROGRAM" => "Program",
-            "UNTIL" => "Until",
-            "RULE" => "Rule",
-            "SERVICE" => "DisplayName",
-            _ => null,
-        };
+        var property = SortColumns.FirstOrDefault(c => c.Header == header || L.T(c.Header) == header).Property;
         if (property is null)
         {
             return;
@@ -272,16 +263,20 @@ public partial class RulesPage : UserControl, IPage
 
     private static string Plain(string? header) => (header ?? string.Empty).Replace(" ▲", string.Empty, StringComparison.Ordinal).Replace(" ▼", string.Empty, StringComparison.Ordinal);
 
-    private static string HeaderFor(string property) => property switch
-    {
-        "Action" => "ACTION",
-        "Direction" => "DIRECTION",
-        "Program" => "PROGRAM",
-        "Until" => "UNTIL",
-        "Rule" => "RULE",
-        "DisplayName" => "SERVICE",
-        _ => string.Empty,
-    };
+    /// <summary>The sortable columns: their English heading (shown translated) and the row property they sort by.</summary>
+    private static readonly (string Header, string Property)[] SortColumns =
+    [
+        ("ACTION", "Action"),
+        ("DIRECTION", "Direction"),
+        ("PROGRAM", "Program"),
+        ("UNTIL", "Until"),
+        ("RULE", "Rule"),
+        ("SERVICE", "DisplayName"),
+    ];
+
+    /// <summary>The heading as shown (translated) for a sort property.</summary>
+    private static string HeaderFor(string property) =>
+        SortColumns.FirstOrDefault(c => c.Property == property).Header is { } header ? L.T(header) : string.Empty;
 
     // ---- selection, switching, removing ----
 
@@ -304,9 +299,9 @@ public partial class RulesPage : UserControl, IPage
         var count = SelectedRules().Count;
         SelectionText.Text = count switch
         {
-            0 => "Click Allow or Block in a row to switch it. Click a column heading to sort; Ctrl or Shift selects several rules.",
-            1 => "1 rule selected.",
-            _ => $"{count} rules selected: Switch and Remove apply to all of them.",
+            0 => L.T("Click Allow or Block in a row to switch it. Click a column heading to sort; Ctrl or Shift selects several rules."),
+            1 => L.T("1 rule selected."),
+            _ => L.T($"{count} rules selected: Switch and Remove apply to all of them."),
         };
     }
 
@@ -330,7 +325,7 @@ public partial class RulesPage : UserControl, IPage
         var rules = SelectedRules();
         if (rules.Count == 0)
         {
-            _model.Say("Select one or more rules first.");
+            _model.Say(L.T("Select one or more rules first."));
             return;
         }
 
@@ -342,12 +337,12 @@ public partial class RulesPage : UserControl, IPage
         var rules = SelectedRules();
         if (rules.Count == 0)
         {
-            _model.Say("Select a rule in the list first.");
+            _model.Say(L.T("Select a rule in the list first."));
             return;
         }
 
         if (rules.Count > 1 && Window.GetWindow(this) is { } owner
-            && ChoiceDialog.Ask(owner, $"Remove {rules.Count} rules?", "The programs, ports, addresses and services they cover go back to what the mode decides.",
+            && ChoiceDialog.Ask(owner, L.T($"Remove {rules.Count} rules?"), L.T("The programs, ports, addresses and services they cover go back to what the mode decides."),
                 [$"Remove {rules.Count} rules", "Cancel"], defaultIndex: 1, danger: true) != 0)
         {
             return;
@@ -371,37 +366,37 @@ public partial class RulesPage : UserControl, IPage
         var many = rules.Count > 1;
         menu.Items.Add(new MenuItem
         {
-            Header = many ? $"{rules.Count} rules" : first.Service is { } s ? $"Service {s}" : first.App is { } a ? KnownApps.DisplayName(a) : first.Summary ?? first.Name,
+            Header = many ? $"{rules.Count} rules" : first.Service is { } s ? L.T($"Service {s}") : first.App is { } a ? KnownApps.DisplayName(a) : first.Summary ?? first.Name,
             IsHitTestVisible = false,
             Focusable = false,
             FontWeight = FontWeights.SemiBold,
         });
-        menu.Items.Add(Item("Switch to Allow", () => _model.ChangeRules(rules, "allow", null), enabled: rules.Any(r => r.Action != "allow")));
-        menu.Items.Add(Item("Switch to Block", () => _model.ChangeRules(rules, "block", null), enabled: rules.Any(r => r.Action != "block"), danger: true));
+        menu.Items.Add(Item(L.T("Switch to Allow"), () => _model.ChangeRules(rules, "allow", null), enabled: rules.Any(r => r.Action != "allow")));
+        menu.Items.Add(Item(L.T("Switch to Block"), () => _model.ChangeRules(rules, "block", null), enabled: rules.Any(r => r.Action != "block"), danger: true));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item("Outbound only", () => _model.ChangeRules(rules, null, "out"), enabled: rules.Any(r => r.Direction != "out")));
-        menu.Items.Add(Item("Inbound only", () => _model.ChangeRules(rules, null, "in"), enabled: rules.Any(r => r.Direction != "in")));
-        menu.Items.Add(Item("In and out", () => _model.ChangeRules(rules, null, "both"), enabled: rules.Any(r => r.Direction != "both")));
+        menu.Items.Add(Item(L.T("Outbound only"), () => _model.ChangeRules(rules, null, "out"), enabled: rules.Any(r => r.Direction != "out")));
+        menu.Items.Add(Item(L.T("Inbound only"), () => _model.ChangeRules(rules, null, "in"), enabled: rules.Any(r => r.Direction != "in")));
+        menu.Items.Add(Item(L.T("In and out"), () => _model.ChangeRules(rules, null, "both"), enabled: rules.Any(r => r.Direction != "both")));
         menu.Items.Add(new Separator());
-        var networks = new MenuItem { Header = "Networks", ToolTip = "Which kinds of network the rule applies on. On other networks, the mode decides." };
-        networks.Items.Add(Item("Every network", () => _model.ChangeRules(rules, null, null, "any"), enabled: rules.Any(r => r.Networks is not null)));
-        networks.Items.Add(Item("Only home and work networks (private, domain)", () => _model.ChangeRules(rules, null, null, "domain,private"),
+        var networks = new MenuItem { Header = L.T("Networks"), ToolTip = L.T("Which kinds of network the rule applies on. On other networks, the mode decides.") };
+        networks.Items.Add(Item(L.T("Every network"), () => _model.ChangeRules(rules, null, null, "any"), enabled: rules.Any(r => r.Networks is not null)));
+        networks.Items.Add(Item(L.T("Only home and work networks (private, domain)"), () => _model.ChangeRules(rules, null, null, "domain,private"),
             enabled: rules.Any(r => r.Networks != "domain,private")));
-        networks.Items.Add(Item("Only public networks", () => _model.ChangeRules(rules, null, null, "public"), enabled: rules.Any(r => r.Networks != "public")));
+        networks.Items.Add(Item(L.T("Only public networks"), () => _model.ChangeRules(rules, null, null, "public"), enabled: rules.Any(r => r.Networks != "public")));
         menu.Items.Add(networks);
         menu.Items.Add(new Separator());
         if (!many && (first.App is not null || first.Service is not null))
         {
-            menu.Items.Add(Item("Show its connections", () => _model.OpenActivity(first.Service is { } service
+            menu.Items.Add(Item(L.T("Show its connections"), () => _model.OpenActivity(first.Service is { } service
                 ? new ActivityQuery("all", Service: service)
                 : new ActivityQuery("all", App: first.App))));
-            menu.Items.Add(Item("More info…", () => DetailsWindow.Open(owner, _model, new MenuTarget(first.App, first.Service))));
-            menu.Items.Add(Item("Open file location", () => RowMenu.OpenFolder(first.App), enabled: first.App is not null && File.Exists(first.App)));
+            menu.Items.Add(Item(L.T("More info…"), () => DetailsWindow.Open(owner, _model, new MenuTarget(first.App, first.Service))));
+            menu.Items.Add(Item(L.T("Open file location"), () => RowMenu.OpenFolder(first.App), enabled: first.App is not null && File.Exists(first.App)));
             menu.Items.Add(new Separator());
         }
 
-        menu.Items.Add(Item(many ? $"Remove {rules.Count} rules" : "Remove", () => OnRemove(this, new RoutedEventArgs()), danger: true));
-        menu.Items.Add(Item("Copy", () => RowMenu.Copy(_model, string.Join(Environment.NewLine, rules.Select(Describe)))));
+        menu.Items.Add(Item(many ? L.T($"Remove {rules.Count} rules") : L.T("Remove"), () => OnRemove(this, new RoutedEventArgs()), danger: true));
+        menu.Items.Add(Item(L.T("Copy"), () => RowMenu.Copy(_model, string.Join(Environment.NewLine, rules.Select(Describe)))));
     }
 
     private static string Describe(RuleInfo r) =>
@@ -453,7 +448,7 @@ public partial class RulesPage : UserControl, IPage
     private List<AutoRuleRow> AutoRows()
     {
         var learning = _model.Mode == "learning";
-        string State(AutoRuleInfo? r) => r is null ? "unknown" : !r.Enabled ? "Off" : r.Active ? "On" : "On in Ask and Allow-list modes";
+        string State(AutoRuleInfo? r) => r is null ? "unknown" : !r.Enabled ? L.T("Off") : r.Active ? L.T("On") : L.T("On in Ask and Allow-list modes");
         var services = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.WindowsServices);
         var kernel = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.WindowsKernel);
         var lan = _model.AutoRules.FirstOrDefault(r => r.Name == AutoRulePolicy.LocalNetwork);
@@ -463,22 +458,22 @@ public partial class RulesPage : UserControl, IPage
             new AutoRuleRow(AutoRulePolicy.WindowsServices, "Windows services (svchost.exe)",
                 "DNS name lookups, DHCP, Windows Update, time sync and other services hosted in svchost.exe may connect out.",
                 State(services), known, services?.Enabled ?? true),
-            new AutoRuleRow(AutoRulePolicy.WindowsKernel, "Windows kernel (System)",
-                "Kernel-mode traffic such as file and printer sharing (SMB), NetBIOS and ICMP may connect out.",
+            new AutoRuleRow(AutoRulePolicy.WindowsKernel, L.T("Windows kernel (System)"),
+                L.T("Kernel-mode traffic such as file and printer sharing (SMB), NetBIOS and ICMP may connect out."),
                 State(kernel), known, kernel?.Enabled ?? true),
-            new AutoRuleRow(AutoRulePolicy.LocalNetwork, "Local network",
-                "Every program may reach printers, file shares, casting and other devices on your own network (private and link-local addresses), "
-                + "on home and work networks only, never on public ones. Programs you blocked stay blocked. Off unless you turn it on.",
-                lan is null ? "Not available with this service version" : State(lan), known && lan is not null, lan?.Enabled ?? false),
-            new AutoRuleRow("loopback", "Local traffic (loopback)",
-                "Programs on this PC may talk to each other over 127.0.0.1 and ::1. A block rule for a program still stops its local traffic too.",
-                "Always on", false, true),
-            new AutoRuleRow("inbound", "Inbound connections",
-                "Connections from other machines are left to Windows Firewall unless you add inbound rules for a program, a service or a port.",
-                "Windows Firewall", false, true),
-            new AutoRuleRow("learning", "Programs without a rule",
-                learning ? "Learning mode: every program without a rule may connect out." : "Blocked in Ask and Allow-list modes.",
-                learning ? "Allowed (Learning mode)" : "Blocked", false, learning),
+            new AutoRuleRow(AutoRulePolicy.LocalNetwork, L.T("Local network"),
+                L.T("Every program may reach printers, file shares, casting and other devices on your own network (private and link-local addresses), ")
+                + L.T("on home and work networks only, never on public ones. Programs you blocked stay blocked. Off unless you turn it on."),
+                lan is null ? L.T("Not available with this service version") : State(lan), known && lan is not null, lan?.Enabled ?? false),
+            new AutoRuleRow("loopback", L.T("Local traffic (loopback)"),
+                L.T("Programs on this PC may talk to each other over 127.0.0.1 and ::1. A block rule for a program still stops its local traffic too."),
+                L.T("Always on"), false, true),
+            new AutoRuleRow("inbound", L.T("Inbound connections"),
+                L.T("Connections from other machines are left to Windows Firewall unless you add inbound rules for a program, a service or a port."),
+                L.T("Windows Firewall"), false, true),
+            new AutoRuleRow("learning", L.T("Programs without a rule"),
+                learning ? L.T("Learning mode: every program without a rule may connect out.") : L.T("Blocked in Ask and Allow-list modes."),
+                learning ? L.T("Allowed (Learning mode)") : L.T("Blocked"), false, learning),
         ];
     }
 
@@ -520,7 +515,7 @@ public partial class RulesPage : UserControl, IPage
 
     private void OnBlock(object sender, RoutedEventArgs e) => Add("block", null);
 
-    private static string Organization(RuleInfo r) => r.Managed ? " · set by your organization" : string.Empty;
+    private static string Organization(RuleInfo r) => r.Managed ? L.T(" · set by your organization") : string.Empty;
 
     /// <summary>" · public networks" for a rule on some networks only; nothing for every network.</summary>
     private static string Networks(RuleInfo r) =>
@@ -528,9 +523,9 @@ public partial class RulesPage : UserControl, IPage
 
     private StackPanel BuildActions()
     {
-        var export = new Button { Content = "Export...", Style = (Style)FindResource("GhostButton"), Margin = new Thickness(0, 0, 8, 0), ToolTip = "Save every rule to a file" };
+        var export = new Button { Content = L.T("Export..."), Style = (Style)FindResource("GhostButton"), Margin = new Thickness(0, 0, 8, 0), ToolTip = L.T("Save every rule to a file") };
         export.Click += (_, _) => ExportRules();
-        var import = new Button { Content = "Import...", Style = (Style)FindResource("GhostButton"), ToolTip = "Add or replace rules from a file" };
+        var import = new Button { Content = L.T("Import..."), Style = (Style)FindResource("GhostButton"), ToolTip = L.T("Add or replace rules from a file") };
         import.Click += (_, _) => ImportRules();
         return new StackPanel { Orientation = Orientation.Horizontal, Children = { export, import } };
     }
@@ -539,7 +534,7 @@ public partial class RulesPage : UserControl, IPage
     {
         var dialog = new SaveFileDialog
         {
-            Title = "Export rules",
+            Title = L.T("Export rules"),
             Filter = "CrioFire rules (*.json)|*.json",
             FileName = $"criofire-rules-{Environment.MachineName}-{DateTime.Now:yyyy-MM-dd}.json",
         };
@@ -551,18 +546,18 @@ public partial class RulesPage : UserControl, IPage
         try
         {
             File.WriteAllText(dialog.FileName, RuleBackup.ToJson(set));
-            _model.Say($"Saved {set.Count} rules to {Path.GetFileName(dialog.FileName)}.");
+            _model.Say(L.T($"Saved {set.Count} rules to {Path.GetFileName(dialog.FileName)}."));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _model.Say($"Could not save the file: {ex.Message}");
+            _model.Say(L.T($"Could not save the file: {ex.Message}"));
         }
     }
 
     private void ImportRules()
     {
         var owner = Window.GetWindow(this);
-        var dialog = new OpenFileDialog { Title = "Import rules", Filter = "CrioFire rules (*.json)|*.json" };
+        var dialog = new OpenFileDialog { Title = L.T("Import rules"), Filter = "CrioFire rules (*.json)|*.json" };
         if (owner is null || dialog.ShowDialog(owner) != true)
         {
             return;
@@ -586,14 +581,14 @@ public partial class RulesPage : UserControl, IPage
 
         var from = set.Computer is { Length: > 0 } pc ? $" from {pc}" : string.Empty;
         var missing = merge.Missing.Count == 0 ? string.Empty
-            : $"\n\n{merge.Missing.Count} program(s) in the file are not on this PC and are skipped, e.g. {merge.Missing[0]}.";
+            : L.T($"\n\n{merge.Missing.Count} program(s) in the file are not on this PC and are skipped, e.g. {merge.Missing[0]}.");
         var message =
-            $"The file has {set.Count} rules{from}.\n\n"
-            + $"Merge: adds {merge.Add}, changes {merge.Change}, keeps your other rules.\n"
-            + $"Replace: the same, and removes {replace.Remove} rule(s) that are not in the file."
+            L.T($"The file has {set.Count} rules{from}.\n\n")
+            + L.T($"Merge: adds {merge.Add}, changes {merge.Change}, keeps your other rules.\n")
+            + L.T($"Replace: the same, and removes {replace.Remove} rule(s) that are not in the file.")
             + missing
-            + "\n\nYour current rules are saved as a backup first (Settings, Rule backups). The mode is not changed.";
-        var choice = ChoiceDialog.Ask(owner, "Import rules?", message, ["Merge", "Replace", "Cancel"], defaultIndex: 0);
+            + L.T("\n\nYour current rules are saved as a backup first (Settings, Rule backups). The mode is not changed.");
+        var choice = ChoiceDialog.Ask(owner, L.T("Import rules?"), message, [L.T("Merge"), L.T("Replace"), L.T("Cancel")], defaultIndex: 0);
         if (choice is 0 or 1)
         {
             _model.ImportRules(set, choice == 0 ? "merge" : "replace");
@@ -602,7 +597,7 @@ public partial class RulesPage : UserControl, IPage
 
     private void Add(string action, int? minutes)
     {
-        var dialog = new OpenFileDialog { Filter = "Programs (*.exe)|*.exe", Title = action == "allow" ? "Choose a program to allow" : "Choose a program to block" };
+        var dialog = new OpenFileDialog { Filter = "Programs (*.exe)|*.exe", Title = action == "allow" ? L.T("Choose a program to allow") : L.T("Choose a program to block") };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true)
         {
             _model.SetRule(dialog.FileName, action, minutes);
@@ -612,13 +607,13 @@ public partial class RulesPage : UserControl, IPage
     /// <summary>"every program · on public networks · 3 addresses now · set by your organization".</summary>
     private static string DomainDetails(DomainRuleInfo d)
     {
-        var parts = new List<string> { d.App is null ? "every program" : System.IO.Path.GetFileName(d.App) };
+        var parts = new List<string> { d.App is null ? L.T("every program") : System.IO.Path.GetFileName(d.App) };
         if (d.Networks is { } text && NetworkScope.TryParse(text, out var n) && n != NetworkProfiles.Any)
         {
             parts.Add("on " + NetworkScope.Label(n));
         }
 
-        parts.Add(d.Addresses == 1 ? "1 address now" : $"{d.Addresses} addresses now");
+        parts.Add(d.Addresses == 1 ? L.T("1 address now") : L.T($"{d.Addresses} addresses now"));
         if (d.Managed)
         {
             parts.Add("set by your organization");

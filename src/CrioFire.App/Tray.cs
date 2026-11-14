@@ -111,13 +111,13 @@ internal sealed partial class TrayIcon : IDisposable
 
     private readonly Forms.NotifyIcon _icon = new();
     private readonly Forms.ContextMenuStrip _menu = new() { ShowImageMargin = false, ShowCheckMargin = true };
-    private readonly Forms.ToolStripMenuItem _open = new("Open CrioFire");
-    private readonly Forms.ToolStripMenuItem _learning = new("Learning mode");
-    private readonly Forms.ToolStripMenuItem _ask = new("Ask mode");
-    private readonly Forms.ToolStripMenuItem _allowList = new("Allow-list mode");
-    private readonly Forms.ToolStripMenuItem _resume = new("Panic is on: resume my rules") { Visible = false };
-    private readonly Forms.ToolStripMenuItem _autostart = new("Start with Windows");
-    private readonly Forms.ToolStripMenuItem _exit = new("Exit (protection stays on)");
+    private readonly Forms.ToolStripMenuItem _open = new(L.T("Open CrioFire"));
+    private readonly Forms.ToolStripMenuItem _learning = new(L.T("Learning mode"));
+    private readonly Forms.ToolStripMenuItem _ask = new(L.T("Ask mode"));
+    private readonly Forms.ToolStripMenuItem _allowList = new(L.T("Allow-list mode"));
+    private readonly Forms.ToolStripMenuItem _resume = new(L.T("Panic is on: resume my rules")) { Visible = false };
+    private readonly Forms.ToolStripMenuItem _autostart = new(L.T("Start with Windows"));
+    private readonly Forms.ToolStripMenuItem _exit = new(L.T("Exit (protection stays on)"));
     private readonly Drawing.Icon _base;
     private readonly Dictionary<State, Drawing.Icon> _icons = [];
     private State? _state;
@@ -137,7 +137,7 @@ internal sealed partial class TrayIcon : IDisposable
         _autostart.Click += (_, _) => AutostartToggled?.Invoke(this, EventArgs.Empty);
         _resume.Click += (_, _) => ResumeRequested?.Invoke(this, EventArgs.Empty);
         _exit.Click += (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty);
-        _exit.ToolTipText = "Closes the app. The CrioFire service keeps filtering connections.";
+        _exit.ToolTipText = L.T("Closes the app. The CrioFire service keeps filtering connections.");
         _menu.Items.AddRange(new Forms.ToolStripItem[]
         {
             _open, _resume, new Forms.ToolStripSeparator(),
@@ -176,10 +176,10 @@ internal sealed partial class TrayIcon : IDisposable
     {
         var online = status is { Installed: true };
         var panic = online ? status!.Panic : "off";
-        var text = status is null ? "CrioFire: service not running"
-            : !status.Installed ? "CrioFire: not set up yet"
-            : panic == "block" ? "CrioFire: PANIC · all network traffic blocked"
-            : panic == "allow" ? "CrioFire: PANIC · everything allowed, rules paused"
+        var text = status is null ? L.T("CrioFire: service not running")
+            : !status.Installed ? L.T("CrioFire: not set up yet")
+            : panic == "block" ? L.T("CrioFire: PANIC · all network traffic blocked")
+            : panic == "allow" ? L.T("CrioFire: PANIC · everything allowed, rules paused")
             : $"CrioFire: protected · {AppModel.ModeName(mode)} mode" + (pending > 0 ? $" · {pending} waiting" : string.Empty);
         _resume.Visible = panic != "off";
         _icon.Text = text.Length > 120 ? text[..120] : text;

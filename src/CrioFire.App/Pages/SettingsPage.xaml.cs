@@ -19,9 +19,9 @@ public partial class SettingsPage : UserControl, IPage
         InitializeComponent();
     }
 
-    public string Title => "Settings";
+    public string Title => L.T("Settings");
 
-    public string Subtitle => "Appearance, startup, recovery, history and version.";
+    public string Subtitle => L.T("Appearance, startup, recovery, history and version.");
 
     public FrameworkElement? Actions => null;
 
@@ -51,21 +51,21 @@ public partial class SettingsPage : UserControl, IPage
         CloseToTraySwitch.IsChecked = Prefs.Current.CloseToTray;
 
         var app = typeof(SettingsPage).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
-        var service = _model.Status is { } s ? s.Version : "not running";
+        var service = _model.Status is { } s ? s.Version : L.T("not running");
         AboutText.Text =
-            $"CrioFire Private Firewall by CrioSoft LLC.\n" +
-            $"Free for personal use, non-profits, schools, government, and businesses on up to 3 computers. " +
-            $"Other business use needs a CrioSoft commercial license (see LICENSING.md).\n" +
+            L.T($"CrioFire Private Firewall by CrioSoft LLC.\n") +
+            L.T($"Free for personal use, non-profits, schools, government, and businesses on up to 3 computers. ") +
+            L.T($"Other business use needs a CrioSoft commercial license (see LICENSING.md).\n") +
             $"App {app} · Service {service}\n" +
-            $"Blocked-connection log: {TrafficLog.DefaultPath}" +
+            L.T($"Blocked-connection log: {TrafficLog.DefaultPath}") +
             ManagedText(_management ?? AppModel.Management());
         _management = null;
 
         var networks = _networks ?? NetworkList.Current();
         _networks = null;
         NetworksText.Text = networks.Count == 0
-            ? "Windows does not report a network right now."
-            : $"This PC is on {ConnectedNetworks.Describe(networks)}.";
+            ? L.T("Windows does not report a network right now.")
+            : L.T($"This PC is on {ConnectedNetworks.Describe(networks)}.");
 
         ShowLicense(_license ?? AppModel.License());
         _license = null;
@@ -73,6 +73,9 @@ public partial class SettingsPage : UserControl, IPage
         ProtectionSwitch.IsEnabled = _model.Status is not null;
         ShowBackups(_backups ?? AppModel.Backups());
         _backups = null;
+        LanguageText.Text = Prefs.Current.Language == Languages.System
+            ? L.T($"{L.Current.Name}, the same as Windows.")
+            : L.Current.Name;
         ShowLogs(_loaded ? _logs : AppModel.Logs());
         ShowUpdate(_loaded ? _update : AppModel.UpdateState());
         _logs = null;
@@ -82,12 +85,12 @@ public partial class SettingsPage : UserControl, IPage
         // The same panic choices as the sidebar, without "remove all rules": nothing here deletes a rule.
         var panic = _model.PanicMode;
         var online = _model.Status is not null;
-        PanicState.Text = !online ? "The CrioFire service is not running, so panic is not available here. Use the command line from an administrator prompt."
+        PanicState.Text = !online ? L.T("The CrioFire service is not running, so panic is not available here. Use the command line from an administrator prompt.")
             : panic switch
             {
-                "allow" => "Panic is on: everything is allowed and your rules are paused.",
-                "block" => "Panic is on: all network traffic is blocked. Your rules are kept.",
-                _ => "Panic is off. Your rules apply.",
+                "allow" => L.T("Panic is on: everything is allowed and your rules are paused."),
+                "block" => L.T("Panic is on: all network traffic is blocked. Your rules are kept."),
+                _ => L.T("Panic is off. Your rules apply."),
             };
         ResumeButton.Visibility = online && panic != "off" ? Visibility.Visible : Visibility.Collapsed;
         AllowAllButton.Visibility = online && panic != "allow" ? Visibility.Visible : Visibility.Collapsed;
@@ -107,7 +110,7 @@ public partial class SettingsPage : UserControl, IPage
         var enable = AutostartSwitch.IsChecked == true;
         if (!Autostart.Set(enable))
         {
-            _model.Say("Could not change the Windows startup setting.");
+            _model.Say(L.T("Could not change the Windows startup setting."));
         }
 
         AutostartSwitch.IsChecked = Autostart.IsEnabled;
@@ -124,14 +127,14 @@ public partial class SettingsPage : UserControl, IPage
         BackupList.Children.Clear();
         if (backups.Count == 0)
         {
-            BackupList.Children.Add(new TextBlock { Text = "No backups yet.", FontSize = 13 });
+            BackupList.Children.Add(new TextBlock { Text = L.T("No backups yet."), FontSize = 13 });
             return;
         }
 
         foreach (var backup in backups.Take(10))
         {
             var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-            var restore = new Button { Content = "Restore...", Style = (Style)FindResource("GhostButton"), MinHeight = 32 };
+            var restore = new Button { Content = L.T("Restore..."), Style = (Style)FindResource("GhostButton"), MinHeight = 32 };
             restore.Click += (_, _) => Restore(backup);
             DockPanel.SetDock(restore, Dock.Right);
             row.Children.Add(restore);
@@ -147,9 +150,9 @@ public partial class SettingsPage : UserControl, IPage
 
     private static string ReasonText(string reason) => reason switch
     {
-        _ when reason.StartsWith("auto", StringComparison.Ordinal) => "saved automatically",
-        _ when reason.StartsWith("before-import", StringComparison.Ordinal) => "before an import",
-        _ when reason.StartsWith("before-remove-all", StringComparison.Ordinal) => "before removing all rules",
+        _ when reason.StartsWith("auto", StringComparison.Ordinal) => L.T("saved automatically"),
+        _ when reason.StartsWith("before-import", StringComparison.Ordinal) => L.T("before an import"),
+        _ when reason.StartsWith("before-remove-all", StringComparison.Ordinal) => L.T("before removing all rules"),
         _ => reason,
     };
 
@@ -160,12 +163,12 @@ public partial class SettingsPage : UserControl, IPage
             return;
         }
 
-        var mode = plan.ModeChange is { } m ? $" The mode goes back to {m}." : string.Empty;
-        var message = $"This puts your rules back as they were on {backup.CreatedUtc.ToLocalTime():g}: "
-            + $"{plan.Add} added, {plan.Change} changed, {plan.Remove} removed.{mode}"
-            + (plan.Missing.Count > 0 ? $" {plan.Missing.Count} program(s) are no longer on this PC and are skipped." : string.Empty)
-            + " Your rules from now are saved as a backup first.";
-        if (ChoiceDialog.Ask(owner, "Restore this backup?", message, ["Restore", "Cancel"], defaultIndex: 1) == 0)
+        var mode = plan.ModeChange is { } m ? L.T($" The mode goes back to {m}.") : string.Empty;
+        var message = L.T($"This puts your rules back as they were on {backup.CreatedUtc.ToLocalTime():g}: ")
+            + L.T($"{plan.Add} added, {plan.Change} changed, {plan.Remove} removed.{mode}")
+            + (plan.Missing.Count > 0 ? L.T($" {plan.Missing.Count} program(s) are no longer on this PC and are skipped.") : string.Empty)
+            + L.T(" Your rules from now are saved as a backup first.");
+        if (ChoiceDialog.Ask(owner, L.T("Restore this backup?"), message, [L.T("Restore"), L.T("Cancel")], defaultIndex: 1) == 0)
         {
             _model.RestoreBackup(backup.Name);
         }
@@ -173,19 +176,19 @@ public partial class SettingsPage : UserControl, IPage
 
     private static string ManagedText(CrioFire.Core.Management.ManagementInfo? info) => info is null
         ? string.Empty
-        : $"\nManaged by the CrioFire Server {info.Url}"
-            + (info.LastCheckinUtc is { } last ? $", last check-in {last.ToLocalTime():g}" : ", not checked in yet")
-            + (info.LastError is { } error ? $". Last problem: {error}" : ".")
+        : L.T($"\nManaged by the CrioFire Server {info.Url}")
+            + (info.LastCheckinUtc is { } last ? L.T($", last check-in {last.ToLocalTime():g}") : L.T(", not checked in yet"))
+            + (info.LastError is { } error ? L.T($". Last problem: {error}") : ".")
             + (info.Policy is { } p
-                ? $"\nOrganization policy: {p.Name}, {p.Rules} rules"
+                ? L.T($"\nOrganization policy: {p.Name}, {p.Rules} rules")
                     + (p.Mode is null ? string.Empty : $", mode {p.Mode}")
-                    + (p.AllowUserRules ? ", your own rules allowed" : ", your own rules not allowed")
-                    + (p.RequireAdmin ? ", tamper protection required." : ".")
+                    + (p.AllowUserRules ? L.T(", your own rules allowed") : L.T(", your own rules not allowed"))
+                    + (p.RequireAdmin ? L.T(", tamper protection required.") : ".")
                 : string.Empty);
 
     private void ShowLicense(LicenseStatus? status)
     {
-        LicenseText.Text = status?.Message ?? "The license is shown when the CrioFire service is running.";
+        LicenseText.Text = status?.Message ?? L.T("The license is shown when the CrioFire service is running.");
         LicenseText.SetResourceReference(TextBlock.ForegroundProperty,
             status?.State is LicenseStates.Expired or LicenseStates.Invalid or LicenseStates.Expiring ? "FireBrush" : "TextBrush");
         LicenseRemove.Visibility = status is { State: not LicenseStates.None } ? Visibility.Visible : Visibility.Collapsed;
@@ -208,7 +211,7 @@ public partial class SettingsPage : UserControl, IPage
         var key = LicenseKeys.Clean(LicenseKeyBox.Text);
         if (key.Length == 0)
         {
-            _model.Say("Paste the license key from your license email first.");
+            _model.Say(L.T("Paste the license key from your license email first."));
             return;
         }
 
@@ -222,11 +225,48 @@ public partial class SettingsPage : UserControl, IPage
     private void OnRemoveLicense(object sender, RoutedEventArgs e)
     {
         if (Window.GetWindow(this) is { } owner
-            && ChoiceDialog.Ask(owner, "Remove the license key?", "CrioFire goes back to free use. Keep the key if this PC belongs to a business with more than 3 computers.", ["Remove", "Cancel"], defaultIndex: 1) == 0
+            && ChoiceDialog.Ask(owner, L.T("Remove the license key?"), L.T("CrioFire goes back to free use. Keep the key if this PC belongs to a business with more than 3 computers."), [L.T("Remove"), L.T("Cancel")], defaultIndex: 1) == 0
             && _model.SetLicense(string.Empty) is { } status)
         {
             ShowLicense(status);
         }
+    }
+
+    private void OnLanguage(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = LanguageButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        var choices = new List<(string Code, string Name, string? Hint)> { (Languages.System, L.T("Same as Windows"), null) };
+        choices.AddRange(Languages.All.Select(l => (l.Code, l.Name, (string?)l.EnglishName)));
+        foreach (var (code, name, hint) in choices)
+        {
+            var item = new MenuItem { Header = name, IsCheckable = true, IsChecked = Prefs.Current.Language == code, ToolTip = hint };
+            item.Click += (_, _) => ChooseLanguage(code);
+            menu.Items.Add(item);
+        }
+
+        menu.IsOpen = true;
+    }
+
+    private void ChooseLanguage(string code)
+    {
+        Prefs.Current.Language = code;
+        Prefs.Save();
+        var next = Languages.Resolve(code, CultureInfo.CurrentUICulture);
+        if (next.Code == L.Current.Code)
+        {
+            Refresh();
+            return;
+        }
+
+        if (Window.GetWindow(this) is { } owner
+            && ChoiceDialog.Ask(owner, L.T($"Switch to {next.Name}?"), L.T("CrioFire restarts to change its language. The firewall keeps working meanwhile."),
+                [L.T("Restart now"), L.T("Later")]) == 0)
+        {
+            UiText.Restart();
+            return;
+        }
+
+        Refresh();
     }
 
     private void ShowUpdate(UpdateState? state)
@@ -241,15 +281,15 @@ public partial class SettingsPage : UserControl, IPage
         var culture = CultureInfo.CurrentCulture;
         var last = state?.Last;
         var when = last is null ? null : $" (checked {last.CheckedUtc.ToLocalTime().ToString("g", culture)})";
-        UpdateText.Text = state is null ? "The CrioFire service is not running, or is too old to check for updates."
-            : state.Newer && last?.Latest is { } latest ? $"CrioFire {latest.Version} is available; you have {state.Current}.{when}"
-            : last?.Error is { } problem ? $"The last check failed: {problem}{when}"
-            : last is null ? $"You have CrioFire {state.Current}. Not checked yet."
-            : last.Latest is null ? $"You have CrioFire {state.Current}. No release is published yet.{when}"
-            : $"You have the latest CrioFire, {state.Current}.{when}";
+        UpdateText.Text = state is null ? L.T("The CrioFire service is not running, or is too old to check for updates.")
+            : state.Newer && last?.Latest is { } latest ? L.T($"CrioFire {latest.Version} is available; you have {state.Current}.{when}")
+            : last?.Error is { } problem ? L.T($"The last check failed: {problem}{when}")
+            : last is null ? L.T($"You have CrioFire {state.Current}. Not checked yet.")
+            : last.Latest is null ? L.T($"You have CrioFire {state.Current}. No release is published yet.{when}")
+            : L.T($"You have the latest CrioFire, {state.Current}.{when}");
         if (state?.TurnedOffByPolicy == true)
         {
-            UpdateText.Text += " Your administrator turned the daily check off for this PC.";
+            UpdateText.Text += L.T(" Your administrator turned the daily check off for this PC.");
         }
     }
 
@@ -262,12 +302,12 @@ public partial class SettingsPage : UserControl, IPage
     private async void OnCheckUpdate(object sender, RoutedEventArgs e)
     {
         CheckUpdateButton.IsEnabled = false;
-        UpdateText.Text = "Checking...";
+        UpdateText.Text = L.T("Checking...");
         var (state, error) = await Task.Run(AppModel.CheckUpdate);
         ShowUpdate(state ?? AppModel.UpdateState());
         if (error is not null)
         {
-            UpdateText.Text = "Could not check: " + error;
+            UpdateText.Text = L.T("Could not check: ") + error;
         }
 
         _model.NotifyChanged();   // the banner follows
@@ -293,9 +333,9 @@ public partial class SettingsPage : UserControl, IPage
         KeepChoices.IsEnabled = SizeChoices.IsEnabled = RecordAllowedSwitch.IsEnabled = ClearLogsButton.IsEnabled = logs is not null;
         var culture = CultureInfo.CurrentCulture;
         LogsText.Text = logs is null
-            ? "The CrioFire service is not running, or is too old to change this."
-            : $"Keeping {LogSettings.KeepText(settings.KeepDays)}, up to {settings.MaxMegabytes} MB per log. Now: blocked {DataSize.Text(logs.BlockedBytes, culture)}, allowed {DataSize.Text(logs.AllowedBytes, culture)}"
-              + (logs.OldestUtc is { } oldest ? $", the oldest from {oldest.ToLocalTime().ToString("d", culture)}." : ", nothing recorded yet.");
+            ? L.T("The CrioFire service is not running, or is too old to change this.")
+            : L.T($"Keeping {LogSettings.KeepText(settings.KeepDays)}, up to {settings.MaxMegabytes} MB per log. Now: blocked {DataSize.Text(logs.BlockedBytes, culture)}, allowed {DataSize.Text(logs.AllowedBytes, culture)}")
+              + (logs.OldestUtc is { } oldest ? L.T($", the oldest from {oldest.ToLocalTime().ToString("d", culture)}.") : L.T(", nothing recorded yet."));
     }
 
     private void ChangeLogs(Func<LogSettings, LogSettings> change)
@@ -330,7 +370,7 @@ public partial class SettingsPage : UserControl, IPage
     private void OnClearLogs(object sender, RoutedEventArgs e)
     {
         if (Window.GetWindow(this) is not { } owner
-            || ChoiceDialog.Ask(owner, "Clear the connection history?", "CrioFire forgets every blocked and allowed connection recorded so far. The Dashboard, Traffic and Reports start again from now. Your rules stay as they are.",
+            || ChoiceDialog.Ask(owner, L.T("Clear the connection history?"), L.T("CrioFire forgets every blocked and allowed connection recorded so far. The Dashboard, Traffic and Reports start again from now. Your rules stay as they are."),
                 ["Clear history", "Cancel"], defaultIndex: 1, danger: true) != 0)
         {
             return;
@@ -353,16 +393,16 @@ public partial class SettingsPage : UserControl, IPage
 
     private void OnAllowAll(object sender, RoutedEventArgs e) => AskThenPanic(
         "allow",
-        "Allow everything?",
-        "Every program may connect, in and out, until you resume. Your rules, mode and automatic rules are paused, not deleted.",
-        "Allow everything",
+        L.T("Allow everything?"),
+        L.T("Every program may connect, in and out, until you resume. Your rules, mode and automatic rules are paused, not deleted."),
+        L.T("Allow everything"),
         danger: false);
 
     private void OnBlockAll(object sender, RoutedEventArgs e) => AskThenPanic(
         "block",
-        "Block all network traffic?",
-        "Like pulling the network cable: no new connection in or out until you resume. Programs on this PC can still talk to each other. Your rules are kept.",
-        "Block everything",
+        L.T("Block all network traffic?"),
+        L.T("Like pulling the network cable: no new connection in or out until you resume. Programs on this PC can still talk to each other. Your rules are kept."),
+        L.T("Block everything"),
         danger: true);
 
     /// <summary>One click on a settings page is easy to make by accident, so panic is confirmed here.</summary>
@@ -373,7 +413,7 @@ public partial class SettingsPage : UserControl, IPage
             return;
         }
 
-        if (ChoiceDialog.Ask(owner, title, message, [yes, "Cancel"], defaultIndex: 1, danger: danger) == 0)
+        if (ChoiceDialog.Ask(owner, title, message, [yes, L.T("Cancel")], defaultIndex: 1, danger: danger) == 0)
         {
             _model.Panic(action);
         }

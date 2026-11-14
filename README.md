@@ -182,6 +182,11 @@ blocked, on glass panels that glow softly in their color. Light and dark themes 
 default; switch with the sun/moon button or in **Settings** (remembered per user in
 `%LocalAppData%\CrioFire\ui.txt`).
 
+The app follows the Windows display language when it is one of its 16 (English, Chinese
+(Simplified), Hindi, Spanish, Arabic, French, Bengali, Portuguese (Brazil), Russian, Indonesian,
+Urdu, German, Japanese, Turkish, Korean, Vietnamese), else English; **Settings → Language** picks
+another. The command line and the service stay in English. See [docs/TRANSLATING.md](docs/TRANSLATING.md).
+
 - **Dashboard**: the protection ring and mode (Learning / Ask / Allow-list), blocked connections
   over the last 24 hours, the programs blocked most, programs waiting for your decision, and live
   connections. Switching to Ask or Allow-list offers to allow everything running now, then asks you

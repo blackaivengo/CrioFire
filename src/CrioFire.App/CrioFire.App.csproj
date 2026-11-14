@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <Resource Include="Assets\criofire.ico" />
+    <!-- Translations (English text -> translation), loaded by UiText. en.json lists every text. -->
+    <EmbeddedResource Include="Strings\*.json" LogicalName="CrioFire.App.Strings.%(Filename).json" />
   </ItemGroup>
 
   <ItemGroup>

@@ -63,22 +63,22 @@ public partial class DomainRuleDialog : Window
         SaveButton.SetResourceReference(StyleProperty, allow ? "IceButton" : "FireButton");
         if (domain is null || appMissing)
         {
-            PreviewText.Text = string.IsNullOrWhiteSpace(DomainBox.Text) ? "Type a domain, e.g. example.com." : appMissing ? "There is no program at that path." : error ?? string.Empty;
+            PreviewText.Text = string.IsNullOrWhiteSpace(DomainBox.Text) ? L.T("Type a domain, e.g. example.com.") : appMissing ? L.T("There is no program at that path.") : error ?? string.Empty;
             PreviewBox.SetResourceReference(BackgroundProperty, "ChipFireBrush");
             PreviewText.SetResourceReference(ForegroundProperty, "ChipFireTextBrush");
             return;
         }
 
-        var who = App is null ? "Every program" : Path.GetFileName(App);
+        var who = App is null ? L.T("Every program") : Path.GetFileName(App);
         var where = Networks == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(Networks)}";
-        PreviewText.Text = $"{who} {(allow ? "may connect" : "is blocked from connecting")} to {domain} and every name under it{where}.";
+        PreviewText.Text = L.T($"{who} {(allow ? "may connect" : "is blocked from connecting")} to {domain} and every name under it{where}.");
         PreviewBox.SetResourceReference(BackgroundProperty, allow ? "ChipIceBrush" : "ChipFireBrush");
         PreviewText.SetResourceReference(ForegroundProperty, allow ? "ChipIceTextBrush" : "ChipFireTextBrush");
     }
 
     private void OnBrowse(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Filter = "Programs (*.exe)|*.exe", Title = "Choose the program this rule is for" };
+        var dialog = new OpenFileDialog { Filter = "Programs (*.exe)|*.exe", Title = L.T("Choose the program this rule is for") };
         if (dialog.ShowDialog(this) == true)
         {
             AppBox.Text = dialog.FileName;

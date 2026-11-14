@@ -19,7 +19,7 @@ public partial class DetailsWindow : Window
         InitializeComponent();
         TitleText.Text = target.Item is { } i ? $"{target.Who} · {(i.Allowed ? "allowed" : "blocked")}" : target.Who;
         PathText.Text = target.App ?? (target.Remote is { } r ? NetworkFacts.AddressScope(r) : string.Empty);
-        AllowButton.Content = target.Item is { Allowed: false } ? "Unblock" : "Allow";
+        AllowButton.Content = target.Item is { Allowed: false } ? L.T("Unblock") : L.T("Allow");
         AllowButton.Visibility = BlockButton.Visibility = target.App is null ? Visibility.Collapsed : Visibility.Visible;
         FolderButton.IsEnabled = target.App is not null && File.Exists(target.App);
         ShowFacts();

@@ -25,7 +25,7 @@ internal sealed record MenuTarget(string? App, string? Service = null, string? R
     /// <summary>"service Dnscache", "chat.exe", "Windows services (svchost.exe)", or the address.</summary>
     public string Who => OneService is { } service ? $"service {service}"
         : App is not null ? Pages.Who.Of(App, Service).Name
-        : Remote ?? "this connection";
+        : Remote ?? L.T("this connection");
 
     /// <summary>The connection as the rule actions expect it; made up for rows that are not recorded connections.</summary>
     public TrafficItem AsItem() => Item ?? new TrafficItem(
@@ -85,50 +85,50 @@ internal static class ConnectionFacts
             var span = i.FirstUtc == i.LastUtc
                 ? i.LastUtc.ToLocalTime().ToString("g", c)
                 : $"{i.FirstUtc.ToLocalTime().ToString("g", c)} – {i.LastUtc.ToLocalTime().ToString("g", c)}";
-            facts.Add(new Fact("Connection", $"{(inbound ? "Inbound (another machine connected to this PC)" : "Outbound (this PC connected out)")}, {i.Protocol ?? "?"}, {times}: {span}"));
+            facts.Add(new Fact(L.T("Connection"), $"{(inbound ? "Inbound (another machine connected to this PC)" : "Outbound (this PC connected out)")}, {i.Protocol ?? "?"}, {times}: {span}"));
         }
 
         if (t.Remote is { } remote)
         {
             var host = HostNames.TryGetValue(remote, out var name)
-                ? (name.Length == 0 ? "no host name found" : name)
-                : NetworkFacts.AddressScope(remote) == "this PC (loopback)" ? "this PC" : "looking up the host name…";
-            facts.Add(new Fact(inbound ? "From" : "To", $"{remote} · {NetworkFacts.AddressScope(remote)} · {host}"));
+                ? (name.Length == 0 ? L.T("no host name found") : name)
+                : NetworkFacts.AddressScope(remote) == "this PC (loopback)" ? L.T("this PC") : L.T("looking up the host name…");
+            facts.Add(new Fact(inbound ? L.T("From") : L.T("To"), $"{remote} · {NetworkFacts.AddressScope(remote)} · {host}"));
         }
 
         if (t.Port > 0)
         {
-            var known = NetworkFacts.PortName(t.Port) ?? "no well-known service";
-            facts.Add(new Fact(inbound ? "Port on this PC" : "Port on the other side", $"{t.Port} ({known})"));
+            var known = NetworkFacts.PortName(t.Port) ?? L.T("no well-known service");
+            facts.Add(new Fact(inbound ? L.T("Port on this PC") : L.T("Port on the other side"), $"{t.Port} ({known})"));
         }
 
         if (i?.Local is { } local)
         {
-            facts.Add(new Fact("Local address and port", inbound ? local : $"{local} (Windows picks this source port for each new connection)"));
+            facts.Add(new Fact(L.T("Local address and port"), inbound ? local : L.T($"{local} (Windows picks this source port for each new connection)")));
         }
 
         if (i is not null)
         {
-            facts.Add(new Fact(i.Allowed ? "Why it was allowed" : "Why it was blocked",
-                i.WhyLabel + (i.FilterId != 0 ? $" · CrioFire filter {i.FilterId}" : string.Empty)));
+            facts.Add(new Fact(i.Allowed ? L.T("Why it was allowed") : L.T("Why it was blocked"),
+                i.WhyLabel + (i.FilterId != 0 ? L.T($" · CrioFire filter {i.FilterId}") : string.Empty)));
         }
 
         if (t.App is not null || i is not null)
         {
-            facts.Add(new Fact("Program", Program(t.App)));
+            facts.Add(new Fact(L.T("Program"), Program(t.App)));
         }
 
         if (t.Service is { } services)
         {
             var all = WindowsServiceList.Read().ToDictionary(s => s.Name, s => s.DisplayName, StringComparer.OrdinalIgnoreCase);
-            facts.Add(new Fact("Windows service", string.Join(", ", services.Split(',', StringSplitOptions.TrimEntries)
+            facts.Add(new Fact(L.T("Windows service"), string.Join(", ", services.Split(',', StringSplitOptions.TrimEntries)
                 .Select(s => all.TryGetValue(s, out var display) ? $"{display} ({s})" : s))));
         }
 
         if (t.App is not null || t.Service is not null)
         {
-            facts.Add(new Fact("Rules for it", Rules(t, model)));
-            facts.Add(new Fact("Right now", Live(t.App)));
+            facts.Add(new Fact(L.T("Rules for it"), Rules(t, model)));
+            facts.Add(new Fact(L.T("Right now"), Live(t.App)));
         }
 
         return facts;
@@ -142,17 +142,17 @@ internal static class ConnectionFacts
     {
         if (string.IsNullOrEmpty(app))
         {
-            return "Unknown: Windows did not report a program.";
+            return L.T("Unknown: Windows did not report a program.");
         }
 
         if (KnownApps.IsKernel(app))
         {
-            return "The Windows kernel: file and printer sharing, NetBIOS, ICMP and other system traffic.";
+            return L.T("The Windows kernel: file and printer sharing, NetBIOS, ICMP and other system traffic.");
         }
 
         if (!File.Exists(app))
         {
-            return $"{app} (not found on this PC any more)";
+            return L.T($"{app} (not found on this PC any more)");
         }
 
         try
@@ -161,11 +161,11 @@ internal static class ConnectionFacts
             var parts = new[] { v.FileDescription, v.CompanyName, string.IsNullOrWhiteSpace(v.FileVersion) ? null : $"version {v.FileVersion}" }
                 .Where(p => !string.IsNullOrWhiteSpace(p))
                 .ToList();
-            return parts.Count == 0 ? "No description in the file." : string.Join(" · ", parts);
+            return parts.Count == 0 ? L.T("No description in the file.") : string.Join(" · ", parts);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return "Could not read the file's details.";
+            return L.T("Could not read the file's details.");
         }
     }
 
@@ -188,7 +188,7 @@ internal static class ConnectionFacts
             }
         }
 
-        return lines.Count == 0 ? $"None. The mode decides ({AppModel.ModeName(model.Mode)} mode)." : string.Join("\n", lines);
+        return lines.Count == 0 ? L.T($"None. The mode decides ({AppModel.ModeName(model.Mode)} mode).") : string.Join("\n", lines);
     }
 
     private static string Live(string? app)
@@ -203,12 +203,12 @@ internal static class ConnectionFacts
             .ToList();
         if (live.Count == 0)
         {
-            return "No open connections or listening ports.";
+            return L.T("No open connections or listening ports.");
         }
 
         var pids = string.Join(", ", live.Select(c => c.ProcessId).Distinct().Order());
         var listening = live.Count(c => c.Remote is null);
-        return $"{live.Count - listening} open connections, {listening} listening ports · process {pids}";
+        return L.T($"{live.Count - listening} open connections, {listening} listening ports · process {pids}");
     }
 }
 
@@ -283,31 +283,31 @@ internal static class RowMenu
 
     private static void Fill(ContextMenu menu, AppModel model, Window owner, MenuTarget t, IReadOnlyList<TrafficItem>? many)
     {
-        var title = many is not null ? $"{many.Count} selected rows" : t.Who;
+        var title = many is not null ? L.T($"{many.Count} selected rows") : t.Who;
         menu.Items.Add(new MenuItem { Header = title, IsHitTestVisible = false, Focusable = false, FontWeight = FontWeights.SemiBold });
 
         if (many is not null)
         {
-            menu.Items.Add(Item($"Allow all {many.Count}", () => model.ApplyToMany(owner, many, "allow")));
-            menu.Items.Add(Item($"Allow all {many.Count} for 1 hour", () => model.ApplyToMany(owner, many, "allow", 60)));
-            menu.Items.Add(Item($"Block all {many.Count}", () => model.ApplyToMany(owner, many, "block"), danger: true));
+            menu.Items.Add(Item(L.T($"Allow all {many.Count}"), () => model.ApplyToMany(owner, many, "allow")));
+            menu.Items.Add(Item(L.T($"Allow all {many.Count} for 1 hour"), () => model.ApplyToMany(owner, many, "allow", 60)));
+            menu.Items.Add(Item(L.T($"Block all {many.Count}"), () => model.ApplyToMany(owner, many, "block"), danger: true));
             menu.Items.Add(new Separator());
         }
         else if (t.App is not null)
         {
             var item = t.AsItem();
             var isService = KnownApps.IsServiceHost(t.App);
-            var unblock = t.Item is { Allowed: false } ? "Unblock" : "Allow";
+            var unblock = t.Item is { Allowed: false } ? L.T("Unblock") : L.T("Allow");
             menu.Items.Add(Item($"{unblock} {t.Who}", () => model.ApplyToMany(owner, [item], "allow")));
-            menu.Items.Add(Item($"Allow {t.Who} for 1 hour", () => model.ApplyToMany(owner, [item], "allow", 60), enabled: !isService));
-            menu.Items.Add(Item($"Block {t.Who}", () => model.ApplyToMany(owner, [item], "block"), danger: true));
+            menu.Items.Add(Item(L.T($"Allow {t.Who} for 1 hour"), () => model.ApplyToMany(owner, [item], "allow", 60), enabled: !isService));
+            menu.Items.Add(Item(L.T($"Block {t.Who}"), () => model.ApplyToMany(owner, [item], "block"), danger: true));
 
             var hasRules = t.OneService is { } svc
                 ? model.Rules.Any(r => r.Kind == nameof(FilterKind.ServiceRule) && string.Equals(r.Service, svc, StringComparison.OrdinalIgnoreCase))
                 : model.Rules.Any(r => r.Kind == nameof(FilterKind.AppRule) && KnownApps.SameApp(r.App, t.App));
             if (hasRules)
             {
-                menu.Items.Add(Item($"Remove the rules for {t.Who}", () =>
+                menu.Items.Add(Item(L.T($"Remove the rules for {t.Who}"), () =>
                 {
                     if (t.OneService is { } s)
                     {
@@ -323,37 +323,37 @@ internal static class RowMenu
             menu.Items.Add(new Separator());
         }
 
-        menu.Items.Add(Item("More info…", () => DetailsWindow.Open(owner, model, t)));
+        menu.Items.Add(Item(L.T("More info…"), () => DetailsWindow.Open(owner, model, t)));
         if (t.App is not null)
         {
-            menu.Items.Add(Item("Show all its connections", () => model.OpenActivity(t.OneService is { } s
+            menu.Items.Add(Item(L.T("Show all its connections"), () => model.OpenActivity(t.OneService is { } s
                 ? new ActivityQuery("all", Service: s)
                 : new ActivityQuery("all", App: t.App))));
-            menu.Items.Add(Item("Open file location", () => OpenFolder(t.App), enabled: File.Exists(t.App)));
+            menu.Items.Add(Item(L.T("Open file location"), () => OpenFolder(t.App), enabled: File.Exists(t.App)));
         }
 
         if (t.Remote is { } remote)
         {
             var scope = NetworkFacts.AddressScope(remote);
             menu.Items.Add(new Separator());
-            menu.Items.Add(Item($"Show connections with {remote}", () => model.OpenActivity(new ActivityQuery("all", Search: remote))));
-            menu.Items.Add(Item($"Block {remote} for every program…", () => BlockAddress(model, owner, remote),
+            menu.Items.Add(Item(L.T($"Show connections with {remote}"), () => model.OpenActivity(new ActivityQuery("all", Search: remote))));
+            menu.Items.Add(Item(L.T($"Block {remote} for every program…"), () => BlockAddress(model, owner, remote),
                 enabled: scope is not ("this PC (loopback)" or "unknown"), danger: true));
-            menu.Items.Add(Item($"Look up {remote} online", () => Browse($"https://ipinfo.io/{remote}"), enabled: scope == "internet"));
+            menu.Items.Add(Item(L.T($"Look up {remote} online"), () => Browse($"https://ipinfo.io/{remote}"), enabled: scope == "internet"));
         }
 
         menu.Items.Add(new Separator());
         if (t.App is not null)
         {
-            menu.Items.Add(Item("Copy program path", () => Copy(model, t.App)));
+            menu.Items.Add(Item(L.T("Copy program path"), () => Copy(model, t.App)));
         }
 
         if (t.Remote is not null)
         {
-            menu.Items.Add(Item("Copy address", () => Copy(model, t.Port > 0 ? $"{t.Remote}:{t.Port}" : t.Remote)));
+            menu.Items.Add(Item(L.T("Copy address"), () => Copy(model, t.Port > 0 ? $"{t.Remote}:{t.Port}" : t.Remote)));
         }
 
-        menu.Items.Add(Item("Copy details", () => Copy(model, ConnectionFacts.AsText(t.Who, t.App, ConnectionFacts.For(t, model)))));
+        menu.Items.Add(Item(L.T("Copy details"), () => Copy(model, ConnectionFacts.AsText(t.Who, t.App, ConnectionFacts.For(t, model)))));
     }
 
     private static MenuItem Item(string header, Action action, bool enabled = true, bool danger = false)
@@ -371,7 +371,7 @@ internal static class RowMenu
     private static void BlockAddress(AppModel model, Window owner, string address)
     {
         var choice = ChoiceDialog.Ask(owner, $"Block {address}?",
-            $"No program on this PC will be able to connect to {address}, and it will not be able to connect to this PC. You can remove the rule under Rules → Network rules.",
+            L.T($"No program on this PC will be able to connect to {address}, and it will not be able to connect to this PC. You can remove the rule under Rules → Network rules."),
             [$"Block {address}", "Cancel"], defaultIndex: 0, danger: true);
         if (choice != 0)
         {
@@ -407,7 +407,7 @@ internal static class RowMenu
         }
         catch (System.Runtime.InteropServices.ExternalException)
         {
-            model.Say("The clipboard is busy; try again.");
+            model.Say(L.T("The clipboard is busy; try again."));
         }
     }
 }

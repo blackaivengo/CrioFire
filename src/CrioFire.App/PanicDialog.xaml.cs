@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using CrioFire.Core;
 
 namespace CrioFire.App;
 
@@ -17,32 +18,32 @@ public partial class PanicDialog : Window
         InitializeComponent();
         IntroText.Text = current switch
         {
-            "allow" => "Panic is on: every connection is allowed and your rules are paused. They are all still there.",
-            "block" => "Panic is on: all network traffic is blocked. Your rules are all still there.",
-            _ => "Something can't connect, or something is connecting that shouldn't? Pick what to do. The first two keep every rule you made, and one click on Resume brings them back.",
+            "allow" => L.T("Panic is on: every connection is allowed and your rules are paused. They are all still there."),
+            "block" => L.T("Panic is on: all network traffic is blocked. Your rules are all still there."),
+            _ => L.T("Something can't connect, or something is connecting that shouldn't? Pick what to do. The first two keep every rule you made, and one click on Resume brings them back."),
         };
 
         if (current != "off")
         {
-            Add("off", "Resume my rules", "End panic. Your rules and mode apply again, exactly as before.", "IceButton");
+            Add("off", L.T("Resume my rules"), L.T("End panic. Your rules and mode apply again, exactly as before."), "IceButton");
         }
 
         if (current != "allow")
         {
-            Add("allow", "Allow everything, pause my rules",
-                "Every program may connect, in and out. Nothing is deleted: your rules, mode and automatic rules wait until you resume.",
+            Add("allow", L.T("Allow everything, pause my rules"),
+                L.T("Every program may connect, in and out. Nothing is deleted: your rules, mode and automatic rules wait until you resume."),
                 current == "off" ? "IceButton" : "OutlineIceButton");
         }
 
         if (current != "block")
         {
-            Add("block", "Block all network traffic",
-                "Like pulling the network cable: no new connection in or out, whatever the rules say. Programs on this PC can still talk to each other. Your rules are kept.",
+            Add("block", L.T("Block all network traffic"),
+                L.T("Like pulling the network cable: no new connection in or out, whatever the rules say. Programs on this PC can still talk to each other. Your rules are kept."),
                 "OutlineFireButton");
         }
 
-        Add("remove", "Remove all rules",
-            "Deletes every rule you made and goes back to Learning mode. This cannot be undone.",
+        Add("remove", L.T("Remove all rules"),
+            L.T("Deletes every rule you made and goes back to Learning mode. This cannot be undone."),
             "GhostButton");
 
         MouseLeftButtonDown += (_, e) =>

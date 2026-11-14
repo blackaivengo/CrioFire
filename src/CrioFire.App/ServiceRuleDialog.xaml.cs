@@ -19,7 +19,7 @@ public partial class ServiceRuleDialog : Window
     {
         InitializeComponent();
         _all = WindowsServiceList.Read()
-            .Select(s => new ServiceRow(s.Name, s.DisplayName, s.Running ? "Running" : "Stopped", s.Running ? s.ProcessId.ToString(System.Globalization.CultureInfo.CurrentCulture) : string.Empty))
+            .Select(s => new ServiceRow(s.Name, s.DisplayName, s.Running ? L.T("Running") : L.T("Stopped"), s.Running ? s.ProcessId.ToString(System.Globalization.CultureInfo.CurrentCulture) : string.Empty))
             .ToList();
         Table.ItemsSource = _all;
         MouseLeftButtonDown += (_, e) =>
@@ -95,19 +95,19 @@ public partial class ServiceRuleDialog : Window
         if (Table.SelectedItem is not ServiceRow row)
         {
             SaveButton.IsEnabled = false;
-            PreviewText.Text = "Choose a service.";
+            PreviewText.Text = L.T("Choose a service.");
             return;
         }
 
         SaveButton.IsEnabled = true;
         var direction = Direction switch
         {
-            "in" => "when others connect to it",
-            "both" => "in both directions",
-            _ => "when it connects out",
+            "in" => L.T("when others connect to it"),
+            "both" => L.T("in both directions"),
+            _ => L.T("when it connects out"),
         };
-        var where = Networks == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(Networks)} (elsewhere the mode decides)";
-        PreviewText.Text = $"{row.DisplayName} ({row.Name}) {(allow ? "is allowed" : "is blocked")} {direction}{where}, whichever process runs it.";
+        var where = Networks == NetworkProfiles.Any ? string.Empty : L.T($" on {NetworkScope.Label(Networks)} (elsewhere the mode decides)");
+        PreviewText.Text = L.T($"{row.DisplayName} ({row.Name}) {(allow ? "is allowed" : "is blocked")} {direction}{where}, whichever process runs it.");
         PreviewBox.SetResourceReference(BackgroundProperty, allow ? "ChipIceBrush" : "ChipFireBrush");
         PreviewText.SetResourceReference(ForegroundProperty, allow ? "ChipIceTextBrush" : "ChipFireTextBrush");
     }
