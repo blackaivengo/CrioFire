@@ -581,6 +581,7 @@ public partial class MainWindow : Window
         }
 
         _changedSeen = changed;
+        ShowUpdate(status);
         if (status is null)
         {
             ServiceText.Text = "Not running";
@@ -631,6 +632,42 @@ public partial class MainWindow : Window
     private void OnResume(object sender, RoutedEventArgs e) => _model.Resume();
 
     private void OnReviewChanged(object sender, RoutedEventArgs e) => ChangedProgramsDialog.Review(this, _model);
+
+    /// <summary>A newer CrioFire: a banner (until "Not now"), and one notification per version.</summary>
+    private void ShowUpdate(StatusInfo? status)
+    {
+        var version = status?.NewVersion;
+        var show = version is not null && !string.Equals(version, Prefs.Current.DismissedUpdate, StringComparison.OrdinalIgnoreCase);
+        UpdateBanner.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (!show)
+        {
+            return;
+        }
+
+        UpdateBannerText.Text = $"CrioFire {version} is available. Download it from the release page; installing it keeps your rules and settings.";
+        if (!string.Equals(version, Prefs.Current.AnnouncedUpdate, StringComparison.OrdinalIgnoreCase))
+        {
+            Prefs.Current.AnnouncedUpdate = version;
+            Prefs.Save();
+            _tray?.ShowHint("A new CrioFire is available", $"Version {version}. Open CrioFire to see what's new.");
+        }
+    }
+
+    private void OnUpdateOpen(object sender, RoutedEventArgs e)
+    {
+        var url = _model.Status?.NewVersionUrl ?? UpdateCheck.ReleasesPage;
+        if (url.StartsWith("https://github.com/", StringComparison.OrdinalIgnoreCase))
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+    }
+
+    private void OnUpdateLater(object sender, RoutedEventArgs e)
+    {
+        Prefs.Current.DismissedUpdate = _model.Status?.NewVersion;
+        Prefs.Save();
+        UpdateBanner.Visibility = Visibility.Collapsed;
+    }
 
     private void OnToggleTheme(object sender, RoutedEventArgs e) => ThemeManager.Toggle();
 

@@ -42,11 +42,14 @@ public static class ApiOps
     public const string Logs = "logs";
     public const string SetLogs = "setLogs";
     public const string ClearLogs = "clearLogs";
+    public const string Update = "update";
+    public const string CheckUpdate = "checkUpdate";
+    public const string SetUpdateCheck = "setUpdateCheck";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
         op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense
-            or SetDomainRule or RemoveDomainRule or SetLogs or ClearLogs;
+            or SetDomainRule or RemoveDomainRule or SetLogs or ClearLogs or SetUpdateCheck;
 
     /// <summary>The error code when a change needs administrator approval (tamper protection, or the setting itself).</summary>
     public const string ApprovalRequired = "approval-required";
@@ -216,6 +219,9 @@ public sealed record ApiResponse
     /// <summary>domains: the domain rules, with how many addresses each has a filter for now.</summary>
     public List<DomainRuleInfo>? Domains { get; init; }
 
+    /// <summary>update, checkUpdate, setUpdateCheck: the update check's setting and what it found.</summary>
+    public UpdateState? Update { get; init; }
+
     /// <summary>logs, setLogs: how much history is kept, and how much there is.</summary>
     public LogsInfo? Logs { get; init; }
 
@@ -234,7 +240,10 @@ public sealed record ApiResponse
 /// <param name="Panic">The panic switch: off, allow (everything allowed, rules paused) or block (all network traffic blocked).</param>
 /// <param name="ChangedPrograms">How many allowed programs changed since they were allowed (see the changed operation).</param>
 /// <param name="RequireAdmin">Tamper protection: changes need administrator approval.</param>
-public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off", int ChangedPrograms = 0, bool RequireAdmin = false);
+/// <param name="NewVersion">A newer CrioFire release the daily check found; null when there is none (or the check is off).</param>
+/// <param name="NewVersionUrl">Its release page.</param>
+public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off", int ChangedPrograms = 0, bool RequireAdmin = false,
+    string? NewVersion = null, string? NewVersionUrl = null);
 
 /// <param name="Name">svchost or system.</param>
 /// <param name="Enabled">Switched on (the saved choice).</param>

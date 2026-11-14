@@ -164,6 +164,12 @@ Nothing that reaches the network is hidden, including what CrioFire or Windows a
   `%ProgramData%\criofire\data-usage.json`. Traffic that stays on the PC (loopback) is not counted;
   Windows services that share a svchost.exe are counted together. *Clear counts* (or
   `criofire usage --reset`) starts again from zero.
+- **Updates**: once a day the service asks GitHub Releases whether a newer CrioFire is out (the
+  request carries nothing about the PC or its rules; the service's own connections are allowed in
+  every mode). A newer version shows a banner and one notification, with a link to the release page;
+  nothing is downloaded or installed. Settings → Updates, or `criofire updates off`, turns it off;
+  `criofire version --check` asks once. Administrators can turn it off for a PC with the DWORD
+  `DisableUpdateCheck` = 1 under `HKLM\SOFTWARE\Policies\CrioSoft\CrioFire`.
 - **Dashboard and Reports** show allowed traffic next to blocked traffic: totals, how much was
   allowed automatically, the programs and services allowed most, the reasons and destinations, and
   the same in the CSV export.

@@ -19,7 +19,7 @@ switch (command.Kind)
     case CommandKind.Help:
         Console.WriteLine(CommandLine.Usage);
         return 0;
-    case CommandKind.Version:
+    case CommandKind.Version when !command.All:
         var version = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
         Console.WriteLine($"criofire {version}");
@@ -156,6 +156,42 @@ static int Run(Backend api, Command command)
         {
             var result = api.Call(new ApiRequest { Op = ApiOps.RemoveDomainRule, Domain = domain });
             Console.WriteLine($"Removed {result.Count} rule(s) for {domain}.");
+            return 0;
+        }
+
+        case CommandKind.Version:
+        case CommandKind.Updates:
+        {
+            var state = command.Kind == CommandKind.Updates
+                ? api.Call(new ApiRequest { Op = ApiOps.SetUpdateCheck, Enabled = command.Enabled }).Update
+                : api.CallPreferService(new ApiRequest { Op = ApiOps.CheckUpdate }).Update;
+            if (state is null)
+            {
+                return 0;
+            }
+
+            Console.WriteLine($"This version: {state.Current}");
+            if (command.Kind == CommandKind.Updates)
+            {
+                Console.WriteLine(command.Enabled ? "CrioFire will look for a newer version once a day." : "CrioFire will not look for newer versions (criofire version --check still asks once).");
+            }
+            else if (state.Last?.Error is { } problem)
+            {
+                Console.WriteLine(problem);
+                return 1;
+            }
+            else
+            {
+                Console.WriteLine(state.Newer && state.Last?.Latest is { } latest
+                    ? $"CrioFire {latest.Version} is available: {latest.Url}"
+                    : state.Last?.Latest is null ? "No CrioFire release is published yet." : "This is the latest version.");
+            }
+
+            if (state.TurnedOffByPolicy)
+            {
+                Console.WriteLine("Note: an administrator turned the daily check off for this PC (group policy).");
+            }
+
             return 0;
         }
 
@@ -699,7 +735,10 @@ internal sealed class Backend : IDisposable
             new LicenseStore(LicenseStore.DefaultPath),
             new CrioFire.Core.Management.ServerLinkStore(CrioFire.Core.Management.ServerLinkStore.DefaultPath),
             new ManagedPolicyStore(ManagedPolicyStore.DefaultPath),
-            new DomainRuleStore(DomainRuleStore.DefaultPath));
+            new DomainRuleStore(DomainRuleStore.DefaultPath),
+            new DataUsageStore(DataUsageStore.DefaultPath),
+            new LogSettingsStore(LogSettingsStore.DefaultPath),
+            new UpdateStore(UpdateStore.DefaultFolder));
         Description = "direct, administrator";
     }
 
@@ -731,6 +770,24 @@ internal sealed class Backend : IDisposable
     {
         var response = _handler is not null ? _handler.Handle(request, canWrite: true) : _client!.Send(request);
         return response.Ok ? response : throw new InvalidOperationException(response.Error ?? "The request failed.");
+    }
+
+    /// <summary>
+    /// Through the service whenever it runs, also from an administrator prompt: for requests that go
+    /// online, because the service's own connections are allowed in every mode and criofire.exe's may not be.
+    /// </summary>
+    public ApiResponse CallPreferService(ApiRequest request)
+    {
+        if (_client is null && CrioFireClient.TryConnect() is { } service)
+        {
+            using (service)
+            {
+                var response = service.Send(request);
+                return response.Ok ? response : throw new InvalidOperationException(response.Error ?? "The request failed.");
+            }
+        }
+
+        return Call(request);
     }
 
     public void Dispose()

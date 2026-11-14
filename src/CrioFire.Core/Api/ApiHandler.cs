@@ -16,7 +16,8 @@ namespace CrioFire.Core.Api;
 /// <param name="policy">The organization's policy in force, which can stop users from changing rules, the mode or tamper protection.</param>
 /// <param name="domainRules">The domain rules (the service turns them into address filters); null where not used (tests).</param>
 /// <param name="logSettings">How much connection history the service keeps; null where not used (tests).</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null, LogSettingsStore? logSettings = null)
+/// <param name="updates">The update check's setting and last result; null where not used (tests).</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null, LogSettingsStore? logSettings = null, UpdateStore? updates = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -56,6 +57,25 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         if (request.Op == ApiOps.ResetUsage && rights == ClientRights.ReadOnly)
         {
             return ApiResponse.Failure("Not allowed: clearing the data counts needs CrioFire's own app or command line, or an administrator.");
+        }
+
+        if (request.Op is ApiOps.Update or ApiOps.CheckUpdate or ApiOps.SetUpdateCheck)
+        {
+            if (request.Op == ApiOps.CheckUpdate && rights == ClientRights.ReadOnly)
+            {
+                return ApiResponse.Failure("Not allowed: checking for updates needs CrioFire's own app or command line, or an administrator.");
+            }
+
+            try
+            {
+                return updates is null
+                    ? ApiResponse.Failure("The update check needs the criofire service.")
+                    : Update(request, updates);
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+            {
+                return ApiResponse.Failure(ex.Message);
+            }
         }
 
         if (request.Op is ApiOps.Logs or ApiOps.SetLogs or ApiOps.ClearLogs)
@@ -146,8 +166,41 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 Version,
                 FilterDescriptions.PanicText(installed ? engine.GetPanic() : PanicState.Off),
                 identities?.Store.Changed().Count ?? 0,
-                protection?.RequireAdmin ?? false),
+                protection?.RequireAdmin ?? false,
+                NewVersion(out var url),
+                url),
         };
+    }
+
+    /// <summary>The newer release the daily check found, for the app's banner; null when there is none or the check is off.</summary>
+    private string? NewVersion(out string? url)
+    {
+        url = null;
+        if (updates is null || !updates.Enabled || updates.TurnedOffByPolicy || updates.State(UpdateCheck.CurrentVersion) is not { Newer: true, Last.Latest: { } latest })
+        {
+            return null;
+        }
+
+        url = latest.Url;
+        return latest.Version;
+    }
+
+    /// <summary>
+    /// update: the setting and the last result. checkUpdate: ask GitHub now (works with the check
+    /// turned off too: the user asked). setUpdateCheck: turn the daily check on or off.
+    /// </summary>
+    private static ApiResponse Update(ApiRequest request, UpdateStore updates)
+    {
+        if (request.Op == ApiOps.SetUpdateCheck)
+        {
+            updates.SetEnabled(request.Enabled ?? throw new ArgumentException("Say whether to check: enabled true or false."));
+        }
+        else if (request.Op == ApiOps.CheckUpdate)
+        {
+            updates.Save(UpdateCheck.Fetch(DateTime.UtcNow));
+        }
+
+        return new ApiResponse { Ok = true, Update = updates.State(UpdateCheck.CurrentVersion) };
     }
 
     private ApiResponse Events(ApiRequest request)

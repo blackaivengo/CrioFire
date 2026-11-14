@@ -53,6 +53,20 @@ public sealed class UiPreferences
         set => _values["autostartAsked"] = value ? "true" : "false";
     }
 
+    /// <summary>The newer version whose banner the user closed with "Not now"; it stays hidden until a later one.</summary>
+    public string? DismissedUpdate
+    {
+        get => Get("dismissedUpdate");
+        set => Set("dismissedUpdate", value);
+    }
+
+    /// <summary>The newer version already announced in the notification area (once per version).</summary>
+    public string? AnnouncedUpdate
+    {
+        get => Get("announcedUpdate");
+        set => Set("announcedUpdate", value);
+    }
+
     public static UiPreferences Parse(string text)
     {
         var prefs = new UiPreferences();
@@ -114,6 +128,18 @@ public sealed class UiPreferences
     }
 
     private string? Get(string key) => _values.TryGetValue(key, out var v) ? v : null;
+
+    private void Set(string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _values.Remove(key);
+        }
+        else
+        {
+            _values[key] = value.Trim();
+        }
+    }
 
     private bool GetBool(string key, bool fallback) => Get(key) switch
     {

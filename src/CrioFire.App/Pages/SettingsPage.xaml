@@ -131,6 +131,22 @@
       </StackPanel>
     </ContentControl>
 
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
+        <TextBlock Text="Updates" Style="{StaticResource H2}" />
+        <TextBlock x:Name="UpdateText" Margin="0,6,0,6" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,14" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                   Text="Once a day the CrioFire service asks GitHub whether a newer release is out. The request says nothing about this PC or its rules. Nothing is downloaded or installed: you get a notice with a link to the release page." />
+        <CheckBox x:Name="UpdateSwitch" Style="{StaticResource Switch}" Click="OnUpdateSwitch" Margin="0,0,0,14">
+          <TextBlock Text="Look for a newer CrioFire once a day" />
+        </CheckBox>
+        <WrapPanel>
+          <Button x:Name="CheckUpdateButton" Content="Check now" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnCheckUpdate" />
+          <Button Content="Open release page" Style="{StaticResource GhostButton}" Click="OnReleasePage" />
+        </WrapPanel>
+      </StackPanel>
+    </ContentControl>
+
     <ContentControl Style="{StaticResource Card}">
       <StackPanel>
         <TextBlock Text="About" Style="{StaticResource H2}" />

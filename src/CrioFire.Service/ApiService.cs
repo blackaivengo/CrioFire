@@ -27,7 +27,8 @@ internal sealed partial class ApiService(ILogger<ApiService> logger) : Backgroun
                 new ManagedPolicyStore(ManagedPolicyStore.DefaultPath),
                 new DomainRuleStore(DomainRuleStore.DefaultPath),
                 new DataUsageStore(DataUsageStore.DefaultPath),
-                new LogSettingsStore(LogSettingsStore.DefaultPath)));
+                new LogSettingsStore(LogSettingsStore.DefaultPath),
+                new UpdateStore(UpdateStore.DefaultFolder)));
             LogListening(logger, ApiServer.DefaultPipeName);
             await server.RunAsync(stoppingToken).ConfigureAwait(false);
         }

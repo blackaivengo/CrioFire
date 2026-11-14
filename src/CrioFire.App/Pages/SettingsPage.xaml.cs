@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Windows;
@@ -31,12 +32,14 @@ public partial class SettingsPage : UserControl, IPage
     private CrioFire.Core.Management.ManagementInfo? _management;
     private IReadOnlyList<ConnectedNetwork>? _networks;
     private LogsInfo? _logs;
-    private bool _logsLoaded;
+    private UpdateState? _update;
+    private bool _loaded;
 
     public async Task LoadAsync()
     {
-        (_backups, _license, _management, _networks, _logs) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management(), NetworkList.Current(), AppModel.Logs()));
-        _logsLoaded = true;
+        (_backups, _license, _management, _networks, _logs, _update) = await Task.Run(() =>
+            (AppModel.Backups(), AppModel.License(), AppModel.Management(), NetworkList.Current(), AppModel.Logs(), AppModel.UpdateState()));
+        _loaded = true;
     }
 
     public void Refresh()
@@ -70,9 +73,11 @@ public partial class SettingsPage : UserControl, IPage
         ProtectionSwitch.IsEnabled = _model.Status is not null;
         ShowBackups(_backups ?? AppModel.Backups());
         _backups = null;
-        ShowLogs(_logsLoaded ? _logs : AppModel.Logs());
+        ShowLogs(_loaded ? _logs : AppModel.Logs());
+        ShowUpdate(_loaded ? _update : AppModel.UpdateState());
         _logs = null;
-        _logsLoaded = false;
+        _update = null;
+        _loaded = false;
 
         // The same panic choices as the sidebar, without "remove all rules": nothing here deletes a rule.
         var panic = _model.PanicMode;
@@ -223,6 +228,53 @@ public partial class SettingsPage : UserControl, IPage
             ShowLicense(status);
         }
     }
+
+    private void ShowUpdate(UpdateState? state)
+    {
+        UpdateSwitch.IsChecked = state is { Enabled: true, TurnedOffByPolicy: false };
+        UpdateSwitch.IsEnabled = CheckUpdateButton.IsEnabled = state is not null;
+        if (state?.TurnedOffByPolicy == true)
+        {
+            UpdateSwitch.IsEnabled = false;
+        }
+
+        var culture = CultureInfo.CurrentCulture;
+        var last = state?.Last;
+        var when = last is null ? null : $" (checked {last.CheckedUtc.ToLocalTime().ToString("g", culture)})";
+        UpdateText.Text = state is null ? "The CrioFire service is not running, or is too old to check for updates."
+            : state.Newer && last?.Latest is { } latest ? $"CrioFire {latest.Version} is available; you have {state.Current}.{when}"
+            : last?.Error is { } problem ? $"The last check failed: {problem}{when}"
+            : last is null ? $"You have CrioFire {state.Current}. Not checked yet."
+            : last.Latest is null ? $"You have CrioFire {state.Current}. No release is published yet.{when}"
+            : $"You have the latest CrioFire, {state.Current}.{when}";
+        if (state?.TurnedOffByPolicy == true)
+        {
+            UpdateText.Text += " Your administrator turned the daily check off for this PC.";
+        }
+    }
+
+    private void OnUpdateSwitch(object sender, RoutedEventArgs e)
+    {
+        _model.SetUpdateCheck(UpdateSwitch.IsChecked == true);
+        ShowUpdate(AppModel.UpdateState());   // what is really in force, also when it was not approved
+    }
+
+    private async void OnCheckUpdate(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        UpdateText.Text = "Checking...";
+        var (state, error) = await Task.Run(AppModel.CheckUpdate);
+        ShowUpdate(state ?? AppModel.UpdateState());
+        if (error is not null)
+        {
+            UpdateText.Text = "Could not check: " + error;
+        }
+
+        _model.NotifyChanged();   // the banner follows
+    }
+
+    private void OnReleasePage(object sender, RoutedEventArgs e) =>
+        Process.Start(new ProcessStartInfo(_model.Status?.NewVersionUrl ?? UpdateCheck.ReleasesPage) { UseShellExecute = true });
 
     private void ShowLogs(LogsInfo? logs)
     {

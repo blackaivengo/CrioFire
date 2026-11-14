@@ -730,6 +730,27 @@ internal sealed class AppModel
         return own.Count == 0;
     }
 
+    /// <summary>The update check's setting and last result; null when the service is not running (or too old).</summary>
+    public static UpdateState? UpdateState() => Service.Call(new ApiRequest { Op = ApiOps.Update }, out _)?.Update;
+
+    /// <summary>Asks GitHub now, through the service (whose connections are always allowed). Any thread: raises no events.</summary>
+    public static (UpdateState? State, string? Error) CheckUpdate()
+    {
+        var state = Service.Call(new ApiRequest { Op = ApiOps.CheckUpdate }, out var error)?.Update;
+        return (state, state is null ? error : null);
+    }
+
+    public bool SetUpdateCheck(bool enabled)
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.SetUpdateCheck, Enabled = enabled }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, enabled ? "CrioFire will look for a newer version once a day." : "CrioFire will not look for newer versions.");
+        }
+
+        return ok;
+    }
+
     /// <summary>The history settings and sizes; null when the service is not running (or too old).</summary>
     public static LogsInfo? Logs() => Service.Call(new ApiRequest { Op = ApiOps.Logs }, out _)?.Logs;
 

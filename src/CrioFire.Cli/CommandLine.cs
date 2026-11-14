@@ -37,6 +37,7 @@ public enum CommandKind
     Domains,
     DataUsed,
     Logs,
+    Updates,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -133,6 +134,8 @@ internal static class CommandLine
                                                Change it: days to keep, MB each log may use,
                                                whether allowed connections are recorded
           criofire logs --clear                Forget every connection in the history
+          criofire version [--check]           This version; --check asks GitHub for a newer one
+          criofire updates on|off              Look for a newer CrioFire once a day (on by default)
           ... block|allow ... --networks <public|private|domain,...>
                                                Any program, network or service rule can apply only on some
                                                kinds of network (as Windows classifies them: domain = work,
@@ -312,7 +315,26 @@ internal static class CommandLine
             case "help" or "-h" or "--help" or "/?":
                 return new Command(CommandKind.Help);
             case "--version" or "version":
+                if (rest.Length == 1 && rest[0].Equals("--check", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new Command(CommandKind.Version, All: true);
+                }
+
+                if (rest.Length != 0)
+                {
+                    error = "Usage: criofire version [--check]";
+                    return new Command(CommandKind.Help);
+                }
+
                 return new Command(CommandKind.Version);
+            case "updates":
+                if (rest.Length == 1 && LogSettings.ParseSwitch(rest[0]) is { } updatesOn)
+                {
+                    return new Command(CommandKind.Updates, Enabled: updatesOn);
+                }
+
+                error = "Usage: criofire updates on|off";
+                return new Command(CommandKind.Help);
             case "uninstall" when rest.Length == 1 && rest[0].Equals("--remove-data", StringComparison.OrdinalIgnoreCase):
                 return new Command(CommandKind.Uninstall, RemoveData: true);
             case "setup":

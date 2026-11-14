@@ -12,7 +12,10 @@ maintainer's approval in GitHub, and only that approved job can get an Azure tok
 5. The job signs CrioFire's own binaries, builds the x64 and ARM64 MSI installers (CrioFire and
    CrioFire Server) from them and signs those too, verifies every signature names CrioSoft LLC, adds a portable zip per
    architecture, writes `SHA256SUMS.txt` and creates a **draft** GitHub Release.
-6. Check the draft, then publish it.
+6. Check the draft, then publish it. Installed copies with the update check on (the default) see
+   the published release within a day: they read GitHub's "latest release", which skips drafts and
+   releases marked **pre-release**. Mark a preview tag (`v0.2.0-beta.1`) as a pre-release before
+   publishing it, so only people who look for it get it.
 
 ## One-time setup
 
