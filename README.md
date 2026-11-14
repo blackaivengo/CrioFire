@@ -115,11 +115,19 @@ overlap, the more specific one wins: program + port/address, then port/address, 
 rule; between equally specific rules, block wins.
 
 While the `criofire` service runs, every connection CrioFire blocks is also appended to
-`%ProgramData%\criofire\blocked.log` (one JSON object per line; rotated at 10 MB), and every
+`%ProgramData%\criofire\blocked.log` (one JSON object per line), and every
 connection that was **allowed** goes to `allowed.log`, summed per minute, with the reason: your
 program, service or network rule, an automatic rule (Windows services, Windows kernel), loopback,
 or no rule at all (Learning mode, or inbound traffic left to Windows Firewall). For svchost.exe the
 service also notes which Windows service owned the socket, when it is still open.
+
+**History settings** (Settings → Connection history, or `criofire logs`): how long connections are
+kept (7, 30, 90 days or a year; any 1 to 3650 days with `criofire logs --keep <days>`; 30 by default),
+how much each log may use (20 MB by default, the previous file `*.1.log` included; `--size <MB>`),
+and whether allowed connections are recorded at all (`--allowed off`: Traffic and Reports then show
+blocked connections only). Older lines are removed every hour; the settings live in
+`%ProgramData%\criofire\log-settings.txt`. *Clear history* (`criofire logs --clear`) forgets every
+recorded connection; like rule changes, these need administrator approval when tamper protection is on.
 
 ### Seeing and controlling everything
 
@@ -213,7 +221,7 @@ default; switch with the sun/moon button or in **Settings** (remembered per user
   right after you sign in.
 
 Reports come from the service's log of blocked connections (`%ProgramData%\criofire\blocked.log`,
-plus `blocked.1.log` after it rotates at 10 MB). Temporary rules are kept in
+plus `blocked.1.log` after it rotates, as the history settings allow). Temporary rules are kept in
 `%ProgramData%\criofire\temporary-rules.json`, so they expire on time even if the service restarts.
 
 ### Without administrator rights

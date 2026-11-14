@@ -39,11 +39,14 @@ public static class ApiOps
     public const string RemoveDomainRule = "removeDomainRule";
     public const string Usage = "usage";
     public const string ResetUsage = "resetUsage";
+    public const string Logs = "logs";
+    public const string SetLogs = "setLogs";
+    public const string ClearLogs = "clearLogs";
 
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
         op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense
-            or SetDomainRule or RemoveDomainRule;
+            or SetDomainRule or RemoveDomainRule or SetLogs or ClearLogs;
 
     /// <summary>The error code when a change needs administrator approval (tamper protection, or the setting itself).</summary>
     public const string ApprovalRequired = "approval-required";
@@ -106,6 +109,9 @@ public sealed record ApiRequest
 
     /// <summary>importRules: the rules to import.</summary>
     public RuleSet? RuleSet { get; init; }
+
+    /// <summary>setLogs: the new history settings.</summary>
+    public LogSettings? LogSettings { get; init; }
 
     /// <summary>importRules: merge (default) or replace.</summary>
     public string? ImportMode { get; init; }
@@ -210,6 +216,9 @@ public sealed record ApiResponse
     /// <summary>domains: the domain rules, with how many addresses each has a filter for now.</summary>
     public List<DomainRuleInfo>? Domains { get; init; }
 
+    /// <summary>logs, setLogs: how much history is kept, and how much there is.</summary>
+    public LogsInfo? Logs { get; init; }
+
     /// <summary>usage: data used per program over the period.</summary>
     public UsageInfo? Usage { get; init; }
 
@@ -312,6 +321,10 @@ public sealed record EventInfo(DateTime TimeUtc, string? App, string Protocol, s
         e.FilterId,
         e.Rule?.Kind.ToString());
 }
+
+/// <summary>The history settings, and what the logs hold now.</summary>
+/// <param name="OldestUtc">The oldest connection kept, blocked or allowed; null when there is none.</param>
+public sealed record LogsInfo(LogSettings Settings, long BlockedBytes, long AllowedBytes, DateTime? OldestUtc);
 
 /// <summary>Data used per program, most first.</summary>
 /// <param name="Period">today, 7d or 30d.</param>

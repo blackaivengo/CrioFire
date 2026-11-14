@@ -36,6 +36,7 @@ public enum CommandKind
     Server,
     Domains,
     DataUsed,
+    Logs,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -80,7 +81,10 @@ public sealed record Command(
     string? Token = null,
     string? Fingerprint = null,
     NetworkProfiles Networks = NetworkProfiles.Any,
-    string? Domain = null);
+    string? Domain = null,
+    int? KeepDays = null,
+    int? MaxMegabytes = null,
+    bool? RecordAllowed = null);
 
 /// <summary>Parses criofire.exe arguments. Pure logic, no Windows calls, so it is unit-tested.</summary>
 internal static class CommandLine
@@ -124,6 +128,11 @@ internal static class CommandLine
           criofire domains                     List the domain rules and how many addresses each covers now
           criofire usage [today|7d|30d]        Data each program sent and received (default: today)
           criofire usage --reset               Clear the data counts
+          criofire logs                        How much connection history is kept, and its size
+          criofire logs [--keep <days>] [--size <MB>] [--allowed on|off]
+                                               Change it: days to keep, MB each log may use,
+                                               whether allowed connections are recorded
+          criofire logs --clear                Forget every connection in the history
           ... block|allow ... --networks <public|private|domain,...>
                                                Any program, network or service rule can apply only on some
                                                kinds of network (as Windows classifies them: domain = work,
@@ -198,6 +207,53 @@ internal static class CommandLine
         normal prompt while the criofire service runs (changing rules then needs CrioFire's
         installed command line, or an administrator prompt).
         """;
+
+    /// <summary>logs [--keep days] [--size MB] [--allowed on|off] | logs --clear</summary>
+    private static Command ParseLogs(string[] rest, out string? error)
+    {
+        error = null;
+        const string usage = "Usage: criofire logs [--keep <days>] [--size <MB>] [--allowed on|off] | criofire logs --clear";
+        if (rest.Length == 1 && rest[0].Equals("--clear", StringComparison.OrdinalIgnoreCase))
+        {
+            return new Command(CommandKind.Logs, RemoveData: true);
+        }
+
+        int? keep = null;
+        int? size = null;
+        bool? allowed = null;
+        for (var i = 0; i < rest.Length; i++)
+        {
+            var value = i + 1 < rest.Length ? rest[i + 1] : null;
+            switch (rest[i].ToLowerInvariant())
+            {
+                case "--keep" when int.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var days)
+                    && days is >= LogSettings.MinKeepDays and <= LogSettings.MaxKeepDays:
+                    keep = days;
+                    i++;
+                    break;
+                case "--size" when int.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var mb)
+                    && mb is >= LogSettings.MinMegabytes and <= LogSettings.MaxMegabytesLimit:
+                    size = mb;
+                    i++;
+                    break;
+                case "--allowed" when LogSettings.ParseSwitch(value) is { } on:
+                    allowed = on;
+                    i++;
+                    break;
+                case "--keep":
+                    error = $"--keep takes {LogSettings.MinKeepDays} to {LogSettings.MaxKeepDays} days.";
+                    return new Command(CommandKind.Help);
+                case "--size":
+                    error = $"--size takes {LogSettings.MinMegabytes} to {LogSettings.MaxMegabytesLimit} MB.";
+                    return new Command(CommandKind.Help);
+                default:
+                    error = usage;
+                    return new Command(CommandKind.Help);
+            }
+        }
+
+        return new Command(CommandKind.Logs, KeepDays: keep, MaxMegabytes: size, RecordAllowed: allowed);
+    }
 
     private static Command ParseImport(string verb, string[] rest, out string? error)
     {
@@ -363,6 +419,8 @@ internal static class CommandLine
             case "request" when rest.Length == 2:
                 // Used by the app: one API request, approved by the user (UAC). Not in the usage text.
                 return new Command(CommandKind.Request, AppPath: rest[0], FilePath: rest[1]);
+            case "logs":
+                return ParseLogs(rest, out error);
             case "usage":
                 if (rest.Length == 0)
                 {

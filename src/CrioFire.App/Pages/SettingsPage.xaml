@@ -89,6 +89,41 @@
 
     <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
       <StackPanel>
+        <TextBlock Text="Connection history" Style="{StaticResource H2}" />
+        <TextBlock x:Name="LogsText" Margin="0,6,0,6" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,14" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                   Text="CrioFire remembers blocked and allowed connections for the Dashboard, Traffic and Reports. Older connections are removed every hour; when a log reaches its size limit, its oldest half goes." />
+        <TextBlock Text="Keep connections for" FontSize="13" Margin="0,0,0,6" />
+        <Border Style="{StaticResource SegGroup}" HorizontalAlignment="Left" Margin="0,0,0,14">
+          <StackPanel x:Name="KeepChoices" Orientation="Horizontal">
+            <RadioButton Content="7 days" Tag="7" GroupName="LogKeep" Style="{StaticResource SegItem}" Click="OnLogKeep" />
+            <RadioButton Content="30 days" Tag="30" GroupName="LogKeep" Style="{StaticResource SegItem}" Click="OnLogKeep" />
+            <RadioButton Content="90 days" Tag="90" GroupName="LogKeep" Style="{StaticResource SegItem}" Click="OnLogKeep" />
+            <RadioButton Content="1 year" Tag="365" GroupName="LogKeep" Style="{StaticResource SegItem}" Click="OnLogKeep" />
+          </StackPanel>
+        </Border>
+        <TextBlock Text="Each log may use up to" FontSize="13" Margin="0,0,0,6" />
+        <Border Style="{StaticResource SegGroup}" HorizontalAlignment="Left" Margin="0,0,0,16">
+          <StackPanel x:Name="SizeChoices" Orientation="Horizontal">
+            <RadioButton Content="20 MB" Tag="20" GroupName="LogSize" Style="{StaticResource SegItem}" Click="OnLogSize" />
+            <RadioButton Content="50 MB" Tag="50" GroupName="LogSize" Style="{StaticResource SegItem}" Click="OnLogSize" />
+            <RadioButton Content="200 MB" Tag="200" GroupName="LogSize" Style="{StaticResource SegItem}" Click="OnLogSize" />
+            <RadioButton Content="500 MB" Tag="500" GroupName="LogSize" Style="{StaticResource SegItem}" Click="OnLogSize" />
+          </StackPanel>
+        </Border>
+        <CheckBox x:Name="RecordAllowedSwitch" Style="{StaticResource Switch}" Click="OnRecordAllowed" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="Record allowed connections too" />
+            <TextBlock Text="Turn off to keep only blocked connections: Traffic and Reports then show blocked connections only." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" />
+          </StackPanel>
+        </CheckBox>
+        <Button x:Name="ClearLogsButton" Content="Clear history" Style="{StaticResource OutlineFireButton}" HorizontalAlignment="Left" Click="OnClearLogs"
+                ToolTip="Forget every blocked and allowed connection recorded so far" />
+      </StackPanel>
+    </ContentControl>
+
+    <ContentControl Style="{StaticResource Card}" Margin="0,0,0,22">
+      <StackPanel>
         <TextBlock Text="Rule backups" Style="{StaticResource H2}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,14" FontSize="14" LineHeight="21" TextWrapping="Wrap"
                    Text="CrioFire saves your rules automatically when they change, and before every import or 'remove all rules'. The newest 30 are kept. Restoring puts every rule and the mode back exactly as they were; your rules from now are saved as a backup first. To move rules to another PC, use Export and Import on the Rules page." />

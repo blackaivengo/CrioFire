@@ -20,6 +20,8 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     /// <summary>How often Store app rules are checked for app updates (a new version folder).</summary>
     private static readonly TimeSpan PackageInterval = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan LogSettingsInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan TrimInterval = TimeSpan.FromHours(1);
 
     /// <summary>How often the rules are compared with the last backup (a new backup only when they changed).</summary>
     private static readonly TimeSpan BackupInterval = TimeSpan.FromMinutes(5);
@@ -73,6 +75,10 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             var checkinEvery = ServerDefaults.CheckinInterval(ServerDefaults.CheckinSeconds);
             Task<CheckinOutcome?>? checkin = null;
             var policies = new ManagedPolicyStore(ManagedPolicyStore.DefaultPath);
+            var logSettingsStore = new LogSettingsStore(LogSettingsStore.DefaultPath);
+            LogSettings? logSettings = null;
+            var nextLogCheck = DateTime.UtcNow;
+            var nextTrim = DateTime.UtcNow + TimeSpan.FromMinutes(1);
 
             using var timer = new PeriodicTimer(PollInterval);
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -83,6 +89,30 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     // moment after its timestamp; RecentEvents drops the ones already logged.
                     var now = DateTime.UtcNow;
                     var from = now - Overlap < started ? started : now - Overlap;
+
+                    // How much history to keep: read every minute; a change applies at once.
+                    if (now >= nextLogCheck)
+                    {
+                        nextLogCheck = now + LogSettingsInterval;
+                        var current = logSettingsStore.Load();
+                        if (current != logSettings)
+                        {
+                            log.MaxBytes = allowedLog.MaxBytes = current.RotateBytes;
+                            nextTrim = logSettings is null ? nextTrim : now;
+                            logSettings = current;
+                        }
+                    }
+
+                    if (now >= nextTrim && logSettings is not null)
+                    {
+                        nextTrim = now + TrimInterval;
+                        var removed = LogRetention.Trim(log, now.AddDays(-logSettings.KeepDays)) + LogRetention.Trim(allowedLog, now.AddDays(-logSettings.KeepDays));
+                        if (removed > 0)
+                        {
+                            LogTrimmed(logger, removed, logSettings.KeepDays);
+                        }
+                    }
+
                     var blocked = recent.KeepNew(engine.ReadBlockedConnections(from, now, crioFireOnly: true, paths), now);
                     if (blocked.Count > 0)
                     {
@@ -118,7 +148,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         }
                     }
 
-                    if (allowedWorks)
+                    if (allowedWorks && logSettings?.RecordAllowed != false)
                     {
                         try
                         {
@@ -338,6 +368,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} expired temporary rules.")]
     private static partial void LogExpired(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Removed {Count} history lines older than {Days} days.")]
+    private static partial void LogTrimmed(ILogger logger, int count, int days);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Applied the organization's policy {Name} (version {Version}, {Rules} rules).")]
     private static partial void LogPolicyApplied(ILogger logger, string name, int version, int rules);

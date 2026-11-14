@@ -1,11 +1,13 @@
+using System.Globalization;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using CrioFire.Core;
+using CrioFire.Core.Api;
 
 namespace CrioFire.App.Pages;
 
-/// <summary>Appearance, recovery and version information.</summary>
+/// <summary>Appearance, startup, recovery, networks, license, protection, history, backups and version.</summary>
 public partial class SettingsPage : UserControl, IPage
 {
     private readonly AppModel _model;
@@ -18,7 +20,7 @@ public partial class SettingsPage : UserControl, IPage
 
     public string Title => "Settings";
 
-    public string Subtitle => "Appearance, startup, recovery and version.";
+    public string Subtitle => "Appearance, startup, recovery, history and version.";
 
     public FrameworkElement? Actions => null;
 
@@ -28,10 +30,13 @@ public partial class SettingsPage : UserControl, IPage
     private LicenseStatus? _license;
     private CrioFire.Core.Management.ManagementInfo? _management;
     private IReadOnlyList<ConnectedNetwork>? _networks;
+    private LogsInfo? _logs;
+    private bool _logsLoaded;
 
     public async Task LoadAsync()
     {
-        (_backups, _license, _management, _networks) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management(), NetworkList.Current()));
+        (_backups, _license, _management, _networks, _logs) = await Task.Run(() => (AppModel.Backups(), AppModel.License(), AppModel.Management(), NetworkList.Current(), AppModel.Logs()));
+        _logsLoaded = true;
     }
 
     public void Refresh()
@@ -65,6 +70,9 @@ public partial class SettingsPage : UserControl, IPage
         ProtectionSwitch.IsEnabled = _model.Status is not null;
         ShowBackups(_backups ?? AppModel.Backups());
         _backups = null;
+        ShowLogs(_logsLoaded ? _logs : AppModel.Logs());
+        _logs = null;
+        _logsLoaded = false;
 
         // The same panic choices as the sidebar, without "remove all rules": nothing here deletes a rule.
         var panic = _model.PanicMode;
@@ -214,6 +222,70 @@ public partial class SettingsPage : UserControl, IPage
         {
             ShowLicense(status);
         }
+    }
+
+    private void ShowLogs(LogsInfo? logs)
+    {
+        var settings = logs?.Settings ?? new LogSettings();
+        foreach (var choice in KeepChoices.Children.OfType<RadioButton>())
+        {
+            choice.IsChecked = choice.Tag as string == settings.KeepDays.ToString(CultureInfo.InvariantCulture);
+        }
+
+        foreach (var choice in SizeChoices.Children.OfType<RadioButton>())
+        {
+            choice.IsChecked = choice.Tag as string == settings.MaxMegabytes.ToString(CultureInfo.InvariantCulture);
+        }
+
+        RecordAllowedSwitch.IsChecked = settings.RecordAllowed;
+        KeepChoices.IsEnabled = SizeChoices.IsEnabled = RecordAllowedSwitch.IsEnabled = ClearLogsButton.IsEnabled = logs is not null;
+        var culture = CultureInfo.CurrentCulture;
+        LogsText.Text = logs is null
+            ? "The CrioFire service is not running, or is too old to change this."
+            : $"Keeping {LogSettings.KeepText(settings.KeepDays)}, up to {settings.MaxMegabytes} MB per log. Now: blocked {DataSize.Text(logs.BlockedBytes, culture)}, allowed {DataSize.Text(logs.AllowedBytes, culture)}"
+              + (logs.OldestUtc is { } oldest ? $", the oldest from {oldest.ToLocalTime().ToString("d", culture)}." : ", nothing recorded yet.");
+    }
+
+    private void ChangeLogs(Func<LogSettings, LogSettings> change)
+    {
+        var current = AppModel.Logs()?.Settings ?? new LogSettings();
+        _model.SetLogs(change(current));
+        ShowLogs(AppModel.Logs());   // what is really in force, also when it was not approved
+    }
+
+    private void OnLogKeep(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string tag } && int.TryParse(tag, CultureInfo.InvariantCulture, out var days))
+        {
+            ChangeLogs(s => s with { KeepDays = days });
+        }
+    }
+
+    private void OnLogSize(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string tag } && int.TryParse(tag, CultureInfo.InvariantCulture, out var mb))
+        {
+            ChangeLogs(s => s with { MaxMegabytes = mb });
+        }
+    }
+
+    private void OnRecordAllowed(object sender, RoutedEventArgs e)
+    {
+        var on = RecordAllowedSwitch.IsChecked == true;
+        ChangeLogs(s => s with { RecordAllowed = on });
+    }
+
+    private void OnClearLogs(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is not { } owner
+            || ChoiceDialog.Ask(owner, "Clear the connection history?", "CrioFire forgets every blocked and allowed connection recorded so far. The Dashboard, Traffic and Reports start again from now. Your rules stay as they are.",
+                ["Clear history", "Cancel"], defaultIndex: 1, danger: true) != 0)
+        {
+            return;
+        }
+
+        _model.ClearLogs();
+        ShowLogs(AppModel.Logs());
     }
 
     private void OnProtection(object sender, RoutedEventArgs e)

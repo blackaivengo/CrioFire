@@ -730,6 +730,32 @@ internal sealed class AppModel
         return own.Count == 0;
     }
 
+    /// <summary>The history settings and sizes; null when the service is not running (or too old).</summary>
+    public static LogsInfo? Logs() => Service.Call(new ApiRequest { Op = ApiOps.Logs }, out _)?.Logs;
+
+    public bool SetLogs(LogSettings settings)
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.SetLogs, LogSettings = settings }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, "History settings saved; they apply within a minute.");
+        }
+
+        return ok;
+    }
+
+    public bool ClearLogs()
+    {
+        var ok = Call(new ApiRequest { Op = ApiOps.ClearLogs }) is not null;
+        if (ok)
+        {
+            Message?.Invoke(this, "Connection history cleared.");
+            NotifyChanged();
+        }
+
+        return ok;
+    }
+
     public static IReadOnlyList<BackupInfo> Backups() =>
         Service.Call(new ApiRequest { Op = ApiOps.Backups }, out _)?.Backups ?? [];
 

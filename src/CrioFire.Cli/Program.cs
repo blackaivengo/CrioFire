@@ -159,6 +159,46 @@ static int Run(Backend api, Command command)
             return 0;
         }
 
+        case CommandKind.Logs:
+        {
+            LogsInfo? logs;
+            if (command.RemoveData)
+            {
+                logs = api.Call(new ApiRequest { Op = ApiOps.ClearLogs }).Logs;
+                Console.WriteLine("Connection history cleared.");
+            }
+            else if (command.KeepDays is not null || command.MaxMegabytes is not null || command.RecordAllowed is not null)
+            {
+                var current = api.Call(new ApiRequest { Op = ApiOps.Logs }).Logs?.Settings ?? new LogSettings();
+                var changed = current with
+                {
+                    KeepDays = command.KeepDays ?? current.KeepDays,
+                    MaxMegabytes = command.MaxMegabytes ?? current.MaxMegabytes,
+                    RecordAllowed = command.RecordAllowed ?? current.RecordAllowed,
+                };
+                logs = api.Call(new ApiRequest { Op = ApiOps.SetLogs, LogSettings = changed }).Logs;
+                Console.WriteLine("History settings saved; the service applies them within a minute.");
+            }
+            else
+            {
+                logs = api.Call(new ApiRequest { Op = ApiOps.Logs }).Logs;
+            }
+
+            if (logs is not null)
+            {
+                var culture = CultureInfo.CurrentCulture;
+                var s = logs.Settings;
+                Console.WriteLine($"Keep:             {LogSettings.KeepText(s.KeepDays)}");
+                Console.WriteLine($"Size limit:       up to {s.MaxMegabytes} MB per log");
+                Console.WriteLine($"Record allowed:   {(s.RecordAllowed ? "yes" : "no (reports show blocked connections only)")}");
+                Console.WriteLine($"Blocked log:      {DataSize.Text(logs.BlockedBytes, culture)} now");
+                Console.WriteLine($"Allowed log:      {DataSize.Text(logs.AllowedBytes, culture)} now");
+                Console.WriteLine($"Oldest kept:      {(logs.OldestUtc is { } oldest ? oldest.ToLocalTime().ToString("g", culture) : "nothing kept yet")}");
+            }
+
+            return 0;
+        }
+
         case CommandKind.DataUsed when command.Replace:
             api.Call(new ApiRequest { Op = ApiOps.ResetUsage });
             Console.WriteLine("Data counts cleared (the service starts again from zero within a few seconds).");

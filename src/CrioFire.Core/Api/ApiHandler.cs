@@ -15,7 +15,8 @@ namespace CrioFire.Core.Api;
 /// <param name="serverLink">The link to a company's CrioFire Server, when this PC is managed; null in tests.</param>
 /// <param name="policy">The organization's policy in force, which can stop users from changing rules, the mode or tamper protection.</param>
 /// <param name="domainRules">The domain rules (the service turns them into address filters); null where not used (tests).</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null)
+/// <param name="logSettings">How much connection history the service keeps; null where not used (tests).</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null, LogSettingsStore? logSettings = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -55,6 +56,18 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         if (request.Op == ApiOps.ResetUsage && rights == ClientRights.ReadOnly)
         {
             return ApiResponse.Failure("Not allowed: clearing the data counts needs CrioFire's own app or command line, or an administrator.");
+        }
+
+        if (request.Op is ApiOps.Logs or ApiOps.SetLogs or ApiOps.ClearLogs)
+        {
+            try
+            {
+                return Logs(request);
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                return ApiResponse.Failure(ex.Message);
+            }
         }
 
         if (request.Op is ApiOps.Report or ApiOps.Allowed or ApiOps.Traffic or ApiOps.Usage or ApiOps.ResetUsage)
@@ -346,6 +359,44 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         {
             Ok = true,
             Usage = new UsageInfo(period, DataUsageStore.DayText(from), apps.Sum(a => a.Sent), apps.Sum(a => a.Received), apps),
+        };
+    }
+
+    /// <summary>
+    /// logs: the history settings and sizes. setLogs: new settings (the service applies them within
+    /// a minute, removing lines older than the new limit). clearLogs: forget every connection.
+    /// </summary>
+    private ApiResponse Logs(ApiRequest request)
+    {
+        var store = logSettings ?? throw new InvalidOperationException("History settings need the criofire service.");
+        if (request.Op == ApiOps.SetLogs)
+        {
+            store.Save(request.LogSettings ?? throw new ArgumentException("No history settings given."));
+        }
+        else if (request.Op == ApiOps.ClearLogs)
+        {
+            foreach (var log in new[] { trafficLog, allowedLog })
+            {
+                if (log is not null)
+                {
+                    LogRetention.Clear(log);
+                }
+            }
+        }
+
+        DateTime? oldest = new[] { trafficLog, allowedLog }
+            .Select(l => l is null ? null : LogRetention.OldestUtc(l))
+            .Where(t => t is not null)
+            .DefaultIfEmpty()
+            .Min();
+        return new ApiResponse
+        {
+            Ok = true,
+            Logs = new LogsInfo(
+                store.Load(),
+                trafficLog is null ? 0 : LogRetention.Bytes(trafficLog),
+                allowedLog is null ? 0 : LogRetention.Bytes(allowedLog),
+                oldest),
         };
     }
 

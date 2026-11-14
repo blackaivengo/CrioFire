@@ -5,11 +5,12 @@ namespace CrioFire.Core;
 /// <summary>
 /// Appends blocked connections to <c>%ProgramData%\criofire\blocked.log</c>, one JSON object per
 /// line. When the file passes <see cref="MaxBytes"/> it is renamed to <c>blocked.1.log</c>
-/// (replacing the previous one), so the log never grows without bound.
+/// (replacing the previous one), so the log never grows without bound. The service sets the size
+/// and removes old lines as <see cref="LogSettings"/> say.
 /// </summary>
 public sealed class TrafficLog
 {
-    public const long DefaultMaxBytes = 10 * 1024 * 1024;
+    public const long DefaultMaxBytes = LogSettings.DefaultMaxMegabytes * 1024L * 1024L / 2;
 
     public TrafficLog(string path, long maxBytes = DefaultMaxBytes)
     {
@@ -27,7 +28,8 @@ public sealed class TrafficLog
 
     public string Path { get; }
 
-    public long MaxBytes { get; }
+    /// <summary>The size at which the file moves to its previous file.</summary>
+    public long MaxBytes { get; set; }
 
     public string RotatedPath => System.IO.Path.ChangeExtension(Path, ".1.log");
 
