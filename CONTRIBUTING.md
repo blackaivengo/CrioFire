@@ -25,7 +25,7 @@ git commit -s -m "Describe the change"
 
 ```powershell
 dotnet build CrioFire.slnx -c Release
-dotnet test CrioFire.slnx -c Release
+dotnet test --solution CrioFire.slnx -c Release
 ```
 
 `tests/CrioFire.IntegrationTests` really blocks and unblocks a small test program
@@ -35,7 +35,7 @@ machine's firewall, so they skip unless you opt in from an **administrator** ter
 
 ```powershell
 $env:CRIOFIRE_INTEGRATION = '1'
-dotnet test tests/CrioFire.IntegrationTests -c Release
+dotnet test --project tests/CrioFire.IntegrationTests -c Release
 ```
 
 Each test removes everything it adds; if a run is interrupted, `criofire uninstall` cleans up.

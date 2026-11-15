@@ -37,7 +37,8 @@ $rows = foreach ($file in $files) {
         if ($n.Output.ErrorInfo.Message) { $message = $n.Output.ErrorInfo.Message }
         elseif ($n.Output.StdOut) { $message = $n.Output.StdOut }
         [pscustomobject]@{
-            Project  = $storage[$n.testId]
+            # The test assembly, or else the results file (named after its project).
+            Project  = $(if ($storage[$n.testId]) { $storage[$n.testId] } else { $file.BaseName })
             Test     = $n.testName
             Outcome  = $n.outcome
             Duration = $n.duration

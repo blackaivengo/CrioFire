@@ -16,11 +16,6 @@ updates:
       # PDFsharp 6.5+ is AGPL or commercial, not MIT. Keep the MIT 6.2.x line.
       - dependency-name: 'PDFsharp*'
         versions: ['>= 6.5.0']
-      # xunit 4 needs a planned migration (test runner and attribute changes).
-      - dependency-name: 'xunit.v3'
-        update-types: ['version-update:semver-major']
-      - dependency-name: 'xunit.runner.visualstudio'
-        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /

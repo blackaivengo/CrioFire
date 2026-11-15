@@ -29,7 +29,7 @@ Requirements: Windows 10 or 11 and the [.NET 10 SDK](https://dotnet.microsoft.co
 
 ```powershell
 dotnet build CrioFire.slnx -c Release
-dotnet test CrioFire.slnx -c Release
+dotnet test --solution CrioFire.slnx -c Release
 ./build/publish.ps1 -Arch x64      # or arm64; output in out\x64
 ```
 

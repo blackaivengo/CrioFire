@@ -69,8 +69,10 @@ jobs:
         run: |
           $code = 0
           foreach ($project in 'CrioFire.Tests', 'CrioFire.IntegrationTests') {
-            # --blame: if the test host crashes, the results name the test that was running.
-            dotnet test "tests/$project" --configuration Release --no-build --blame --logger "trx;LogFileName=$project.trx" --results-directory "TestResults/$project"
+            # Microsoft Testing Platform (global.json): xunit writes the .trx itself, and
+            # --long-running names any test still running after 60 seconds.
+            dotnet test --project "tests/$project" --configuration Release --no-build --no-progress --results-directory "TestResults/$project" `
+              -- --report-xunit-trx --report-xunit-trx-filename "$project.trx" --long-running 60
             if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE }
           }
           exit $code

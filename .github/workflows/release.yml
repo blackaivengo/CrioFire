@@ -45,7 +45,7 @@ jobs:
       - name: Test (unit tests and real firewall tests)
         env:
           CRIOFIRE_INTEGRATION: '1'
-        run: dotnet test CrioFire.slnx --configuration Release
+        run: dotnet test --solution CrioFire.slnx --configuration Release
 
       - name: Publish
         shell: pwsh
