@@ -209,6 +209,18 @@ reloads, Ctrl+F searches. See [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
   Windows services, the remote address with host name and whether it is local or on the internet,
   the port and its usual service, the local endpoint, why it was blocked or allowed, the rules that
   apply, and what the program has open right now; open its file location or copy the details.
+- **Program details** (a row's right-click menu, the details window, or an alert): who signed the
+  file and whether Windows trusts the signature (valid, not signed, changed after signing, expired,
+  revoked, untrusted), the certificate's issuer, validity and thumbprint, the file's description,
+  company, product, version, original name, size and SHA-256. From there: open the file location,
+  search the web for the program, or open VirusTotal's report for the SHA-256 (nothing is uploaded).
+- **Network tools** for a connection's remote IP address (right-click menu, details window, or an
+  alert): ping, trace route (`tracert`), name lookup (`nslookup`), the open connections with that
+  address and the programs behind them (`netstat -ano`), who owns the address (ipinfo.io), and a TCP
+  test of the connection's port, with the output in the window to copy. It also opens an SSH
+  session, Remote Desktop, Telnet to the port, or PowerShell with `Test-NetConnection` in a window
+  of their own. Only IP addresses reach these commands. The tools connect from this PC, so in Ask
+  or Allow-list mode CrioFire may ask about them like any other program.
 - **Rules**: *What is blocked* at the top lists every port and address a rule blocks (click one to
   see the rules behind it) and how many programs and services are blocked. Below, program, port and
   address, and service rules, filtered by text (a program, service, port such as 445, or address such
@@ -229,7 +241,8 @@ reloads, Ctrl+F searches. See [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
   (`criofire allow <app> --for 60` does the same). Press and hold *Allow 1 hour* for 15 minutes,
   30 minutes or 24 hours (or use the arrow keys): release over one to pick it, then press the button
   again to confirm. Closing the alert means "not now": the program stays blocked and waits on the
-  dashboard.
+  dashboard. Before deciding, the links under the program open its details (signature, publisher,
+  SHA-256), its file location, a web search for it, or the network tools for the address it wanted.
 - **Notification area**: the CrioFire flame sits next to the clock. It turns gray when the service
   isn't running and shows a red dot when programs wait for your decision. Click it to open the
   app; right-click to switch mode, start with Windows, or exit. Closing the window keeps CrioFire

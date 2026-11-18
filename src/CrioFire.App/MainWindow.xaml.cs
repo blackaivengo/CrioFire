@@ -559,7 +559,7 @@ public partial class MainWindow : Window
     {
         var app = blocked.App!;
         _model.AddPending(blocked);
-        var window = new AlertWindow(blocked);
+        var window = new AlertWindow(blocked, _model);
         _alerts[app] = window;
         window.Closed += (_, _) =>
         {

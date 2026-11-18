@@ -34,12 +34,20 @@ public partial class AlertWindow : Window
 
     private static int _open;
     private readonly DispatcherTimer _hold = new() { Interval = TimeSpan.FromMilliseconds(350) };
+    private readonly EventInfo _blocked;
+    private readonly AppModel _model;
     private bool _pressed;
 
-    public AlertWindow(EventInfo blocked)
+    public AlertWindow(EventInfo blocked, AppModel model)
     {
         ArgumentNullException.ThrowIfNull(blocked);
+        _blocked = blocked;
+        _model = model;
         InitializeComponent();
+        var exists = blocked.App is not null && File.Exists(blocked.App);
+        InfoLink.IsEnabled = FolderLink.IsEnabled = exists;
+        SearchLink.IsEnabled = blocked.App is not null && !KnownApps.IsKernel(blocked.App);
+        ToolsLink.IsEnabled = NetworkTools.Address(MenuTarget.SplitEndpoint(blocked.Remote).Address) is not null;
         Headline.Text = L.T($"{Path.GetFileName(blocked.App) ?? L.T("A program")} wants to connect");
         Details.Text = $"{blocked.Protocol} → {blocked.Remote ?? "unknown address"} · {blocked.App}";
         Details.ToolTip = blocked.App;
@@ -123,6 +131,18 @@ public partial class AlertWindow : Window
     private void OnBlock(object sender, RoutedEventArgs e) => Dismiss(AlertChoice.Block);
 
     private void OnNotNow(object sender, RoutedEventArgs e) => Dismiss(AlertChoice.None);
+
+    private void OnInfo(object sender, RoutedEventArgs e) => ProgramInfoWindow.Open(this, _model, _blocked.App);
+
+    private void OnFolder(object sender, RoutedEventArgs e) => RowMenu.OpenFolder(_blocked.App);
+
+    private void OnSearch(object sender, RoutedEventArgs e) => RowMenu.SearchOnline(_blocked.App);
+
+    private void OnTools(object sender, RoutedEventArgs e)
+    {
+        var (address, port) = MenuTarget.SplitEndpoint(_blocked.Remote);
+        NetworkToolsWindow.Open(this, _model, address, port);
+    }
 
     /// <summary>Keyboard (Enter/Space) confirms the duration shown.</summary>
     private void OnTimedClick(object sender, RoutedEventArgs e) => Dismiss(AlertChoice.AllowFor);

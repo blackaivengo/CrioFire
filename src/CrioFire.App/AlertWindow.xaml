@@ -47,6 +47,15 @@
             <TextBlock x:Name="Headline" Style="{StaticResource H2}" FontSize="19" TextWrapping="Wrap" />
             <TextBlock x:Name="Reason" Text="Blocked for now, because it has no rule yet." Style="{StaticResource Muted}" Margin="0,3,0,3" />
             <TextBlock x:Name="Details" Style="{StaticResource Caption}" FontSize="12" TextTrimming="CharacterEllipsis" />
+            <!-- Find out what it is before deciding. -->
+            <WrapPanel Margin="0,8,0,0">
+              <Button x:Name="InfoLink" Content="Program details" Style="{StaticResource LinkButton}" Click="OnInfo"
+                      ToolTip="Who signed it, what its file says, its SHA-256" />
+              <Button x:Name="FolderLink" Content="Open file location" Style="{StaticResource LinkButton}" Click="OnFolder" />
+              <Button x:Name="SearchLink" Content="Search online" Style="{StaticResource LinkButton}" Click="OnSearch" />
+              <Button x:Name="ToolsLink" Content="Network tools" Style="{StaticResource LinkButton}" Click="OnTools"
+                      ToolTip="Ping, trace route and more for the address it wants to reach" />
+            </WrapPanel>
           </StackPanel>
         </Grid>
         <UniformGrid Rows="1" Margin="0,18,0,0">

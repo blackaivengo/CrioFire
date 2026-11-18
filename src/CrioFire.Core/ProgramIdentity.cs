@@ -391,6 +391,59 @@ public sealed class IdentityGuard(ProgramIdentityStore store, ISignatureReader s
     }
 }
 
+/// <summary>What WinVerifyTrust said about a file's Authenticode signature.</summary>
+public enum SignatureState
+{
+    /// <summary>Signed, the file unchanged since, by a certificate Windows trusts.</summary>
+    Valid,
+
+    /// <summary>No signature in the file (Windows' own programs may still be signed through a catalog).</summary>
+    NotSigned,
+
+    /// <summary>Signed, but the file changed after it was signed.</summary>
+    Tampered,
+
+    /// <summary>The signing certificate expired, and the signature has no time stamp from before that.</summary>
+    Expired,
+
+    /// <summary>The signing certificate was revoked.</summary>
+    Revoked,
+
+    /// <summary>Signed by a certificate whose root Windows does not trust.</summary>
+    UntrustedRoot,
+
+    /// <summary>Signed, but the publisher or certificate is explicitly distrusted on this PC.</summary>
+    Distrusted,
+
+    /// <summary>Any other problem with the signature.</summary>
+    Invalid,
+}
+
+/// <summary>A file's signature in detail: the verdict and, when there is one, the signing certificate.</summary>
+public sealed record SignatureInfo(
+    SignatureState State,
+    int Result,
+    string? Signer = null,
+    string? Organization = null,
+    string? Issuer = null,
+    DateTime? ValidFromUtc = null,
+    DateTime? ValidToUtc = null,
+    string? Thumbprint = null)
+{
+    /// <summary>The verdict for a WinVerifyTrust result (an HRESULT).</summary>
+    public static SignatureState StateOf(int result) => unchecked((uint)result) switch
+    {
+        0 => SignatureState.Valid,
+        0x800B0100 or 0x800B0003 => SignatureState.NotSigned,   // TRUST_E_NOSIGNATURE, TRUST_E_SUBJECT_FORM_UNKNOWN
+        0x80096010 => SignatureState.Tampered,                  // TRUST_E_BAD_DIGEST
+        0x800B0101 => SignatureState.Expired,                   // CERT_E_EXPIRED
+        0x800B010C => SignatureState.Revoked,                   // CERT_E_REVOKED
+        0x800B0109 => SignatureState.UntrustedRoot,             // CERT_E_UNTRUSTEDROOT
+        0x800B0111 => SignatureState.Distrusted,                // TRUST_E_EXPLICIT_DISTRUST
+        _ => SignatureState.Invalid,
+    };
+}
+
 /// <summary>Reads Authenticode signatures with WinVerifyTrust (no network: cached revocation data only).</summary>
 public sealed partial class AuthenticodeSignatures : ISignatureReader
 {
@@ -405,20 +458,57 @@ public sealed partial class AuthenticodeSignatures : ISignatureReader
 
     public string? Publisher(string path)
     {
-        if (!IsTrusted(path))
+        if (TrustResult(path) != 0)
         {
             return null;
         }
 
+        using var signer = Signer(path);
+        if (signer is null)
+        {
+            return null;
+        }
+
+        var name = signer.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
+        return string.IsNullOrWhiteSpace(name) ? signer.Subject : name;
+    }
+
+    /// <summary>The verdict on the file's signature and, if it has one (valid or not), who signed it.</summary>
+    public static SignatureInfo Describe(string path)
+    {
+        var result = TrustResult(path);
+        var state = SignatureInfo.StateOf(result);
+        using var signer = state == SignatureState.NotSigned ? null : Signer(path);
+        if (signer is null)
+        {
+            return new SignatureInfo(state, result);
+        }
+
+        var name = signer.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
+        var organization = signer.SubjectName.EnumerateRelativeDistinguishedNames()
+            .Where(n => !n.HasMultipleElements && n.GetSingleElementType().Value == "2.5.4.10")   // O=
+            .Select(n => n.GetSingleElementValue())
+            .FirstOrDefault();
+        return new SignatureInfo(
+            state,
+            result,
+            string.IsNullOrWhiteSpace(name) ? signer.Subject : name,
+            organization,
+            signer.GetNameInfo(X509NameType.SimpleName, forIssuer: true),
+            signer.NotBefore.ToUniversalTime(),
+            signer.NotAfter.ToUniversalTime(),
+            signer.Thumbprint);
+    }
+
+    private static X509Certificate2? Signer(string path)
+    {
         try
         {
             // X509CertificateLoader has no way to read an Authenticode signer, so this API stays.
 #pragma warning disable SYSLIB0057
             using var signed = X509Certificate.CreateFromSignedFile(path);
+            return new X509Certificate2(signed);
 #pragma warning restore SYSLIB0057
-            using var signer = new X509Certificate2(signed);
-            var name = signer.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
-            return string.IsNullOrWhiteSpace(name) ? signer.Subject : name;
         }
         catch (CryptographicException)
         {
@@ -426,7 +516,8 @@ public sealed partial class AuthenticodeSignatures : ISignatureReader
         }
     }
 
-    private static unsafe bool IsTrusted(string path)
+    /// <summary>WinVerifyTrust's answer for the file's embedded signature: 0 when valid, otherwise an HRESULT.</summary>
+    private static unsafe int TrustResult(string path)
     {
         fixed (char* file = path)
         {
@@ -449,7 +540,7 @@ public sealed partial class AuthenticodeSignatures : ISignatureReader
             var result = WinVerifyTrust(-1, &action, &data);
             data.StateAction = WtdStateActionClose;
             _ = WinVerifyTrust(-1, &action, &data);
-            return result == 0;
+            return result;
         }
     }
 

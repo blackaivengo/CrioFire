@@ -1,0 +1,46 @@
+<Window x:Class="CrioFire.App.ProgramInfoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Program details" Width="600" SizeToContent="Height" MaxHeight="780" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource BodyFont}" Foreground="{DynamicResource TextBrush}">
+  <!-- What a program is: its signature, what its file says, where it is, and where to find out more. -->
+  <Grid Margin="28">
+    <Border Margin="40,50,40,-10" CornerRadius="20" Background="{DynamicResource IceGlowBrush}" IsHitTestVisible="False">
+      <Border.Effect>
+        <BlurEffect Radius="44" />
+      </Border.Effect>
+    </Border>
+    <Border CornerRadius="16" Background="{DynamicResource CardSolidBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="28,24">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock x:Name="TitleText" Style="{StaticResource H2}" FontSize="20" TextWrapping="Wrap" />
+          <TextBlock x:Name="PathText" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,14" />
+        </StackPanel>
+        <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,16,0,0">
+          <Button x:Name="FolderButton" Content="Open file location" Style="{StaticResource OutlineIceButton}" Margin="8,4,0,0" Click="OnFolder" />
+          <Button x:Name="SearchButton" Content="Search online" Style="{StaticResource GhostButton}" Margin="8,4,0,0" Click="OnSearch" />
+          <Button x:Name="VirusTotalButton" Content="Check on VirusTotal" Style="{StaticResource GhostButton}" Margin="8,4,0,0" Click="OnVirusTotal" IsEnabled="False"
+                  ToolTip="Opens VirusTotal's report for this file's SHA-256. Nothing is uploaded." />
+          <Button Content="Copy" Style="{StaticResource GhostButton}" Margin="8,4,0,0" Click="OnCopy" />
+          <Button Content="Close" Style="{StaticResource GhostButton}" Margin="8,4,0,0" IsCancel="True" />
+        </WrapPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl x:Name="Facts">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="0,0,0,12">
+                  <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" FontWeight="SemiBold" />
+                  <TextBox Text="{Binding Value, Mode=OneWay}" FontSize="13" TextWrapping="Wrap" Margin="0,2,0,0" IsReadOnly="True"
+                           BorderThickness="0" Background="Transparent" Foreground="{DynamicResource TextBrush}" Padding="0"
+                           AutomationProperties.Name="{Binding Label}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+    <Border Height="2" VerticalAlignment="Top" Margin="16,1,16,0" CornerRadius="1" Background="{StaticResource BrandBrush}" />
+  </Grid>
+</Window>

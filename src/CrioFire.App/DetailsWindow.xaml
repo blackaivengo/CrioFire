@@ -19,6 +19,8 @@
         <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,16,0,0">
           <Button x:Name="AllowButton" Content="Allow" Style="{StaticResource IceButton}" Margin="8,4,0,0" Click="OnAllow" />
           <Button x:Name="BlockButton" Content="Block" Style="{StaticResource OutlineFireButton}" Margin="8,4,0,0" Click="OnBlock" />
+          <Button x:Name="ProgramButton" Content="Program details" Style="{StaticResource GhostButton}" Margin="8,4,0,0" Click="OnProgram" />
+          <Button x:Name="ToolsButton" Content="Network tools" Style="{StaticResource GhostButton}" Margin="8,4,0,0" Click="OnTools" />
           <Button x:Name="FolderButton" Content="Open file location" Style="{StaticResource GhostButton}" Margin="8,4,0,0" Click="OnFolder" />
           <Button Content="Copy" Style="{StaticResource GhostButton}" Margin="8,4,0,0" Click="OnCopy" />
           <Button Content="Close" Style="{StaticResource GhostButton}" Margin="8,4,0,0" IsCancel="True" />

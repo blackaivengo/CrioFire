@@ -329,7 +329,9 @@ internal static class RowMenu
             menu.Items.Add(Item(L.T("Show all its connections"), () => model.OpenActivity(t.OneService is { } s
                 ? new ActivityQuery("all", Service: s)
                 : new ActivityQuery("all", App: t.App))));
+            menu.Items.Add(Item(L.T("Program details…"), () => ProgramInfoWindow.Open(owner, model, t.App), enabled: File.Exists(t.App)));
             menu.Items.Add(Item(L.T("Open file location"), () => OpenFolder(t.App), enabled: File.Exists(t.App)));
+            menu.Items.Add(Item(L.T("Search online"), () => SearchOnline(t.App), enabled: !KnownApps.IsKernel(t.App)));
         }
 
         if (t.Remote is { } remote)
@@ -340,6 +342,8 @@ internal static class RowMenu
             menu.Items.Add(Item(L.T($"Block {remote} for every program…"), () => BlockAddress(model, owner, remote),
                 enabled: scope is not ("this PC (loopback)" or "unknown"), danger: true));
             menu.Items.Add(Item(L.T($"Look up {remote} online"), () => Browse($"https://ipinfo.io/{remote}"), enabled: scope == "internet"));
+            menu.Items.Add(Item(L.T("Network tools…"), () => NetworkToolsWindow.Open(owner, model, remote, t.Item?.Direction == "in" ? 0 : t.Port),
+                enabled: NetworkTools.Address(remote) is not null));
         }
 
         menu.Items.Add(new Separator());
@@ -396,7 +400,32 @@ internal static class RowMenu
         }
     }
 
-    private static void Browse(string url) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    internal static void Browse(string url) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+
+    /// <summary>Searches the web for a program by its file name, description and company.</summary>
+    internal static void SearchOnline(string? app)
+    {
+        if (string.IsNullOrEmpty(app))
+        {
+            return;
+        }
+
+        string? description = null, company = null;
+        try
+        {
+            if (File.Exists(app))
+            {
+                var version = FileVersionInfo.GetVersionInfo(app);
+                (description, company) = (version.FileDescription, version.CompanyName);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The file name alone will do.
+        }
+
+        Browse(NetworkTools.SearchUrl(Path.GetFileName(app) is { Length: > 0 } name ? name : app, description, company));
+    }
 
     public static void Copy(AppModel model, string text)
     {

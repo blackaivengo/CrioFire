@@ -21,7 +21,9 @@ public partial class DetailsWindow : Window
         PathText.Text = target.App ?? (target.Remote is { } r ? NetworkFacts.AddressScope(r) : string.Empty);
         AllowButton.Content = target.Item is { Allowed: false } ? L.T("Unblock") : L.T("Allow");
         AllowButton.Visibility = BlockButton.Visibility = target.App is null ? Visibility.Collapsed : Visibility.Visible;
-        FolderButton.IsEnabled = target.App is not null && File.Exists(target.App);
+        FolderButton.IsEnabled = ProgramButton.IsEnabled = target.App is not null && File.Exists(target.App);
+        ProgramButton.Visibility = target.App is null ? Visibility.Collapsed : Visibility.Visible;
+        ToolsButton.Visibility = NetworkTools.Address(target.Remote) is null ? Visibility.Collapsed : Visibility.Visible;
         ShowFacts();
         MouseLeftButtonDown += (_, e) =>
         {
@@ -57,6 +59,11 @@ public partial class DetailsWindow : Window
     }
 
     private void OnFolder(object sender, RoutedEventArgs e) => RowMenu.OpenFolder(_target.App);
+
+    private void OnProgram(object sender, RoutedEventArgs e) => ProgramInfoWindow.Open(this, _model, _target.App);
+
+    private void OnTools(object sender, RoutedEventArgs e) =>
+        NetworkToolsWindow.Open(Owner, _model, _target.Remote, _target.Item?.Direction == "in" ? 0 : _target.Port);
 
     private void OnCopy(object sender, RoutedEventArgs e) =>
         RowMenu.Copy(_model, ConnectionFacts.AsText(_target.Who, _target.App, ConnectionFacts.For(_target, _model)));
