@@ -165,7 +165,8 @@ public static class CrioFireMsi
         IntPtr database = Open(msi, true), summary = IntPtr.Zero;
         try
         {
-            if (version != null) SetProperty(database, "ProductVersion", version);
+            // PowerShell passes $null to a string parameter as "", so both keep the version.
+            if (!string.IsNullOrEmpty(version)) SetProperty(database, "ProductVersion", version);
             SetProperty(database, "ProductCode", "{" + Guid.NewGuid().ToString().ToUpperInvariant() + "}");
 
             Check(MsiGetSummaryInformationW(database, null, 1, out summary), "Opening the summary information");
