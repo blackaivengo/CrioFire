@@ -78,7 +78,7 @@ trap {
 }
 
 # Windows Installer's own functions (msi.dll), for making, checking and storing the transforms.
-if (-not ('CrioFireMsi' -as [type])) { Add-Type -Language CSharp -Path (Join-Path $PSScriptRoot 'CrioFireMsi.cs') }
+if (-not ('CrioFireMsi' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'CrioFireMsi.cs') }
 
 $out = Join-Path $root 'out/msi'
 $work = Join-Path $root "out/msi-work/$Arch"

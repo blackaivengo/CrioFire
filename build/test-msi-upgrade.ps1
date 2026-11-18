@@ -101,7 +101,7 @@ Check ((Get-Installed).Count -eq 0) 'no CrioFire is installed before the test'
 
 # The other builds of the same product.
 New-Item -ItemType Directory -Force $work | Out-Null
-if (-not ('CrioFireMsi' -as [type])) { Add-Type -Language CSharp -Path (Join-Path $PSScriptRoot 'CrioFireMsi.cs') }
+if (-not ('CrioFireMsi' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'CrioFireMsi.cs') }
 $version = [CrioFireMsi]::QueryMsi($Msi, "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='ProductVersion'")
 $newer = Join-Path $work 'criofire-newer.msi'
 $rebuild = Join-Path $work 'criofire-rebuild.msi'

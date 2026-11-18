@@ -38,7 +38,7 @@ public partial class AlertWindow : Window
     private readonly AppModel _model;
     private bool _pressed;
 
-    public AlertWindow(EventInfo blocked, AppModel model)
+    internal AlertWindow(EventInfo blocked, AppModel model)
     {
         ArgumentNullException.ThrowIfNull(blocked);
         _blocked = blocked;
