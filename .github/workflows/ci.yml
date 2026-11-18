@@ -120,6 +120,11 @@ jobs:
         shell: pwsh
         run: ./build/test-msi.ps1 -Msi (Get-Item out/msi/criofire-0*-x64.msi).FullName -Language 1081
 
+      # Over a newer version, a same-version rebuild and itself: one CrioFire each time, rules kept.
+      - name: Install the x64 MSI over other versions of itself
+        shell: pwsh
+        run: ./build/test-msi-upgrade.ps1 -Msi (Get-Item out/msi/criofire-0*-x64.msi).FullName
+
       # The same for CrioFire Server: service, firewall rule, locked-down data folder, the console
       # answering and the first administrator; uninstall keeps the server's data.
       - name: Install, check and uninstall the x64 server MSI

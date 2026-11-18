@@ -3,7 +3,6 @@
 <!-- Overridable, so each language’s file wins over these when English is the fallback for the rest. -->
 <WixLocalization Culture="en-US" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Overridable="yes" Value="Segoe UI" />
-  <String Id="DowngradeError" Overridable="yes" Value="A newer version of [ProductName] is already installed." />
   <String Id="NeedsWindows64" Overridable="yes" Value="CrioFire Private Firewall needs 64-bit Windows. Windows 10 and Windows 11 are supported." />
   <String Id="OpenNow" Overridable="yes" Value="Open CrioFire Private Firewall now" />
   <String Id="ServiceDescription" Overridable="yes" Value="Enforces CrioFire Private Firewall rules through the Windows Filtering Platform." />

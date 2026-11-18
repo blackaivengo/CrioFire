@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: Korean. How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="ko-KR" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Malgun Gothic" />
-  <String Id="DowngradeError" Value="최신 버전의 [ProductName]이(가) 이미 설치되어 있습니다." />
   <String Id="NeedsWindows64" Value="CrioFire Private Firewall에는 64비트 Windows가 필요합니다. Windows 10과 Windows 11을 지원합니다." />
   <String Id="OpenNow" Value="지금 CrioFire Private Firewall 열기" />
   <String Id="ServiceDescription" Value="Windows 필터링 플랫폼을 통해 CrioFire Private Firewall 규칙을 적용합니다." />

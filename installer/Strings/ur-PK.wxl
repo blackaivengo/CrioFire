@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: Urdu. How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="ur-PK" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Segoe UI" />
-  <String Id="DowngradeError" Value="[ProductName] کا نیا ورژن پہلے سے انسٹال ہے۔" />
   <String Id="NeedsWindows64" Value="CrioFire Private Firewall کو 64 بٹ Windows درکار ہے۔ Windows 10 اور Windows 11 معاون ہیں۔" />
   <String Id="OpenNow" Value="CrioFire Private Firewall ابھی کھولیں" />
   <String Id="ServiceDescription" Value="Windows Filtering Platform کے ذریعے CrioFire Private Firewall کے اصول نافذ کرتا ہے۔" />

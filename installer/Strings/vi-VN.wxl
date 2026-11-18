@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: Vietnamese. How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="vi-VN" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Segoe UI" />
-  <String Id="DowngradeError" Value="Đã cài đặt một phiên bản [ProductName] mới hơn." />
   <String Id="NeedsWindows64" Value="CrioFire Private Firewall cần Windows 64 bit. Hỗ trợ Windows 10 và Windows 11." />
   <String Id="OpenNow" Value="Mở CrioFire Private Firewall ngay" />
   <String Id="ServiceDescription" Value="Áp dụng các quy tắc của CrioFire Private Firewall qua Nền tảng lọc của Windows." />

@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: Chinese (Simplified). How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="zh-CN" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Microsoft YaHei UI" />
-  <String Id="DowngradeError" Value="已安装较新版本的 [ProductName]。" />
   <String Id="NeedsWindows64" Value="CrioFire Private Firewall 需要 64 位 Windows。支持 Windows 10 和 Windows 11。" />
   <String Id="OpenNow" Value="立即打开 CrioFire Private Firewall" />
   <String Id="ServiceDescription" Value="通过 Windows 筛选平台执行 CrioFire Private Firewall 的规则。" />

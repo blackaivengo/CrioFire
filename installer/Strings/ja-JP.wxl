@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: Japanese. How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="ja-JP" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Yu Gothic UI" />
-  <String Id="DowngradeError" Value="新しいバージョンの [ProductName] が既にインストールされています。" />
   <String Id="NeedsWindows64" Value="CrioFire Private Firewall には 64 ビット版 Windows が必要です。Windows 10 と Windows 11 に対応しています。" />
   <String Id="OpenNow" Value="CrioFire Private Firewall を今すぐ開く" />
   <String Id="ServiceDescription" Value="Windows フィルタリング プラットフォームを使って CrioFire Private Firewall のルールを適用します。" />

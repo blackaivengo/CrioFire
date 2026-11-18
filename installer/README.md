@@ -18,7 +18,7 @@ pay the monthly maintenance fee. See https://docs.firegiant.com/wix/osmf/.
 | Data folder | `%ProgramData%\criofire` (traffic log, temporary rules): SYSTEM and Administrators full control, Users read-only |
 | Sign-in start | Optional `HKLM\...\Run` entry, `criofire-ui.exe --tray --machine`: the app starts in the notification area for everyone. Each user can turn it off in Settings |
 | Uninstall | Runs `criofire uninstall --remove-data`: removes every CrioFire filter, the WFP provider and sublayer, and the data folder, then the service and files |
-| Upgrades | A newer MSI upgrades in place and keeps rules, mode, the install folder and the sign-in choice, and skips the Setup options page; downgrades are refused |
+| Upgrades | The MSI installs over any CrioFire already there (newer, the same version or older, such as a self-built `0.1.0-dev` under a CI build) and replaces it, keeping rules, mode, settings, the install folder and the sign-in choice, and skips the Setup options page. Running the installed package again offers Repair or Remove |
 | Running app | Asks the app to exit before replacing files (it exits on the end-session message) |
 
 ## Languages
@@ -83,7 +83,7 @@ company server (see `docs/SERVER.md`).
 | Command line | Adds the install folder to the system `PATH`, so `criofire-server` works in an administrator prompt |
 | Finish | "Open the CrioFire Server console now": `https://localhost:<port>/`, where the first administrator is created |
 | Uninstall | Removes the service, the program and the firewall rule. `%ProgramData%\criofire-server` (enrolled PCs, policies, administrators, the certificate PCs pinned) is kept, so a reinstall picks up where it left off; delete it to start over |
-| Upgrades | Keep the port, the install folder and all data; skip the Server options page |
+| Upgrades | Installs over any CrioFire Server version (newer, the same or older); keeps the port, the install folder and all data; skips the Server options page |
 
 Wizard: Welcome, License, Install folder, **Server options** (the port, default 7443), Ready, Finish.
 
@@ -109,7 +109,9 @@ msiexec /i criofire-server-0.1.0-x64.msi /qn CRIOFIRE_SERVER_PORT=7443
 CI builds all four MSIs on every push, installs the x64 CrioFire one on the runner, checks the
 service, the Windows Filtering Platform registration, the mode, the sign-in entry, the shortcut and
 `PATH`, then uninstalls it and checks that nothing is left; then again in Hindi, through the
-language stored in the MSI. Packaging itself checks that each language's transform is small (texts
+language stored in the MSI. `build/test-msi-upgrade.ps1` then installs it over a newer build
+(99.0.0), a rebuild of the same version and itself, checking each time for one CrioFire with
+its service running and its rule, mode and sign-in entry kept. Packaging itself checks that each language's transform is small (texts
 only), sets that language and translates the Setup options page. It does the same with the x64 server
 MSI: the service, the firewall rule, the data folder's permissions, the console answering over HTTPS
 and creating the first administrator, then uninstall (the server's data stays). Releases build the

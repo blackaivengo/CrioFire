@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: Arabic. How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="ar-SA" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Segoe UI" />
-  <String Id="DowngradeError" Value="يوجد إصدار أحدث من [ProductName] مثبّت بالفعل." />
   <String Id="NeedsWindows64" Value="يحتاج CrioFire Private Firewall إلى Windows بنظام 64 بت. يدعم Windows 10 وWindows 11." />
   <String Id="OpenNow" Value="فتح CrioFire Private Firewall الآن" />
   <String Id="ServiceDescription" Value="يطبّق قواعد CrioFire Private Firewall عبر منصة تصفية Windows." />

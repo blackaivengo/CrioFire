@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: French. How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="fr-FR" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Segoe UI" />
-  <String Id="DowngradeError" Value="Une version plus récente de [ProductName] est déjà installée." />
   <String Id="NeedsWindows64" Value="CrioFire Private Firewall nécessite Windows 64 bits. Windows 10 et Windows 11 sont pris en charge." />
   <String Id="OpenNow" Value="Ouvrir CrioFire Private Firewall maintenant" />
   <String Id="ServiceDescription" Value="Applique les règles de CrioFire Private Firewall via la plateforme de filtrage Windows." />

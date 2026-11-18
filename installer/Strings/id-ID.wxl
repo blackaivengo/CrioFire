@@ -2,7 +2,6 @@
 <!-- CrioFire installer texts: Indonesian. How to translate: docs/TRANSLATING.md. -->
 <WixLocalization Culture="id-ID" Codepage="65001" SummaryInformationCodepage="1252" xmlns="http://wixtoolset.org/schemas/v4/wxl">
   <String Id="CrioFireFont" Value="Segoe UI" />
-  <String Id="DowngradeError" Value="Versi [ProductName] yang lebih baru sudah terpasang." />
   <String Id="NeedsWindows64" Value="CrioFire Private Firewall memerlukan Windows 64-bit. Windows 10 dan Windows 11 didukung." />
   <String Id="OpenNow" Value="Buka CrioFire Private Firewall sekarang" />
   <String Id="ServiceDescription" Value="Menerapkan aturan CrioFire Private Firewall melalui Windows Filtering Platform." />

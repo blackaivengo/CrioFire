@@ -28,8 +28,14 @@
            InstallerVersion="500">
 
     <SummaryInformation Description="CrioFire Private Firewall" Manufacturer="CrioSoft LLC" />
-    <!-- Same-version upgrades too: v0.1.0-beta.1 and v0.1.0 both map to MSI version 0.1.0. -->
-    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="!(loc.DowngradeError)" />
+    <!--
+      Installs over any CrioFire already there, newer, the same or older (a self-built 0.1.0-dev, a
+      CI build, another rebuild of this version), replacing it and keeping its rules, mode, settings
+      and install folder. Windows Installer removes the old one first; its "uninstall" step that
+      deletes rules and data is skipped during an upgrade (NOT UPGRADINGPRODUCTCODE, below).
+      build/test-msi-upgrade.ps1 checks this in CI.
+    -->
+    <MajorUpgrade AllowDowngrades="yes" />
     <MediaTemplate EmbedCab="yes" />
 
     <Launch Condition="Installed OR VersionNT64 &gt;= 603"
