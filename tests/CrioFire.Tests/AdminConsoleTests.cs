@@ -19,6 +19,25 @@ public sealed class AdminConsoleTests : IDisposable
     }
 
     [Fact]
+    public void ASessionsStampChangesWithThePasswordAndGoesWithTheAccount()
+    {
+        var admins = new AdminAccounts(_dir);
+        admins.Add("Dana", "correct horse battery", Now);
+        admins.Add("Lee", "another long password", Now);
+        var stamp = admins.Stamp("dana");
+        Assert.NotNull(stamp);
+        Assert.Equal(stamp, admins.Stamp("Dana"));          // the same until something changes
+        Assert.NotEqual(stamp, admins.Stamp("Lee"));
+
+        admins.SetPassword("Dana", "a brand new password");
+        Assert.NotEqual(stamp, admins.Stamp("Dana"));       // sessions from before the change end
+
+        admins.Remove("Dana");
+        Assert.Null(admins.Stamp("Dana"));                  // and all of them when the account is removed
+        Assert.Null(admins.Stamp(null));
+    }
+
+    [Fact]
     public void AdministratorsSignInWithTheirPasswordOnly()
     {
         var admins = new AdminAccounts(_dir);

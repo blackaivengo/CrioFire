@@ -102,6 +102,20 @@ public sealed class AdminAccounts(string folder)
     }
 
     /// <summary>The account when the password is right, otherwise null. Takes the same time for unknown names.</summary>
+    /// <summary>
+    /// A value that changes when the administrator's password does, and is gone with the account.
+    /// A sign-in carries it, so changing a password or removing an administrator ends every
+    /// session that was signed in before.
+    /// </summary>
+    public string? Stamp(string? name)
+    {
+        lock (_gate)
+        {
+            var account = Load().FirstOrDefault(a => Same(a.Name, name ?? string.Empty));
+            return account is null ? null : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(account.Salt + "." + account.Hash)))[..32];
+        }
+    }
+
     public AdminAccount? Verify(string? name, string? password, DateTime nowUtc)
     {
         lock (_gate)

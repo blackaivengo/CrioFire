@@ -326,8 +326,9 @@ public sealed class ServerStore
                 Address = address,
             };
 
-            // A PC enrolling again (reinstalled, or moved to this server again) replaces its old entry.
-            _devices.RemoveAll(d => string.Equals(d.Computer, device.Computer, StringComparison.OrdinalIgnoreCase));
+            // An entry with the same name stays. A name proves nothing: removing it here would let
+            // anyone with an enrollment code push a real PC off the server by using its name. The
+            // console marks PCs that share a name, and an administrator removes the stale one.
             _devices.Add(device);
             SaveDevicesLocked();
             Assign(device.DeviceId, DefaultPolicyId());
@@ -371,7 +372,14 @@ public sealed class ServerStore
                 return;
             }
 
-            _devices[i] = _devices[i] with { LastSeenUtc = nowUtc, LastReport = report, Address = address, Computer = Clip(report.Computer, _devices[i].Computer) };
+            // A PC that was renamed shows its new name, unless another PC already has it.
+            var name = Clip(report.Computer, _devices[i].Computer);
+            if (_devices.Where((d, at) => at != i).Any(d => string.Equals(d.Computer, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                name = _devices[i].Computer;
+            }
+
+            _devices[i] = _devices[i] with { LastSeenUtc = nowUtc, LastReport = Trimmed(report), Address = address, Computer = name };
             _dirty = true;
         }
     }
@@ -528,6 +536,21 @@ public sealed class ServerStore
     private static bool IsId(string id) => id.Length is > 0 and < 40 && id.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
     public static string Hash(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+
+    /// <summary>A report with every text cut to a sensible length: it is kept and shown, and comes from a PC.</summary>
+    private static CheckinReport Trimmed(CheckinReport r) => r with
+    {
+        Computer = Short(r.Computer, 64) ?? string.Empty,
+        AppVersion = Short(r.AppVersion, 40),
+        OsVersion = Short(r.OsVersion, 80),
+        Mode = Short(r.Mode, 16) ?? "learning",
+        Panic = Short(r.Panic, 16) ?? "off",
+        License = Short(r.License, 16) ?? "none",
+        LicenseId = Short(r.LicenseId, 64),
+        PolicyId = Short(r.PolicyId, 40),
+    };
+
+    private static string? Short(string? text, int max) => text is null || text.Length <= max ? text : text[..max];
 
     private static string Clip(string? text, string fallback) =>
         string.IsNullOrWhiteSpace(text) ? fallback : text.Trim().Length > 64 ? text.Trim()[..64] : text.Trim();

@@ -153,3 +153,12 @@ The PC sends its connections grouped by program, destination and reason, most fr
   readable by scripts; its keys are protected with Windows DPAPI.
 - In Ask and Allow-list mode CrioFire has a built-in permit for its own service, so it can always
   reach the server.
+- An enrollment code is all it takes to join: whoever has one gets the default policy and, if the
+  server has a license, its key. Make codes for as few uses and days as you need, and revoke the
+  ones you no longer use. Enrollment is limited to 30 attempts a minute per address.
+- A PC's name proves nothing, so a PC that enrolls with a name already in the list is added beside
+  it, never in its place; the console marks both. After reinstalling a PC, remove its old entry.
+- Changing an administrator's password, or removing the administrator, ends every console session
+  signed in before.
+- The data folder and the install folder belong to the administrators and are writable only by them
+  and SYSTEM; the service resets this each time it starts.

@@ -106,7 +106,7 @@ internal static class AdminApi
                 return Results.Json(new { error = "This server already has an administrator. Sign in." }, statusCode: StatusCodes.Status409Conflict);
             }
 
-            await SignInAs(http, input.Name.Trim()).ConfigureAwait(false);
+            await SignInAs(http, admins, input.Name.Trim()).ConfigureAwait(false);
             return Results.Json(new { name = input.Name.Trim() });
         }).RequireRateLimiting(ServerHost.SignInLimit);
         api.MapPost("/signin", async (HttpContext http, SignIn input) =>
@@ -118,7 +118,7 @@ internal static class AdminApi
                 return Results.Json(new { error = "Wrong name or password." }, statusCode: StatusCodes.Status401Unauthorized);
             }
 
-            await SignInAs(http, account.Name).ConfigureAwait(false);
+            await SignInAs(http, admins, account.Name).ConfigureAwait(false);
             return Results.Json(new { name = account.Name });
         }).RequireRateLimiting(ServerHost.SignInLimit);
 
@@ -237,7 +237,7 @@ internal static class AdminApi
             admins.Remove(name);
             return Results.NoContent();
         });
-        signedIn.MapPost("/password", (PasswordChange input, ClaimsPrincipal user) =>
+        signedIn.MapPost("/password", async (HttpContext http, PasswordChange input, ClaimsPrincipal user) =>
         {
             var name = user.Identity?.Name ?? string.Empty;
             if (admins.Verify(name, input.Current, DateTime.UtcNow) is null)
@@ -246,13 +246,21 @@ internal static class AdminApi
             }
 
             admins.SetPassword(name, input.New);
+
+            // Every other session of this administrator ends with the old password; this one goes on.
+            await SignInAs(http, admins, name).ConfigureAwait(false);
             return Results.NoContent();
         });
     }
 
-    private static Task SignInAs(HttpContext http, string name)
+    /// <summary>The claim holding <see cref="AdminAccounts.Stamp"/> as it was at sign-in.</summary>
+    public const string StampClaim = "criofire-stamp";
+
+    private static Task SignInAs(HttpContext http, AdminAccounts admins, string name)
     {
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, name)], CookieAuthenticationDefaults.AuthenticationScheme);
+        var identity = new ClaimsIdentity(
+            [new Claim(ClaimTypes.Name, name), new Claim(StampClaim, admins.Stamp(name) ?? string.Empty)],
+            CookieAuthenticationDefaults.AuthenticationScheme);
         return http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
     }
 
@@ -262,6 +270,7 @@ internal static class AdminApi
     internal static List<DeviceView> Devices(ServerStore store, ServerSettings settings, DateTime now)
     {
         var offlineAfter = TimeSpan.FromSeconds(Math.Max(settings.CheckinSeconds * 3, 180));
+        var shared = store.Devices().GroupBy(d => d.Computer, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return store.Devices().Select(d =>
         {
             var policy = store.AssignedPolicy(d.DeviceId);
@@ -294,6 +303,11 @@ internal static class AdminApi
                 if (r.ChangedPrograms > 0)
                 {
                     problems.Add($"{r.ChangedPrograms} allowed program(s) changed since they were allowed.");
+                }
+
+                if (shared.Contains(d.Computer))
+                {
+                    problems.Add("Another enrolled PC has the same name. Remove the one that is not yours or no longer exists.");
                 }
 
                 if (!applied)

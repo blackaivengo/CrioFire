@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using CrioFire.Core.Management;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Hosting.WindowsServices;
@@ -10,6 +11,7 @@ namespace CrioFire.Server;
 internal static class ServerHost
 {
     public const string SignInLimit = "signin";
+    public const string EnrollLimit = "enroll";
 
     private const long MaxRequestBytes = 1024 * 1024;
 
@@ -68,6 +70,18 @@ internal static class ServerHost
             o.Cookie.SameSite = SameSiteMode.Strict;
             o.ExpireTimeSpan = TimeSpan.FromHours(8);
             o.SlidingExpiration = true;
+            // A session is good only while its administrator exists and has the password it signed
+            // in with: removing an administrator or changing a password ends the sessions at once.
+            o.Events.OnValidatePrincipal = async c =>
+            {
+                var name = c.Principal?.Identity?.Name;
+                var stamp = c.Principal?.FindFirst(AdminApi.StampClaim)?.Value;
+                if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(stamp) || !string.Equals(admins.Stamp(name), stamp, StringComparison.Ordinal))
+                {
+                    c.RejectPrincipal();
+                    await c.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+                }
+            };
             o.Events.OnRedirectToLogin = c =>
             {
                 c.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -86,6 +100,11 @@ internal static class ServerHost
             o.AddPolicy(SignInLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+
+            // Enrollment codes are long and random; this keeps guessing, and filling the list of PCs, slow anyway.
+            o.AddPolicy(EnrollLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1) }));
         });
 
         var app = builder.Build();
@@ -127,7 +146,7 @@ internal static class ServerHost
             return response is null
                 ? Results.Json(error, statusCode: StatusCodes.Status403Forbidden)
                 : Results.Json(response, ManagementJson.Default.EnrollResponse);
-        });
+        }).RequireRateLimiting(EnrollLimit);
 
         app.MapPost("/api/v1/checkin", async (HttpContext context) =>
         {

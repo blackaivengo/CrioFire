@@ -59,15 +59,33 @@ public sealed class ManagementTests : IDisposable
     }
 
     [Fact]
-    public void ReEnrollingReplacesThePcsOldEntry()
+    public void EnrollingWithAnotherPcsNameDoesNotPushItOff()
     {
+        // A name proves nothing: anyone holding an enrollment code can send any name.
         var store = new ServerStore(_dir);
         var (token, _) = store.CreateToken(TimeSpan.FromDays(1), uses: 2, null, Now);
         var first = store.Enroll(new EnrollRequest(token, "PC-1", null, null), "s", null, Now, out _)!;
         var second = store.Enroll(new EnrollRequest(token, "pc-1", null, null), "s", null, Now, out _)!;
 
-        Assert.Equal(second.DeviceId, Assert.Single(store.Devices()).DeviceId);
-        Assert.Null(store.Authenticate($"Device {first.DeviceId}.{first.Secret}"));
+        Assert.Equal(2, store.Devices().Count);
+        Assert.NotNull(store.Authenticate($"Device {first.DeviceId}.{first.Secret}"));
+        Assert.NotNull(store.Authenticate($"Device {second.DeviceId}.{second.Secret}"));
+    }
+
+    [Fact]
+    public void APcCannotTakeAnotherPcsNameOrSendEndlessTexts()
+    {
+        var store = new ServerStore(_dir);
+        var (token, _) = store.CreateToken(TimeSpan.FromDays(1), uses: 2, null, Now);
+        var real = store.Enroll(new EnrollRequest(token, "FINANCE-01", null, null), "s", null, Now, out _)!;
+        var other = store.Enroll(new EnrollRequest(token, "PC-2", null, null), "s", null, Now, out _)!;
+
+        store.RecordCheckin(other.DeviceId, new CheckinReport { Computer = "finance-01", OsVersion = new string('x', 5000) }, null, Now.AddMinutes(1));
+
+        var devices = store.Devices();
+        Assert.Equal("PC-2", devices.Single(d => d.DeviceId == other.DeviceId).Computer);
+        Assert.Equal("FINANCE-01", devices.Single(d => d.DeviceId == real.DeviceId).Computer);
+        Assert.Equal(80, devices.Single(d => d.DeviceId == other.DeviceId).LastReport!.OsVersion!.Length);
     }
 
     [Fact]
