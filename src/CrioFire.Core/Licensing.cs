@@ -206,8 +206,8 @@ public sealed class LicenseStore(string path)
             return;
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(FilePath))!);
-        File.WriteAllText(FilePath, LicenseKeys.Clean(key));
+        // The key is the organization's: readable by SYSTEM and administrators, not by every account on the PC.
+        SecretFile.Write(FilePath, LicenseKeys.Clean(key));
     }
 }
 

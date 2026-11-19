@@ -69,6 +69,59 @@ public class FolderGuardTests
         }
     }
 
+    [Fact]
+    public void ASecretFileIsReadableByAdministratorsAndSystemOnly()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "criofire-secret-" + Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(folder, "license.key");
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var identity = WindowsIdentity.GetCurrent();
+                if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
+                {
+                    return;   // only an administrator can read the file back
+                }
+            }
+
+            SecretFile.Write(path, "first");
+            SecretFile.Write(path, "second");   // replacing works too
+            Assert.Equal("second", File.ReadAllText(path));
+            Assert.False(File.Exists(path + ".tmp"));
+
+            if (OperatingSystem.IsWindows())
+            {
+                var security = new FileInfo(path).GetAccessControl();
+                Assert.True(security.AreAccessRulesProtected);
+                foreach (FileSystemAccessRule rule in security.GetAccessRules(true, true, typeof(SecurityIdentifier)))
+                {
+                    Assert.True(FolderGuard.IsTrusted(rule.IdentityReference as SecurityIdentifier), $"{rule.IdentityReference} may open the file.");
+                }
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(@"C:\Tools\app.exe", @"C:\Tools\app.exe")]
+    [InlineData("=cmd|' /C calc'!A0", "'=cmd|' /C calc'!A0")]
+    [InlineData("+1+1", "'+1+1")]
+    [InlineData("@SUM(A1)", "'@SUM(A1)")]
+    [InlineData("-2+3", "'-2+3")]
+    [InlineData("-5", "-5")]
+    [InlineData("a,b", "\"a,b\"")]
+    [InlineData("=1,2", "\"'=1,2\"")]
+    [InlineData("", "")]
+    public void ASpreadsheetNeverTakesAReportCellForAFormula(string cell, string expected) =>
+        Assert.Equal(expected, ReportBuilder.Quote(cell));
+
     private static void AssertOnlyAdministratorsWrite(AuthorizationRuleCollection rules)
     {
         const FileSystemRights writing = FileSystemRights.WriteData | FileSystemRights.AppendData | FileSystemRights.Delete

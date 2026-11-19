@@ -434,8 +434,21 @@ public static class ReportBuilder
         return TimeZoneInfo.ConvertTimeToUtc(unspecified, zone);
     }
 
-    private static string Quote(string value) =>
-        value.Contains(',', StringComparison.Ordinal) || value.Contains('"', StringComparison.Ordinal)
+    /// <summary>
+    /// One CSV cell. A text that a spreadsheet would take for a formula (it starts with =, +, @
+    /// or -) gets an apostrophe in front: a program can name itself anything, and a report is
+    /// opened in a spreadsheet.
+    /// </summary>
+    public static string Quote(string value)
+    {
+        if (value.Length > 0 && (value[0] is '=' or '+' or '@' or '\t' or '\r'
+            || (value[0] == '-' && !double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))))
+        {
+            value = "'" + value;
+        }
+
+        return value.AsSpan().IndexOfAny(',', '"', '\n') >= 0 || value.Contains('\r', StringComparison.Ordinal)
             ? "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\""
             : value;
+    }
 }

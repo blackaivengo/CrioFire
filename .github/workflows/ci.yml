@@ -25,9 +25,9 @@ jobs:
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
@@ -48,13 +48,13 @@ jobs:
         shell: pwsh
         run: ./build/publish.ps1 -Arch ${{ matrix.arch }} -Version "0.0.0-ci.${{ github.run_number }}"
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: criofire-ci-${{ matrix.arch }}
           path: out/${{ matrix.arch }}
           retention-days: 7
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: criofire-server-ci-${{ matrix.arch }}
           path: out/server-${{ matrix.arch }}
@@ -89,13 +89,13 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: windows-2025
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: criofire-*ci-*
           path: out
@@ -131,7 +131,7 @@ jobs:
         shell: pwsh
         run: ./build/test-server-msi.ps1 -Msi (Get-Item out/msi/criofire-server-*-x64.msi).FullName
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: criofire-ci-msi

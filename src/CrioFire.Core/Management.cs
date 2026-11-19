@@ -1,6 +1,4 @@
 using System.Net.Http.Json;
-using System.Security.AccessControl;
-using System.Security.Principal;
 using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -134,27 +132,8 @@ public sealed class ServerLinkStore(string path)
         ArgumentNullException.ThrowIfNull(link);
         lock (Gate)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(FilePath))!);
-            var temp = FilePath + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(link, ManagementJson.Default.ServerLink));
-            RestrictToAdministrators(temp);
-            File.Move(temp, FilePath, overwrite: true);
+            SecretFile.Write(FilePath, JsonSerializer.Serialize(link, ManagementJson.Default.ServerLink));
         }
-    }
-
-    /// <summary>The file holds this PC's secret for the server: only SYSTEM and administrators may read it.</summary>
-    private static void RestrictToAdministrators(string path)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var security = new FileSecurity();
-        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-        security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), FileSystemRights.FullControl, AccessControlType.Allow));
-        security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), FileSystemRights.FullControl, AccessControlType.Allow));
-        new FileInfo(path).SetAccessControl(security);
     }
 
     public void Delete()
