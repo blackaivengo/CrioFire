@@ -28,7 +28,7 @@ every organization under common control with it.
 
 A subscription per protected computer per year, cheaper per computer in larger tiers, with every
 update and email support included while it runs. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)
-for prices and terms, or contact [licensing email].
+for prices and terms, or contact <support@criosoft.com>.
 
 ## Can I change the code or share it?
 

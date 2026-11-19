@@ -22,7 +22,7 @@ CrioFire protects, renewed every year.
 | 100 – 499 | [US$ __] |
 | 500 or more | Contact CrioSoft |
 
-Buy or ask about licensing: [licensing email / store URL].
+Buy or ask about licensing: <support@criosoft.com>.
 
 ---
 
