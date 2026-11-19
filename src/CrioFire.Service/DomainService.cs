@@ -25,7 +25,7 @@ internal sealed partial class DomainService(ILogger<DomainService> logger) : Bac
         {
             using var engine = WfpEngine.Open();
             var store = new DomainRuleStore(DomainRuleStore.DefaultPath);
-            var keeper = new DomainKeeper(engine, Resolve);
+            var keeper = new DomainKeeper(engine, Resolve, IsThisPcsOwn);
             var changed = store.Changed;
             _rules = [.. store.List()];
             keeper.Reset(_rules, DateTime.UtcNow);
@@ -76,20 +76,32 @@ internal sealed partial class DomainService(ILogger<DomainService> logger) : Bac
                 {
                     // Nothing to read for a while: time for the periodic checks.
                 }
-
-                var now = DateTime.UtcNow;
-                if (store.Changed != changed)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    changed = store.Changed;
-                    _rules = [.. store.List()];
-                    keeper.Update(_rules, now);
-                    LogRules(logger, _rules.Length);
+                    LogFailed(logger, ex);   // one lookup went wrong: the next ones are still followed
                 }
 
-                if (now - lastSweep >= SweepEvery)
+                try
                 {
-                    lastSweep = now;
-                    keeper.Sweep(now);
+                    var now = DateTime.UtcNow;
+                    if (store.Changed != changed)
+                    {
+                        changed = store.Changed;
+                        _rules = [.. store.List()];
+                        keeper.Update(_rules, now);
+                        LogRules(logger, _rules.Length);
+                    }
+
+                    if (now - lastSweep >= SweepEvery)
+                    {
+                        lastSweep = now;
+                        keeper.Sweep(now);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    LogFailed(logger, ex);
+                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).ConfigureAwait(false);   // not a busy loop while something stays wrong
                 }
             }
         }
@@ -100,6 +112,47 @@ internal sealed partial class DomainService(ILogger<DomainService> logger) : Bac
         catch (Exception ex) when (ex is WfpException or IOException or UnauthorizedAccessException)
         {
             LogFailed(logger, ex);
+        }
+    }
+
+    private static readonly Lock OwnGate = new();
+    private static HashSet<IPAddress> _own = [];
+    private static DateTime _ownReadUtc;
+
+    /// <summary>
+    /// This PC's own addresses, its routers and its DNS servers (read again every minute): a domain
+    /// block rule never blocks these, whatever the blocked domain's name servers answer.
+    /// </summary>
+    private static bool IsThisPcsOwn(IPAddress address)
+    {
+        lock (OwnGate)
+        {
+            if (DateTime.UtcNow - _ownReadUtc > TimeSpan.FromMinutes(1))
+            {
+                _ownReadUtc = DateTime.UtcNow;
+                try
+                {
+                    var found = new HashSet<IPAddress>();
+                    foreach (var adapter in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                    {
+                        var properties = adapter.GetIPProperties();
+                        foreach (var a in properties.UnicastAddresses.Select(u => u.Address)
+                                     .Concat(properties.GatewayAddresses.Select(g => g.Address))
+                                     .Concat(properties.DnsAddresses))
+                        {
+                            found.Add(a.IsIPv4MappedToIPv6 ? a.MapToIPv4() : a);
+                        }
+                    }
+
+                    _own = found;
+                }
+                catch (System.Net.NetworkInformation.NetworkInformationException)
+                {
+                    // Keep the last list.
+                }
+            }
+
+            return _own.Contains(address);
         }
     }
 

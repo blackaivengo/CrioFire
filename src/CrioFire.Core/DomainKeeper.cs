@@ -26,10 +26,21 @@ public sealed record DnsLookup(string Name, IReadOnlyList<string> Aliases, IRead
 /// lookup has returned for <see cref="Retention"/> loses it. When several rules cover a name, the
 /// most specific domain wins (allow www.example.com beats block example.com for www.example.com).
 /// </summary>
-public sealed class DomainKeeper(IDomainFilters filters, Func<string, IReadOnlyList<IPAddress>> resolve)
+/// <param name="isProtected">
+/// Addresses a block rule must never reach: this PC's own, its routers and its DNS servers. Whoever
+/// runs a blocked domain's name servers chooses what its names resolve to, and could answer with
+/// these to cut the PC off.
+/// </param>
+public sealed class DomainKeeper(IDomainFilters filters, Func<string, IReadOnlyList<IPAddress>> resolve, Func<IPAddress, bool>? isProtected = null)
 {
     /// <summary>How long an address keeps its filter after the last lookup that returned it.</summary>
     public static readonly TimeSpan Retention = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// The most addresses kept for one rule. A domain's owner can answer every lookup with new
+    /// addresses; past this many, the address longest unseen makes room, so filters cannot pile up.
+    /// </summary>
+    public const int MaxAddressesPerRule = 256;
 
     private readonly object _gate = new();
     private readonly Dictionary<(string RuleId, IPAddress Address), DateTime> _seen = [];
@@ -153,9 +164,20 @@ public sealed class DomainKeeper(IDomainFilters filters, Func<string, IReadOnlyL
         var added = 0;
         foreach (var address in addresses)
         {
+            if (rule.Action == RuleAction.Block && isProtected?.Invoke(address) == true)
+            {
+                continue;   // never this PC's router, DNS server or own address, whatever the domain says
+            }
+
             var key = (rule.Id, address);
             if (!_seen.ContainsKey(key))
             {
+                var held = _seen.Where(e => e.Key.RuleId == rule.Id).ToList();
+                if (held.Count >= MaxAddressesPerRule)
+                {
+                    RemoveKeys([held.MinBy(e => e.Value).Key]);
+                }
+
                 try
                 {
                     filters.AddDomainAddress(rule, address);

@@ -215,8 +215,10 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         }
                     }
                 }
-                catch (Exception ex) when (ex is WfpException or IOException or UnauthorizedAccessException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    // Whatever went wrong this round (a damaged file, an answer nobody expected), the
+                    // service keeps running: stopping would take alerts and the history with it.
                     LogPollError(logger, ex);
                 }
             }
@@ -261,8 +263,10 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
             SaveIfStillEnrolled(links, link with { LastCheckinUtc = DateTime.UtcNow, LastError = null });
             return new CheckinOutcome(link.DeviceId, ServerDefaults.CheckinInterval(answer.NextCheckinSeconds), answer.PolicyId, answer.PolicyVersion, answer.Policy);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException
+                                   or System.Text.Json.JsonException or NotSupportedException or InvalidOperationException or ArgumentException or UnauthorizedAccessException)
         {
+            // Also an answer that is not what a CrioFire Server sends (a proxy's error page, say): noted, tried again later.
             if (!stoppingToken.IsCancellationRequested)
             {
                 SaveIfStillEnrolled(links, link with { LastError = ex.Message });

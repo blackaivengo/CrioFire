@@ -183,7 +183,11 @@ Nothing that reaches the network is hidden, including what CrioFire or Windows a
   adds a filter for the addresses each lookup of a covered name (or its CNAME) returns; an address
   drops out an hour after the last lookup that returned it. The more specific domain wins when rules
   overlap. Limits: sites sharing an address with a blocked domain are blocked too, and lookups an
-  application makes on its own (a browser's secure DNS) are not seen.
+  application makes on its own (a browser's secure DNS) are not seen. Whoever runs a domain's name
+  servers chooses what its names resolve to: a blocked domain could point at an address you need.
+  CrioFire never lets a domain block reach this PC's own addresses, its routers or its DNS servers,
+  and keeps at most 256 addresses per rule; other addresses a blocked domain names are blocked for
+  an hour, as asked.
 - **Automatic rules** are listed under Rules and can be switched off (`criofire auto svchost off`);
   the choice is kept in `%ProgramData%\criofire\auto-rules.txt`. Loopback and inbound handling are
   shown there too.

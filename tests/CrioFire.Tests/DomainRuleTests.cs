@@ -140,6 +140,42 @@ public sealed class DomainRuleTests : IDisposable
     }
 
     [Fact]
+    public void ABlockedDomainCannotBlockThePcsRouterOrDnsServer()
+    {
+        // Whoever runs the blocked domain's name servers answers with the victim's router.
+        var router = IPAddress.Parse("192.168.1.1");
+        var engine = new FakeFilters();
+        var keeper = new DomainKeeper(engine, _ => [], a => a.Equals(router));
+        keeper.Reset([Rule("r1", "evil.example"), Rule("r2", "intranet.example", RuleAction.Allow)], Now);
+
+        Assert.Equal(1, keeper.Observe(Lookup("x.evil.example", router, A1), Now));
+        Assert.Equal([A1], engine.Addresses("r1"));
+
+        // An allow rule may name it: allowing the router harms nobody.
+        Assert.Equal(1, keeper.Observe(Lookup("intranet.example", router), Now));
+        Assert.Equal([router], engine.Addresses("r2"));
+    }
+
+    [Fact]
+    public void ARuleKeepsALimitedNumberOfAddresses()
+    {
+        var engine = new FakeFilters();
+        var keeper = new DomainKeeper(engine, _ => []);
+        keeper.Reset([Rule("r1", "evil.example")], Now);
+
+        // A new address with every lookup, far more than any real site has.
+        for (var i = 0; i < DomainKeeper.MaxAddressesPerRule + 50; i++)
+        {
+            keeper.Observe(Lookup("evil.example", new IPAddress([198, 18, (byte)(i / 256), (byte)(i % 256)])), Now.AddSeconds(i));
+        }
+
+        var kept = engine.Addresses("r1");
+        Assert.Equal(DomainKeeper.MaxAddressesPerRule, kept.Count);
+        Assert.DoesNotContain(new IPAddress([198, 18, 0, 0]), kept);   // the one longest unseen went first
+        Assert.Contains(new IPAddress([198, 18, 1, 49]), kept);        // the latest is there
+    }
+
+    [Fact]
     public void BlocklistAnswersAndLoopbackAreIgnored()
     {
         var engine = new FakeFilters();
