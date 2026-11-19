@@ -45,6 +45,9 @@ foreach ($doc in 'LICENSE', 'THIRD-PARTY-NOTICES.md') {
     Copy-Item (Join-Path $root $doc) (Join-Path $out $doc) -Force
 }
 
+# The list of files the service checks its folder against (written again after signing, for a release).
+& (Join-Path $PSScriptRoot 'write-integrity.ps1') -Folder $out -Version $ver
+
 # CrioFire Server: its own folder (with its own runtime, including ASP.NET Core) and its own installer.
 dotnet publish (Join-Path $root 'src/CrioFire.Server') `
     --configuration Release `

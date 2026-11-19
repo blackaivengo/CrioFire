@@ -100,6 +100,24 @@
                          Foreground="{DynamicResource ChipFireTextBrush}" Margin="0,0,12,0" />
             </DockPanel>
           </Border>
+          <!-- CrioFire's own files are not the installed ones: show which, and how to repair. -->
+          <Border x:Name="IntegrityBanner" DockPanel.Dock="Top" CornerRadius="12" Padding="16,10" Margin="0,0,0,16" Visibility="Collapsed"
+                  Background="{DynamicResource ChipFireBrush}" BorderBrush="{DynamicResource FireBrush}" BorderThickness="1">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Show files" Style="{StaticResource FireButton}" MinHeight="34" Click="OnIntegrityDetails" />
+              <TextBlock x:Name="IntegrityBannerText" VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Foreground="{DynamicResource ChipFireTextBrush}" Margin="0,0,12,0" />
+            </DockPanel>
+          </Border>
+          <!-- The service ended without being stopped (killed, crashed, power lost) and was started again. -->
+          <Border x:Name="StopBanner" DockPanel.Dock="Top" CornerRadius="12" Padding="16,10" Margin="0,0,0,16" Visibility="Collapsed"
+                  Background="{DynamicResource ChipFireBrush}" BorderBrush="{DynamicResource FireBrush}" BorderThickness="1">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="OK" Style="{StaticResource GhostButton}" MinHeight="34" Click="OnStopSeen" />
+              <TextBlock x:Name="StopBannerText" VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap"
+                         Foreground="{DynamicResource ChipFireTextBrush}" Margin="0,0,12,0" />
+            </DockPanel>
+          </Border>
           <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0" VerticalAlignment="Top" Click="OnToggleTheme"
                   x:Name="ThemeButton" AutomationProperties.Name="Switch between light and dark mode">
             <Border Style="{StaticResource SegGroup}">

@@ -38,6 +38,9 @@ public enum CommandKind
     DataUsed,
     Logs,
     Updates,
+    Verify,
+    ServiceStop,
+    ServiceStart,
 }
 
 /// <param name="Minutes">events: how far back to look.</param>
@@ -186,7 +189,15 @@ internal static class CommandLine
           criofire protection [on|off]         Tamper protection: when on, changing rules needs
                                                administrator approval, so a program running as you
                                                cannot use CrioFire to allow itself (changing it needs an
-                                               administrator prompt)
+                                               administrator prompt). It also locks the criofire service:
+                                               "sc stop", "sc config" and "sc delete" are refused, also
+                                               for administrators; use "criofire service stop" instead
+          criofire verify                      Check that CrioFire's own files are the installed ones
+                                               (each file's SHA-256, no program added to its folder, and
+                                               the publisher's signature on signed releases)
+          criofire service stop|start          Stop or start the criofire service (administrator prompt).
+                                               Your rules stay in force while it is stopped; alerts,
+                                               history and temporary rules wait until it runs again
           criofire remove <filter-id>          Remove one CrioFire filter by ID
           criofire events [--minutes N] [--all]
                                                Show connections CrioFire blocked (default: last 10 minutes;
@@ -424,6 +435,16 @@ internal static class CommandLine
                 }
 
                 error = "Usage: criofire license [<key>|--remove]";
+                return new Command(CommandKind.Help);
+            case "verify" when rest.Length == 0:
+                return new Command(CommandKind.Verify);
+            case "service":
+                if (rest.Length == 1 && rest[0].ToLowerInvariant() is "stop" or "start")
+                {
+                    return new Command(rest[0].Equals("stop", StringComparison.OrdinalIgnoreCase) ? CommandKind.ServiceStop : CommandKind.ServiceStart);
+                }
+
+                error = "Usage: criofire service stop|start";
                 return new Command(CommandKind.Help);
             case "protection":
                 if (rest.Length == 0)

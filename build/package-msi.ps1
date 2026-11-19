@@ -77,6 +77,9 @@ trap {
     break
 }
 
+# The files are final now (signed, for a release): list them for the service's own file check.
+& (Join-Path $PSScriptRoot 'write-integrity.ps1') -Folder $PublishDir -Version $Version
+
 # Windows Installer's own functions (msi.dll), for making, checking and storing the transforms.
 if (-not ('CrioFireMsi' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'CrioFireMsi.cs') }
 

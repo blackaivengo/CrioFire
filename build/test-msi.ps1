@@ -101,6 +101,42 @@ Check ($machinePath -like "*$installDir*") 'criofire is on the system PATH'
 & $cli block --tcp --port 9 | Out-Host
 Check ($LASTEXITCODE -eq 0) 'a rule can be added with the installed command line'
 
+# CrioFire checks its own files against the list the build made.
+$verify = & $cli verify | Out-String
+Check ($LASTEXITCODE -eq 0 -and $verify -match 'All \d+ files') "the installed files are the built ones ($($verify.Trim()))"
+$planted = Join-Path $installDir 'planted.dll'
+Set-Content $planted 'not part of CrioFire'
+$verify = & $cli verify | Out-String
+Check ($LASTEXITCODE -eq 1 -and $verify -match 'planted\.dll') 'a program file added to the folder is reported'
+Remove-Item $planted -Force
+
+if (-not $Language) {
+    # Tamper protection locks the service: Windows refuses to stop or reconfigure it, even for this
+    # administrator; CrioFire's own command stops it; and the uninstall below still works.
+    & $cli protection on | Out-Host
+    Check ($LASTEXITCODE -eq 0) 'tamper protection can be turned on'
+    sc.exe stop criofire | Out-Host
+    Check ($LASTEXITCODE -eq 5) "with tamper protection on, 'sc stop' is refused to an administrator (exit code $LASTEXITCODE)"
+    sc.exe config criofire start= disabled | Out-Host
+    Check ($LASTEXITCODE -eq 5) "with tamper protection on, 'sc config' is refused to an administrator (exit code $LASTEXITCODE)"
+    Check ((Get-Service criofire).Status -eq 'Running') 'the service is still running'
+
+    # Ending the process by force: either Windows refuses, or the service is started again.
+    taskkill.exe /F /IM criofire-svc.exe | Out-Host
+    Start-Sleep -Seconds 6
+    try { (Get-Service criofire).WaitForStatus('Running', [TimeSpan]::FromSeconds(30)) } catch { Write-Host "Service did not reach Running: $_" }
+    Check ((Get-Service criofire).Status -eq 'Running') 'after an attempt to end its process, the service is running'
+    Check (Test-ProviderRegistered) 'the rules stayed in the Windows Filtering Platform'
+
+    & $cli service stop | Out-Host
+    Check ($LASTEXITCODE -eq 0) "'criofire service stop' is accepted from an administrator"
+    try { (Get-Service criofire).WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) } catch { Write-Host "Service did not stop: $_" }
+    Check ((Get-Service criofire).Status -eq 'Stopped') 'the service stopped'
+    & $cli service start | Out-Host
+    try { (Get-Service criofire).WaitForStatus('Running', [TimeSpan]::FromSeconds(30)) } catch { Write-Host "Service did not reach Running: $_" }
+    Check ((Get-Service criofire).Status -eq 'Running') "'criofire service start' started it again"
+}
+
 Write-Host "Uninstalling"
 Invoke-Msi "/x `"$Msi`"" (Join-Path $logDir "uninstall$suffix.log")
 

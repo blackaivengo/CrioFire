@@ -92,6 +92,7 @@
           <StackPanel>
             <TextBlock Text="Ask for administrator approval before any rule changes" />
             <TextBlock Text="Turning this on or off needs approval too." Style="{StaticResource Muted}" FontSize="12" />
+            <TextBlock Text="It also locks the CrioFire service: Windows then refuses to stop, disable or remove it, also for programs running as administrator." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" />
           </StackPanel>
         </CheckBox>
       </StackPanel>

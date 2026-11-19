@@ -88,6 +88,35 @@ from an administrator prompt), every change needs an elevated CrioFire: the app 
 approval (UAC) for each change, and the command line needs an administrator prompt. Turning it off
 needs approval too. The service's data folder is writable only by administrators and the service.
 
+**Self-protection.** CrioFire also guards itself:
+
+- *Its files.* Every build carries `integrity.json`: each file's SHA-256, written after the files
+  are signed. The service compares its folder with it shortly after it starts and every 6 hours
+  (`criofire verify` does it now): a changed or missing file, a program file (`.exe`, `.dll`...)
+  that was added to the folder, or, on a signed release, a CrioFire program that is not signed by
+  the publisher that signed the service, shows a warning in the app, in `criofire status` and in
+  the Windows event log. Repairing or reinstalling CrioFire puts the original files back; rules are
+  kept. The install folder itself can only be written by administrators.
+- *Its service.* With tamper protection on, the `criofire` service is locked: Windows refuses
+  `sc stop`, `sc config`, `sc delete` and the Services console's Stop to everyone but SYSTEM,
+  administrators included. `criofire service stop` from an administrator prompt stops it (the
+  service checks that the caller is an elevated administrator and stops itself), and installing,
+  upgrading and uninstalling keep working because Windows Installer runs as SYSTEM. The service puts
+  the lock back every minute, and "start with Windows" if something disabled it.
+- *Its process.* Other programs may not end the service process or write into it. A program that
+  runs as administrator with the debug privilege can still end it (see below), so Windows restarts
+  the service a second later, and the app, `criofire status` and the event log say that it ended
+  without being stopped, and when.
+- *Your rules do not depend on the service.* They are stored in the Windows Filtering Platform and
+  stay in force while the service is not running; only alerts, history, temporary rules, domain
+  rules and the checks on allowed programs wait for it.
+
+What this cannot do: a program that already runs with administrator rights can take ownership of
+the service, act as SYSTEM, or remove CrioFire's filters from the filtering platform directly. No
+firewall that runs without its own kernel driver and Microsoft's protected-process signing can
+prevent that; CrioFire makes it harder and makes it visible. Don't run programs you don't trust as
+administrator.
+
 **Backups.** The service saves the rules to `%ProgramData%\criofire\backups` whenever they change
 (checked every 5 minutes), and before every import or "remove all rules"; the newest 30 are kept.
 Export and Import (on the Rules page, or `criofire export|import`) move rules between PCs as a

@@ -116,6 +116,9 @@ Invoke-Msi "/i `"$newer`" CRIOFIRE_MODE=learning CRIOFIRE_ALLOW_RUNNING=0 CRIOFI
 Check-Installed '99.0.0' 'newer version' -hasRule $false
 & $cli block --tcp --port 9 | Out-Host
 Check ($LASTEXITCODE -eq 0) 'a rule can be added'
+# The upgrades below run with the service locked: Windows Installer may still stop and replace it.
+& $cli protection on | Out-Host
+Check ($LASTEXITCODE -eq 0) 'tamper protection can be turned on'
 
 Write-Host "2. Version $version over the newer one (a downgrade)"
 Invoke-Msi "/i `"$Msi`"" (Join-Path $logDir 'upgrade-2-older.log')

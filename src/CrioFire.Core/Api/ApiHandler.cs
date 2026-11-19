@@ -17,7 +17,8 @@ namespace CrioFire.Core.Api;
 /// <param name="domainRules">The domain rules (the service turns them into address filters); null where not used (tests).</param>
 /// <param name="logSettings">How much connection history the service keeps; null where not used (tests).</param>
 /// <param name="updates">The update check's setting and last result; null where not used (tests).</param>
-public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null, LogSettingsStore? logSettings = null, UpdateStore? updates = null)
+/// <param name="selfProtection">The check of CrioFire's own files and the way to stop the service; null where not used (tests).</param>
+public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null, LogSettingsStore? logSettings = null, UpdateStore? updates = null, SelfProtection? selfProtection = null)
 {
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
@@ -51,6 +52,42 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             if (policy?.Load() is { } managed && ManagedRefusal(request, managed) is { } refusal)
             {
                 return ApiResponse.Failure(refusal);
+            }
+        }
+
+        if (request.Op == ApiOps.StopService)
+        {
+            // Stopping the firewall's service is never left to a program that merely runs as the user.
+            if (rights != ClientRights.Administrator)
+            {
+                return ApiResponse.Failure("Stopping the CrioFire service needs administrator approval (use an administrator prompt).", ApiOps.ApprovalRequired);
+            }
+
+            if (selfProtection?.StopRequested is not { } stop)
+            {
+                return ApiResponse.Failure("The criofire service is not running.");
+            }
+
+            stop();
+            return new ApiResponse { Ok = true };
+        }
+
+        if (request.Op == ApiOps.Integrity)
+        {
+            if (selfProtection is null)
+            {
+                return ApiResponse.Failure("The file check is not available here.");
+            }
+
+            try
+            {
+                // Anyone may read the last result; checking again reads every file, so not for read-only clients.
+                var fresh = request.All == true && rights != ClientRights.ReadOnly;
+                return new ApiResponse { Ok = true, Integrity = fresh ? selfProtection.Check(DateTime.UtcNow) : selfProtection.Latest ?? selfProtection.Check(DateTime.UtcNow) };
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return ApiResponse.Failure(ex.Message);
             }
         }
 
@@ -168,7 +205,9 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 identities?.Store.Changed().Count ?? 0,
                 protection?.RequireAdmin ?? false,
                 NewVersion(out var url),
-                url),
+                url,
+                selfProtection?.Latest?.Findings.Count ?? 0,
+                selfProtection?.UnexpectedStopUtc),
         };
     }
 
@@ -557,7 +596,9 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             throw new InvalidOperationException("Tamper protection needs the criofire service.");
         }
 
-        protection.SetRequireAdmin(request.Enabled ?? throw new ArgumentException("enabled is required."));
+        var on = request.Enabled ?? throw new ArgumentException("enabled is required.");
+        protection.SetRequireAdmin(on);
+        selfProtection?.ProtectionChanged?.Invoke(on);   // the service locks or unlocks itself right away
         return new ApiResponse { Ok = true };
     }
 

@@ -46,6 +46,12 @@ public static class ApiOps
     public const string CheckUpdate = "checkUpdate";
     public const string SetUpdateCheck = "setUpdateCheck";
 
+    /// <summary>Are CrioFire's own files the installed ones (all: true checks again now).</summary>
+    public const string Integrity = "integrity";
+
+    /// <summary>Stops the criofire service cleanly. Elevated administrators only.</summary>
+    public const string StopService = "stopService";
+
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
         op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense
@@ -222,6 +228,9 @@ public sealed record ApiResponse
     /// <summary>update, checkUpdate, setUpdateCheck: the update check's setting and what it found.</summary>
     public UpdateState? Update { get; init; }
 
+    /// <summary>integrity: the check of CrioFire's own files.</summary>
+    public IntegrityInfo? Integrity { get; init; }
+
     /// <summary>logs, setLogs: how much history is kept, and how much there is.</summary>
     public LogsInfo? Logs { get; init; }
 
@@ -242,8 +251,19 @@ public sealed record ApiResponse
 /// <param name="RequireAdmin">Tamper protection: changes need administrator approval.</param>
 /// <param name="NewVersion">A newer CrioFire release the daily check found; null when there is none (or the check is off).</param>
 /// <param name="NewVersionUrl">Its release page.</param>
+/// <param name="IntegrityProblems">CrioFire's own files that are not the installed ones (see the integrity operation).</param>
+/// <param name="UnexpectedStopUtc">When the service last ran before it ended without a clean stop; null if it stopped cleanly.</param>
 public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off", int ChangedPrograms = 0, bool RequireAdmin = false,
-    string? NewVersion = null, string? NewVersionUrl = null);
+    string? NewVersion = null, string? NewVersionUrl = null, int IntegrityProblems = 0, DateTime? UnexpectedStopUtc = null);
+
+/// <param name="Kind">changed, missing, unexpected or signature (<see cref="IntegrityKinds"/>).</param>
+/// <param name="Path">The file, relative to CrioFire's folder.</param>
+public sealed record IntegrityFinding(string Kind, string Path);
+
+/// <param name="State">ok, problems or unchecked (<see cref="IntegrityStates"/>).</param>
+/// <param name="Files">How many files the build's list holds.</param>
+/// <param name="Signed">The install is a signed one, so signatures were compared too.</param>
+public sealed record IntegrityInfo(string State, DateTime CheckedUtc, int Files, List<IntegrityFinding> Findings, bool Signed);
 
 /// <param name="Name">svchost or system.</param>
 /// <param name="Enabled">Switched on (the saved choice).</param>

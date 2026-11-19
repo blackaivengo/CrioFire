@@ -831,6 +831,10 @@ internal sealed class AppModel
         return true;
     }
 
+    /// <summary>The service's last check of CrioFire's own files.</summary>
+    public static IntegrityInfo? Integrity() =>
+        Service.Call(new ApiRequest { Op = ApiOps.Integrity }, out _)?.Integrity;
+
     /// <summary>Allowed programs whose file changed since they were allowed.</summary>
     public static IReadOnlyList<ChangedProgram> ChangedPrograms() =>
         Service.Call(new ApiRequest { Op = ApiOps.Changed }, out _)?.Changed ?? [];

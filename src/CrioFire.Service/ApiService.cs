@@ -7,7 +7,7 @@ namespace CrioFire.Service;
 /// Hosts the local API (\\.\pipe\criofire) so criofire-ui.exe and criofire.exe can work without
 /// administrator rights. Uses its own filtering-engine session.
 /// </summary>
-internal sealed partial class ApiService(ILogger<ApiService> logger) : BackgroundService
+internal sealed partial class ApiService(ILogger<ApiService> logger, SelfProtection selfProtection) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -28,7 +28,8 @@ internal sealed partial class ApiService(ILogger<ApiService> logger) : Backgroun
                 new DomainRuleStore(DomainRuleStore.DefaultPath),
                 new DataUsageStore(DataUsageStore.DefaultPath),
                 new LogSettingsStore(LogSettingsStore.DefaultPath),
-                new UpdateStore(UpdateStore.DefaultFolder)));
+                new UpdateStore(UpdateStore.DefaultFolder),
+                selfProtection));
             LogListening(logger, ApiServer.DefaultPipeName);
             await server.RunAsync(stoppingToken).ConfigureAwait(false);
         }

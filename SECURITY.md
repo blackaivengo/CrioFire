@@ -21,3 +21,10 @@ anything that could leave a PC unexpectedly cut off from the network.
 CrioFire controls which programs may use the network. Malware already running with
 administrator rights can remove any user-mode filter, and code injected into an allowed program
 inherits that program's access. CrioFire alerts on changes where it can, but it is not antivirus.
+
+CrioFire's self-protection (the check of its own files, the locked service with tamper protection
+on, the restart after its process is ended) is there to stop programs without administrator
+rights, to make tampering by administrator-level programs harder, and to make it visible. It is not
+a boundary against code that already runs as administrator or SYSTEM: such code can take ownership
+of the service or remove the filters directly. Reports that need administrator rights to begin with
+are welcome as hardening ideas, but are not treated as vulnerabilities.

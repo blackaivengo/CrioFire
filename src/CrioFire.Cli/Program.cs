@@ -98,7 +98,8 @@ static int Run(Backend api, Command command)
     {
         case CommandKind.Status:
         {
-            var status = api.Call(new ApiRequest { Op = ApiOps.Status }).Status!;
+            // From the service when it runs: only it knows about its own files and its last stop.
+            var status = api.CallPreferService(new ApiRequest { Op = ApiOps.Status }).Status!;
             if (!status.Installed)
             {
                 Console.WriteLine("CrioFire is not installed. Run: criofire install");
@@ -118,6 +119,73 @@ static int Run(Backend api, Command command)
                     : "PANIC: everything is allowed, your rules are paused. End it with: criofire resume");
             }
 
+            if (status.IntegrityProblems > 0)
+            {
+                Console.WriteLine($"WARNING: {status.IntegrityProblems} of CrioFire's own files are not the installed ones. See: criofire verify");
+            }
+
+            if (status.UnexpectedStopUtc is { } lastAlive)
+            {
+                Console.WriteLine($"The service ended without being stopped (killed, crashed, or the PC lost power); it was last running at {lastAlive.ToLocalTime():g}. The rules stayed in force.");
+            }
+
+            return 0;
+        }
+
+        case CommandKind.Verify:
+        {
+            var result = api.Call(new ApiRequest { Op = ApiOps.Integrity, All = true }).Integrity!;
+            if (result.State == IntegrityStates.Unchecked)
+            {
+                Console.WriteLine($"Not checked: there is no {IntegrityManifest.FileName} in CrioFire's folder (a build from source). Installers and release ZIPs include it.");
+                return 0;
+            }
+
+            foreach (var finding in result.Findings)
+            {
+                Console.WriteLine($"{finding.Path}: {IntegrityText(finding.Kind)}");
+            }
+
+            if (result.Findings.Count > 0)
+            {
+                Console.WriteLine($"{result.Findings.Count} of CrioFire's files are not the installed ones. Repair CrioFire (Settings > Apps > Installed apps > CrioFire Private Firewall > Modify), or install it again; your rules are kept.");
+                return 1;
+            }
+
+            Console.WriteLine($"All {result.Files} files are the installed ones{(result.Signed ? ", and CrioFire's programs carry the publisher's signature" : " (this build is not signed, so signatures were not compared)")}.");
+            return 0;
+        }
+
+        case CommandKind.ServiceStop:
+        {
+            // Through the service itself: with tamper protection on, Windows refuses "sc stop" even to administrators.
+            api.CallPreferService(new ApiRequest { Op = ApiOps.StopService });
+            Console.WriteLine("The criofire service is stopping. Your rules stay in force; alerts, history and temporary rules wait until it runs again.");
+            Console.WriteLine("Start it with: criofire service start");
+            return 0;
+        }
+
+        case CommandKind.ServiceStart:
+        {
+            using var sc = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                Path.Combine(Environment.SystemDirectory, "sc.exe"), $"start {ServiceGuard.ServiceName}")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true,
+            }) ?? throw new InvalidOperationException("Could not run sc.exe.");
+            sc.StandardOutput.ReadToEnd();
+            sc.WaitForExit();
+            // 1056: already running.
+            if (sc.ExitCode is not (0 or 1056))
+            {
+                Console.Error.WriteLine(sc.ExitCode == 5
+                    ? "Starting the criofire service needs an administrator prompt."
+                    : $"The criofire service did not start (error {sc.ExitCode}).");
+                return 1;
+            }
+
+            Console.WriteLine(sc.ExitCode == 0 ? "The criofire service is starting." : "The criofire service is already running.");
             return 0;
         }
 
@@ -360,13 +428,14 @@ static int Run(Backend api, Command command)
         {
             if (command.All)
             {
-                api.Call(new ApiRequest { Op = ApiOps.SetProtection, Enabled = command.Enabled });
+                // Through the service when it runs, so it locks or unlocks itself at once.
+                api.CallPreferService(new ApiRequest { Op = ApiOps.SetProtection, Enabled = command.Enabled });
             }
 
             var on = api.Call(new ApiRequest { Op = ApiOps.Status }).Status!.RequireAdmin;
             Console.WriteLine(on
-                ? "Tamper protection is on: changing rules needs administrator approval."
-                : "Tamper protection is off: CrioFire's app and command line may change rules for any signed-in user.");
+                ? "Tamper protection is on: changing rules needs administrator approval, and the criofire service can only be stopped with: criofire service stop"
+                : "Tamper protection is off: CrioFire's app and command line may change rules for any signed-in user, and administrators can stop the service.");
             return 0;
         }
 
@@ -589,6 +658,14 @@ static int Run(Backend api, Command command)
     }
 }
 
+static string IntegrityText(string kind) => kind switch
+{
+    IntegrityKinds.Missing => "missing",
+    IntegrityKinds.Unexpected => "a program file that is not part of CrioFire",
+    IntegrityKinds.Signature => "not signed by CrioFire's publisher",
+    _ => "changed since it was installed",
+};
+
 static string OnNetworks(NetworkProfiles networks) =>
     NetworkScope.Normalize(networks) == NetworkProfiles.Any ? string.Empty : $" on {NetworkScope.Label(networks)}";
 
@@ -738,7 +815,8 @@ internal sealed class Backend : IDisposable
             new DomainRuleStore(DomainRuleStore.DefaultPath),
             new DataUsageStore(DataUsageStore.DefaultPath),
             new LogSettingsStore(LogSettingsStore.DefaultPath),
-            new UpdateStore(UpdateStore.DefaultFolder));
+            new UpdateStore(UpdateStore.DefaultFolder),
+            new SelfProtection(AppContext.BaseDirectory, AuthenticodeSignatures.Describe));
         Description = "direct, administrator";
     }
 

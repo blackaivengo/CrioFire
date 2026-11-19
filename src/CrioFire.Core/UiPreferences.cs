@@ -74,6 +74,13 @@ public sealed class UiPreferences
         set => Set("dismissedUpdate", value);
     }
 
+    /// <summary>The unexpected end of the service (its time) whose banner the user closed.</summary>
+    public string? DismissedStop
+    {
+        get => Get("dismissedStop");
+        set => Set("dismissedStop", value);
+    }
+
     /// <summary>The newer version already announced in the notification area (once per version).</summary>
     public string? AnnouncedUpdate
     {

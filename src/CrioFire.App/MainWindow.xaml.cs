@@ -59,6 +59,8 @@ public partial class MainWindow : Window
     private bool _toldVersion;
     private bool _polling;
     private int _changedSeen;
+    private int _integritySeen;
+    private string? _stopSeen;
     private string _panicSaid = "off";  // the panic state screen readers were last told about
     private int _navigation;          // bumped on every page switch, so a slow load cannot show a page you left
     private bool _refreshing;
@@ -634,6 +636,7 @@ public partial class MainWindow : Window
         }
 
         _changedSeen = changed;
+        ShowSelfProtection(status);
         ShowUpdate(status);
         if (status is null)
         {
@@ -686,6 +689,66 @@ public partial class MainWindow : Window
     private void OnResume(object sender, RoutedEventArgs e) => _model.Resume();
 
     private void OnReviewChanged(object sender, RoutedEventArgs e) => ChangedProgramsDialog.Review(this, _model);
+
+    /// <summary>CrioFire's own files changed, or its service ended without being stopped: a banner and one notification each.</summary>
+    private void ShowSelfProtection(StatusInfo? status)
+    {
+        var problems = status?.IntegrityProblems ?? 0;
+        IntegrityBanner.Visibility = problems > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (problems > 0)
+        {
+            IntegrityBannerText.Text = problems == 1
+                ? L.T("One of CrioFire's own files is not the one that was installed. Repair or reinstall CrioFire; your rules are kept.")
+                : L.T($"{problems} of CrioFire's own files are not the ones that were installed. Repair or reinstall CrioFire; your rules are kept.");
+            if (problems != _integritySeen)
+            {
+                _tray?.ShowHint(L.T("CrioFire's files changed"), L.T("Some of CrioFire's own files are not the installed ones. Open CrioFire to see which."));
+                ScreenReader.Say(this, IntegrityBannerText.Text, important: true);
+            }
+        }
+
+        _integritySeen = problems;
+
+        var stop = status?.UnexpectedStopUtc?.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+        var show = stop is not null && !string.Equals(stop, Prefs.Current.DismissedStop, StringComparison.Ordinal);
+        StopBanner.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (show && stop != _stopSeen)
+        {
+            var when = status!.UnexpectedStopUtc!.Value.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
+            StopBannerText.Text = L.T($"The CrioFire service ended without being stopped (ended by a program, crashed, or the PC lost power). It was last running at {when} and has started again; your rules stayed in force.");
+            _tray?.ShowHint(L.T("The CrioFire service was restarted"), L.T("It had ended without being stopped. Your rules stayed in force."));
+            ScreenReader.Say(this, StopBannerText.Text, important: true);
+        }
+
+        _stopSeen = stop;
+    }
+
+    private void OnIntegrityDetails(object sender, RoutedEventArgs e)
+    {
+        var findings = AppModel.Integrity()?.Findings ?? [];
+        var lines = findings.Take(12).Select(f => $"{f.Path}: " + (f.Kind switch
+        {
+            IntegrityKinds.Missing => L.T("missing"),
+            IntegrityKinds.Unexpected => L.T("a program file that is not part of CrioFire"),
+            IntegrityKinds.Signature => L.T("not signed by CrioFire's publisher"),
+            _ => L.T("changed since it was installed"),
+        })).ToList();
+        if (findings.Count > lines.Count)
+        {
+            lines.Add(L.T($"…and {findings.Count - lines.Count} more (criofire verify lists them all)."));
+        }
+
+        var text = (lines.Count == 0 ? L.T("The last check found no problems.") : string.Join("\n", lines)) + "\n\n"
+            + L.T("To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.");
+        ChoiceDialog.Ask(this, L.T("CrioFire's own files"), text, [L.T("Close")]);
+    }
+
+    private void OnStopSeen(object sender, RoutedEventArgs e)
+    {
+        Prefs.Current.DismissedStop = _stopSeen;
+        Prefs.Save();
+        StopBanner.Visibility = Visibility.Collapsed;
+    }
 
     /// <summary>A newer CrioFire: a banner (until "Not now"), and one notification per version.</summary>
     private void ShowUpdate(StatusInfo? status)
