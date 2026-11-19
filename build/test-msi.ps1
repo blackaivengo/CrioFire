@@ -128,6 +128,12 @@ Remove-Item $planted -Force
 if (-not $Language) {
     # Tamper protection locks the service: Windows refuses to stop or reconfigure it, even for this
     # administrator; CrioFire's own command stops it; and the uninstall below still works.
+    $protection = & $cli protection | Out-String
+    Check ($protection -match 'Tamper protection is on') "tamper protection is on after a fresh install ($($protection.Trim()))"
+    Check-Cli @('protection', 'off') 'tamper protection can be turned off'
+    Start-Sleep -Seconds 2
+    sc.exe config criofire start= auto | Out-Host
+    Check ($LASTEXITCODE -eq 0) "with tamper protection off, an administrator may configure the service (exit code $LASTEXITCODE)"
     Check-Cli @('protection', 'on') 'tamper protection can be turned on'
     sc.exe stop criofire | Out-Host
     Check ($LASTEXITCODE -eq 5) "with tamper protection on, 'sc stop' is refused to an administrator (exit code $LASTEXITCODE)"

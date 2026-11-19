@@ -186,7 +186,7 @@ internal static class CommandLine
           criofire license [<key>|--remove]    Show the license, enter a business license key, or go back
                                                to free use (personal use, non-profits, schools,
                                                government, businesses with up to 3 computers)
-          criofire protection [on|off]         Tamper protection: when on, changing rules needs
+          criofire protection [on|off]         Tamper protection (on unless turned off): changing rules needs
                                                administrator approval, so a program running as you
                                                cannot use CrioFire to allow itself (changing it needs an
                                                administrator prompt). It also locks the criofire service:

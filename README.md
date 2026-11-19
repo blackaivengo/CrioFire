@@ -69,7 +69,7 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe backups                                   # automatic backups; "restore <name>" puts one back
 .\criofire.exe enroll fw01:7443 <code> --fingerprint <fp>   # let the company's CrioFire Server manage this PC
 .\criofire.exe license <key>                              # enter a business license key (free use needs none)
-.\criofire.exe protection on                             # tamper protection: rule changes need administrator approval
+.\criofire.exe protection off                            # tamper protection (on by default): rule changes need administrator approval
 .\criofire.exe changed                                   # allowed programs whose file changed since you allowed them
 .\criofire.exe trust "C:\Path\To\Chat.exe"              # you checked it: allow the changed program again
 .\criofire.exe mode allowlist --allow-running           # block programs without a rule (asks you to confirm)
@@ -86,11 +86,13 @@ signed-in user. The command line may not: `criofire allow`, `block` and every ot
 administrator prompt, because any program could run `criofire.exe` to allow itself. Reading
 (`status`, `list`, `events`, reports) works from a normal prompt.
 
-**Tamper protection.** The app runs as you, so a harmful program running as you could still try to
-steer it. With tamper protection on (Settings, or `criofire protection on` from an administrator
-prompt), every change needs approval: the app asks Windows (UAC) for each change, then CrioFire
-shows what is about to change and asks once more, in a window other programs cannot click.
-Turning it off needs approval too. The service's data folder and the install folder are writable
+**Tamper protection** is on unless you turn it off. The app runs as you, so a harmful program
+running as you could try to steer it. With tamper protection on, every change needs approval: the
+app asks Windows (UAC) for each change, then CrioFire shows what is about to change and asks once
+more, in a window other programs cannot click. That is two confirmations for every rule change,
+answers to Ask-mode alerts included. If you would rather not have them, turn it off in Settings or
+with `criofire protection off` from an administrator prompt (that needs approval too); the app
+then changes rules without asking. The service's data folder and the install folder are writable
 only by administrators and the service; CrioFire resets their permissions when it starts.
 
 **Self-protection.** CrioFire also guards itself:

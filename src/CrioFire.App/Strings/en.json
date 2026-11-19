@@ -283,7 +283,7 @@
   "Enter key": "Enter key",
   "CRIOFIRE1...": "CRIOFIRE1...",
   "Tamper protection": "Tamper protection",
-  "Without it, CrioFire's app and command line may change rules for anyone signed in to this PC, so a harmful program running as you could use them to allow itself. With it, every change asks Windows for administrator approval first.": "Without it, CrioFire's app and command line may change rules for anyone signed in to this PC, so a harmful program running as you could use them to allow itself. With it, every change asks Windows for administrator approval first.",
+  "With it, every change asks Windows for administrator approval first, and CrioFire shows what is about to change. Without it, the CrioFire app may change rules for anyone signed in to this PC, so a harmful program running as you could steer the app to allow itself. It is on unless an administrator turns it off.": "With it, every change asks Windows for administrator approval first, and CrioFire shows what is about to change. Without it, the CrioFire app may change rules for anyone signed in to this PC, so a harmful program running as you could steer the app to allow itself. It is on unless an administrator turns it off.",
   "Ask for administrator approval before any rule changes": "Ask for administrator approval before any rule changes",
   "Turning this on or off needs approval too.": "Turning this on or off needs approval too.",
   "It also locks the CrioFire service: Windows then refuses to stop, disable or remove it, also for programs running as administrator.": "It also locks the CrioFire service: Windows then refuses to stop, disable or remove it, also for programs running as administrator.",

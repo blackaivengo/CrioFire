@@ -245,7 +245,7 @@
   "CrioFire is free for personal use, non-profits, schools, government, and businesses with up to 3 computers. Businesses with more computers need a license for each one; paste the key from your license email here.": "CrioFire 对个人用户、非营利组织、学校、政府以及不超过 3 台电脑的企业免费。电脑更多的企业需要为每台电脑购买许可证；请将许可证邮件中的密钥粘贴到这里。",
   "Enter key": "输入密钥",
   "Tamper protection": "防篡改保护",
-  "Without it, CrioFire's app and command line may change rules for anyone signed in to this PC, so a harmful program running as you could use them to allow itself. With it, every change asks Windows for administrator approval first.": "没有它时，登录此电脑的任何人都可以通过 CrioFire 的应用和命令行更改规则，因此以你的身份运行的恶意程序可能借此允许自己。开启后，每次更改都会先让 Windows 请求管理员批准。",
+  "With it, every change asks Windows for administrator approval first, and CrioFire shows what is about to change. Without it, the CrioFire app may change rules for anyone signed in to this PC, so a harmful program running as you could steer the app to allow itself. It is on unless an administrator turns it off.": "开启后，每次更改都会先由 Windows 请求管理员批准，CrioFire 还会显示即将更改的内容。关闭后，登录这台电脑的任何人都可以通过 CrioFire 应用更改规则，因此以你的身份运行的恶意程序可能操纵该应用来允许它自己。除非管理员将其关闭，否则它始终开启。",
   "Ask for administrator approval before any rule changes": "更改任何规则前先请求管理员批准",
   "Turning this on or off needs approval too.": "开启或关闭此项也需要批准。",
   "Connection history": "连接历史记录",

@@ -245,7 +245,7 @@
   "CrioFire is free for personal use, non-profits, schools, government, and businesses with up to 3 computers. Businesses with more computers need a license for each one; paste the key from your license email here.": "CrioFire は、個人利用、非営利団体、学校、行政機関、およびコンピューター 3 台までの企業では無料です。それより多いコンピューターを持つ企業は、各台にライセンスが必要です。ライセンス メールのキーをここに貼り付けてください。",
   "Enter key": "キーを入力",
   "Tamper protection": "改ざん防止",
-  "Without it, CrioFire's app and command line may change rules for anyone signed in to this PC, so a harmful program running as you could use them to allow itself. With it, every change asks Windows for administrator approval first.": "これがオフだと、CrioFire のアプリとコマンド ラインは、この PC にサインインしている誰でもルールを変更できます。そのため、あなたの権限で動く有害なプログラムがそれを使って自分を許可するおそれがあります。オンにすると、すべての変更の前に Windows が管理者の承認を求めます。",
+  "With it, every change asks Windows for administrator approval first, and CrioFire shows what is about to change. Without it, the CrioFire app may change rules for anyone signed in to this PC, so a harmful program running as you could steer the app to allow itself. It is on unless an administrator turns it off.": "オンの場合、変更のたびにまず Windows が管理者の承認を求め、CrioFire が変更内容を表示します。オフの場合、この PC にサインインしているユーザーなら誰でも CrioFire アプリからルールを変更できるため、あなたのアカウントで動く有害なプログラムがアプリを操作して自分自身を許可するおそれがあります。管理者がオフにしない限りオンです。",
   "Ask for administrator approval before any rule changes": "ルールを変更する前に管理者の承認を求める",
   "Turning this on or off needs approval too.": "オン/オフの切り替えにも承認が必要です。",
   "Connection history": "接続履歴",

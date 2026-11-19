@@ -458,7 +458,7 @@ static int Run(Backend api, Command command)
             var on = api.Call(new ApiRequest { Op = ApiOps.Status }).Status!.RequireAdmin;
             Console.WriteLine(on
                 ? "Tamper protection is on: changing rules needs administrator approval, and the criofire service can only be stopped with: criofire service stop"
-                : "Tamper protection is off: CrioFire's app and command line may change rules for any signed-in user, and administrators can stop the service.");
+                : "Tamper protection is off: the CrioFire app may change rules for any signed-in user without asking, and administrators can stop the service.");
             return 0;
         }
 

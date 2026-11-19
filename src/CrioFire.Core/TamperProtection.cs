@@ -4,10 +4,10 @@ using System.Text.Json.Serialization;
 namespace CrioFire.Core;
 
 /// <summary>
-/// Tamper protection: when on, rules can only be changed with administrator approval. Without it,
-/// CrioFire's own app and command line may change rules for any signed-in user, so a harmful
-/// program running as that user could start criofire.exe to allow itself. With it, every change
-/// needs an elevated (UAC-approved) CrioFire, or an administrator prompt. Kept in
+/// Tamper protection: rules can only be changed with administrator approval. It is on unless an
+/// administrator turned it off. Without it, CrioFire's app may change rules for any signed-in
+/// user, so a harmful program running as that user could steer the app to allow itself. With it,
+/// every change needs an elevated (UAC-approved) CrioFire, or an administrator prompt. Kept in
 /// %ProgramData%\criofire\protection.json, which only administrators and the service may write.
 /// </summary>
 public sealed class TamperProtection(string path)
@@ -63,7 +63,8 @@ public sealed class TamperProtection(string path)
 
 internal sealed class ProtectionSettings
 {
-    public bool RequireAdmin { get; set; }
+    /// <summary>On unless an administrator turned it off: a PC nobody set up is a protected one.</summary>
+    public bool RequireAdmin { get; set; } = true;
 }
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = true)]

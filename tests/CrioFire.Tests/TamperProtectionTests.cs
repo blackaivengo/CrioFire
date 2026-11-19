@@ -11,16 +11,16 @@ public sealed class TamperProtectionTests : IDisposable
     public void Dispose() => File.Delete(_path);
 
     [Fact]
-    public void ProtectionIsOffUntilTurnedOn()
+    public void ProtectionIsOnUntilTurnedOff()
     {
         var protection = new TamperProtection(_path);
-        Assert.False(protection.RequireAdmin);
-
-        protection.SetRequireAdmin(true);
-        Assert.True(new TamperProtection(_path).RequireAdmin);
+        Assert.True(protection.RequireAdmin);   // nothing saved yet: on
 
         protection.SetRequireAdmin(false);
-        Assert.False(protection.RequireAdmin);
+        Assert.False(new TamperProtection(_path).RequireAdmin);
+
+        protection.SetRequireAdmin(true);
+        Assert.True(protection.RequireAdmin);
     }
 
     [Fact]

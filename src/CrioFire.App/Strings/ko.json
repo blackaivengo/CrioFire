@@ -245,7 +245,7 @@
   "CrioFire is free for personal use, non-profits, schools, government, and businesses with up to 3 computers. Businesses with more computers need a license for each one; paste the key from your license email here.": "CrioFire는 개인 사용, 비영리 단체, 학교, 공공 기관, 컴퓨터 3대 이하의 기업에 무료입니다. 그보다 많은 컴퓨터를 가진 기업은 컴퓨터마다 라이선스가 필요합니다. 라이선스 이메일의 키를 여기에 붙여 넣으세요.",
   "Enter key": "키 입력",
   "Tamper protection": "변조 방지",
-  "Without it, CrioFire's app and command line may change rules for anyone signed in to this PC, so a harmful program running as you could use them to allow itself. With it, every change asks Windows for administrator approval first.": "이 기능이 없으면 이 PC에 로그인한 누구든 CrioFire 앱과 명령줄로 규칙을 바꿀 수 있어, 사용자 계정으로 실행되는 악성 프로그램이 이를 이용해 자신을 허용할 수 있습니다. 켜면 모든 변경 전에 Windows가 관리자 승인을 요청합니다.",
+  "With it, every change asks Windows for administrator approval first, and CrioFire shows what is about to change. Without it, the CrioFire app may change rules for anyone signed in to this PC, so a harmful program running as you could steer the app to allow itself. It is on unless an administrator turns it off.": "켜져 있으면 모든 변경에 앞서 Windows가 관리자 승인을 요청하고, CrioFire가 변경될 내용을 보여 줍니다. 꺼져 있으면 이 PC에 로그인한 누구나 CrioFire 앱으로 규칙을 변경할 수 있으므로, 사용자 계정으로 실행되는 유해한 프로그램이 앱을 조종해 스스로를 허용할 수 있습니다. 관리자가 끄지 않는 한 켜져 있습니다.",
   "Ask for administrator approval before any rule changes": "규칙을 변경하기 전에 관리자 승인 요청",
   "Turning this on or off needs approval too.": "이 기능을 켜거나 끌 때도 승인이 필요합니다.",
   "Connection history": "연결 기록",
