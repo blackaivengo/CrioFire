@@ -80,6 +80,12 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
     /// <summary>Accepts clients until <paramref name="cancellationToken"/> is cancelled.</summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        // Compile the call made as the client now, as the service (it finds no token here).
+        if (OpenThreadToken(GetCurrentThread(), TokenQuery, openAsSelf: true, out var unused))
+        {
+            CloseHandle(unused);
+        }
+
         var first = true;
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -161,22 +167,45 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
         }
     }
 
+    /// <summary>
+    /// Whether the client runs elevated as an administrator. While the thread acts as the client
+    /// it holds an identification-only token, with which nothing can be opened: not even a .NET
+    /// assembly that happens to be needed for the first time. (That made an elevated client look
+    /// like an ordinary one in the service, where nothing had loaded those assemblies yet.) So the
+    /// only thing done as the client is one Windows call to pick up its token; the token is
+    /// examined afterwards, as the service.
+    /// </summary>
     private static bool ClientIsElevatedAdmin(NamedPipeServerStream pipe)
     {
+        var token = IntPtr.Zero;
         try
         {
-            // Impersonating the client gives its real token: a non-elevated admin is not in the role.
-            var isAdmin = false;
             pipe.RunAsClient(() =>
             {
-                using var identity = WindowsIdentity.GetCurrent(ifImpersonating: true);
-                isAdmin = identity is not null && new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+                if (!OpenThreadToken(GetCurrentThread(), TokenQuery | TokenDuplicate, openAsSelf: true, out token))
+                {
+                    token = IntPtr.Zero;
+                }
             });
-            return isAdmin;
+            if (token == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            // A non-elevated administrator's token has the group for deny only: not in the role.
+            using var identity = new WindowsIdentity(token);
+            return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Security.SecurityException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Security.SecurityException or ArgumentException)
         {
             return false;
+        }
+        finally
+        {
+            if (token != IntPtr.Zero)
+            {
+                CloseHandle(token);
+            }
         }
     }
 
@@ -201,6 +230,20 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetNamedPipeClientProcessId(SafePipeHandle pipe, out uint clientProcessId);
+
+    private const uint TokenDuplicate = 0x0002;
+    private const uint TokenQuery = 0x0008;
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool OpenThreadToken(IntPtr thread, uint access, [MarshalAs(UnmanagedType.Bool)] bool openAsSelf, out IntPtr token);
+
+    [LibraryImport("kernel32.dll")]
+    private static partial IntPtr GetCurrentThread();
+
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr handle);
 }
 
 /// <summary>Client side of the local API.</summary>
