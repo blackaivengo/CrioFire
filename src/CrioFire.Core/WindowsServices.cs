@@ -21,6 +21,26 @@ public static class KnownApps
     public static bool IsKernel(string? app) => string.Equals(app?.Trim(), Kernel, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Whether the path names a file on another computer or a device (\\server\share\x.exe,
+    /// \\?\..., \\.\...). The service runs as SYSTEM: opening such a path would make the PC sign in
+    /// to whatever server the path names, with the computer's own account.
+    /// </summary>
+    public static bool IsNetworkPath(string? path)
+    {
+        var text = path?.Trim().Trim('"') ?? string.Empty;
+        return text.Length >= 2 && text[0] is '\\' or '/' && text[1] is '\\' or '/';
+    }
+
+    /// <summary>Refuses a path that is not on this PC's own drives.</summary>
+    public static void RequireLocal(string? path)
+    {
+        if (IsNetworkPath(path))
+        {
+            throw new ArgumentException("Rules are for programs on this PC's own drives, not on a network share.");
+        }
+    }
+
+    /// <summary>
     /// A rule's program as stored: "System" for the kernel, "pkg:family" for a Microsoft Store app
     /// (so the rule survives its updates), otherwise the full path.
     /// </summary>

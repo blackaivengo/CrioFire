@@ -37,7 +37,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         {
             if (rights == ClientRights.ReadOnly)
             {
-                return ApiResponse.Failure("Not allowed: changing rules needs an administrator, or CrioFire's own app or command line.");
+                return ApiResponse.Failure("Not allowed: changing CrioFire needs the CrioFire app or an administrator prompt (right-click Terminal or Command Prompt, Run as administrator).");
             }
 
             if (rights == ClientRights.CrioFireApp && (request.Op == ApiOps.SetProtection || protection?.RequireAdmin == true))
@@ -93,14 +93,14 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
 
         if (request.Op == ApiOps.ResetUsage && rights == ClientRights.ReadOnly)
         {
-            return ApiResponse.Failure("Not allowed: clearing the data counts needs CrioFire's own app or command line, or an administrator.");
+            return ApiResponse.Failure("Not allowed: clearing the data counts needs the CrioFire app or an administrator prompt.");
         }
 
         if (request.Op is ApiOps.Update or ApiOps.CheckUpdate or ApiOps.SetUpdateCheck)
         {
             if (request.Op == ApiOps.CheckUpdate && rights == ClientRights.ReadOnly)
             {
-                return ApiResponse.Failure("Not allowed: checking for updates needs CrioFire's own app or command line, or an administrator.");
+                return ApiResponse.Failure("Not allowed: checking for updates needs the CrioFire app or an administrator prompt.");
             }
 
             try
@@ -257,6 +257,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             "allow" => RuleAction.Allow,
             _ => throw new ArgumentException("action must be block or allow."),
         };
+        KnownApps.RequireLocal(request.App);
         var app = KnownApps.Normalize(Required(request.App, "app"));
         var direction = ParseDirection(request.Direction, TrafficDirection.Outbound);
         if (request.ExpiresMinutes is not null && (request.ExpiresMinutes < 1 || request.ExpiresMinutes > 7 * 24 * 60))
@@ -400,6 +401,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             throw new InvalidOperationException("Checking programs needs the criofire service.");
         }
 
+        KnownApps.RequireLocal(request.App);
         var app = KnownApps.Normalize(Required(request.App, "app"));
         var changed = identities.Store.Changed(app);
         var direction = ParseDirection(request.Direction ?? changed?.Direction, TrafficDirection.Outbound);
@@ -523,6 +525,7 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             "allow" => RuleAction.Allow,
             _ => throw new ArgumentException("action must be block or allow."),
         };
+        KnownApps.RequireLocal(request.App);
         var app = string.IsNullOrWhiteSpace(request.App) ? null : Path.GetFullPath(request.App.Trim().Trim('"'));
         if (app is not null && !File.Exists(app))
         {

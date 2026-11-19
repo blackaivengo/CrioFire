@@ -217,9 +217,9 @@ internal static class CommandLine
                                                starting mode without asking
           criofire --version
 
-        install and uninstall need an administrator prompt. Everything else also works from a
-        normal prompt while the criofire service runs (changing rules then needs CrioFire's
-        installed command line, or an administrator prompt).
+        Anything that changes CrioFire needs an administrator prompt (right-click Terminal or
+        Command Prompt, Run as administrator). Reading (status, list, events, reports, verify)
+        also works from a normal prompt while the criofire service runs.
         """;
 
     /// <summary>logs [--keep days] [--size MB] [--allowed on|off] | logs --clear</summary>

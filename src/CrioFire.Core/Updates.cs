@@ -40,6 +40,17 @@ public static class UpdateCheck
 
     public static readonly TimeSpan Interval = TimeSpan.FromDays(1);
 
+    /// <summary>
+    /// The page to open for a release: the address given when it is on GitHub, otherwise the
+    /// releases page. Whatever an address is opened with must never come unchecked from a file or
+    /// from the service's answer.
+    /// </summary>
+    public static string PageToOpen(string? url) =>
+        url is not null && url.StartsWith("https://github.com/", StringComparison.OrdinalIgnoreCase)
+            && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
+                ? uri.AbsoluteUri
+                : ReleasesPage;
+
     private static readonly Lazy<HttpClient> Http = new(() =>
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };

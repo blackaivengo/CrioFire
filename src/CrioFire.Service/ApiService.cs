@@ -30,16 +30,35 @@ internal sealed partial class ApiService(ILogger<ApiService> logger, SelfProtect
                 new LogSettingsStore(LogSettingsStore.DefaultPath),
                 new UpdateStore(UpdateStore.DefaultFolder),
                 selfProtection));
-            LogListening(logger, ApiServer.DefaultPipeName);
-            await server.RunAsync(stoppingToken).ConfigureAwait(false);
+            // Another program may hold the pipe's name (it took it while the service was not
+            // running, to pose as the service). Keep trying: the name is ours the moment it lets go,
+            // and CrioFire's own programs refuse a pipe that is not the service's.
+            var reported = false;
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    LogListening(logger, ApiServer.DefaultPipeName);
+                    await server.RunAsync(stoppingToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    if (!reported)
+                    {
+                        LogFailed(logger, ex);
+                        reported = true;
+                    }
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
             // Service stopping.
         }
-        catch (Exception ex) when (ex is WfpException or IOException or UnauthorizedAccessException)
+        catch (WfpException ex)
         {
-            // UnauthorizedAccessException here usually means another process already owns the pipe name.
             LogFailed(logger, ex);
         }
     }
@@ -47,6 +66,6 @@ internal sealed partial class ApiService(ILogger<ApiService> logger, SelfProtect
     [LoggerMessage(Level = LogLevel.Information, Message = "Local API listening on named pipe {PipeName}.")]
     private static partial void LogListening(ILogger logger, string pipeName);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "The local API could not start.")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "The local API could not start (another program may be holding the pipe's name). Trying again every few seconds.")]
     private static partial void LogFailed(ILogger logger, Exception exception);
 }

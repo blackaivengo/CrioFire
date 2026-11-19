@@ -773,11 +773,7 @@ public partial class MainWindow : Window
 
     private void OnUpdateOpen(object sender, RoutedEventArgs e)
     {
-        var url = _model.Status?.NewVersionUrl ?? UpdateCheck.ReleasesPage;
-        if (url.StartsWith("https://github.com/", StringComparison.OrdinalIgnoreCase))
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
+        Process.Start(new ProcessStartInfo(UpdateCheck.PageToOpen(_model.Status?.NewVersionUrl)) { UseShellExecute = true })?.Dispose();
     }
 
     private void OnUpdateLater(object sender, RoutedEventArgs e)

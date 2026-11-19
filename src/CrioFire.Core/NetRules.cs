@@ -214,6 +214,12 @@ public sealed record NetRule(RuleAction Action, TrafficDirection Direction, NetP
             return null;
         }
 
+        if (KnownApps.IsNetworkPath(appPath))
+        {
+            error = "Rules are for programs on this PC's own drives, not on a network share.";
+            return null;
+        }
+
         var app = string.IsNullOrWhiteSpace(appPath) ? null : Path.GetFullPath(appPath);
         return new NetRule(action, direction, protocol, string.Join(',', portList), string.Join(',', addressList), app, NetworkScope.Normalize(networks));
     }

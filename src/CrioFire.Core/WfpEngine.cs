@@ -455,6 +455,7 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(appPath);
 
+        KnownApps.RequireLocal(appPath);
         var fullPath = KnownApps.Normalize(appPath);
         if (StoreApps.IsPackage(fullPath))
         {
@@ -506,7 +507,7 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
         var extraApps = new List<(AppId Id, string Path)>();
         try
         {
-            foreach (var path in (alsoAllow ?? []).Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var path in (alsoAllow ?? []).Where(p => !KnownApps.IsNetworkPath(p)).Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 if (!existingRules.Contains(path) && File.Exists(path))
                 {

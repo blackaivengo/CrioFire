@@ -314,7 +314,7 @@ public partial class SettingsPage : UserControl, IPage
     }
 
     private void OnReleasePage(object sender, RoutedEventArgs e) =>
-        Process.Start(new ProcessStartInfo(_model.Status?.NewVersionUrl ?? UpdateCheck.ReleasesPage) { UseShellExecute = true });
+        Process.Start(new ProcessStartInfo(UpdateCheck.PageToOpen(_model.Status?.NewVersionUrl)) { UseShellExecute = true })?.Dispose();
 
     private void ShowLogs(LogsInfo? logs)
     {

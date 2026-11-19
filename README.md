@@ -81,12 +81,17 @@ From an **administrator** terminal, in the published folder:
 .\criofire.exe uninstall                                 # remove rules and unregister
 ```
 
-**Tamper protection.** By default CrioFire's own app and command line (from the install folder) may
-change rules for any signed-in user, so a harmful program running as that user could start
-`criofire.exe` to allow itself. With tamper protection on (Settings, or `criofire protection on`
-from an administrator prompt), every change needs an elevated CrioFire: the app asks Windows for
-approval (UAC) for each change, and the command line needs an administrator prompt. Turning it off
-needs approval too. The service's data folder is writable only by administrators and the service.
+**Who may change rules.** The CrioFire app (from the install folder) may change rules for the
+signed-in user. The command line may not: `criofire allow`, `block` and every other change need an
+administrator prompt, because any program could run `criofire.exe` to allow itself. Reading
+(`status`, `list`, `events`, reports) works from a normal prompt.
+
+**Tamper protection.** The app runs as you, so a harmful program running as you could still try to
+steer it. With tamper protection on (Settings, or `criofire protection on` from an administrator
+prompt), every change needs approval: the app asks Windows (UAC) for each change, then CrioFire
+shows what is about to change and asks once more, in a window other programs cannot click.
+Turning it off needs approval too. The service's data folder and the install folder are writable
+only by administrators and the service; CrioFire resets their permissions when it starts.
 
 **Self-protection.** CrioFire also guards itself:
 

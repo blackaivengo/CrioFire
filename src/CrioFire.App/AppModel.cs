@@ -81,7 +81,7 @@ internal static class Elevated
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
             };
             using var process = System.Diagnostics.Process.Start(start);
-            if (process is null || !process.WaitForExit(TimeSpan.FromMinutes(2)) || !File.Exists(result))
+            if (process is null || !process.WaitForExit(TimeSpan.FromMinutes(3)) || !File.Exists(result))
             {
                 error = L.T("The change was not made: approval did not finish.");
                 return null;

@@ -442,21 +442,37 @@ static int Run(Backend api, Command command)
         case CommandKind.Request:
         {
             // The app could not change something because it needs approval; the user approved this
-            // elevated copy. The request comes on the command line (fixed once approved), the answer
-            // goes to the file the app named.
+            // elevated copy. Windows' prompt only said "CrioFire", and any program can start this
+            // command, so the change is shown here and must be confirmed. The answer goes to the
+            // file the app named: a new file with the app's own kind of name, never an existing one.
+            if (!ApprovalPrompt.IsAnswerFile(command.FilePath))
+            {
+                Console.Error.WriteLine("'request' is used by the CrioFire app; it is not a command to run by hand.");
+                return 2;
+            }
+
             ApiResponse response;
             try
             {
                 var request = ApiJson.DeserializeRequest(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(command.AppPath!)))
                     ?? throw new ArgumentException("Malformed request.");
-                response = api.Handle(request);
+                response = !ApiOps.IsWrite(request.Op) && request.Op is not (ApiOps.StopService or ApiOps.ResetUsage)
+                    ? ApiResponse.Failure("Nothing to approve.")
+                    : ApprovalPrompt.Confirm(ApprovalText.Describe(request))
+                        ? api.Handle(request)
+                        : ApiResponse.Failure("The change was not made: it was not approved.");
             }
-            catch (FormatException)
+            catch (Exception ex) when (ex is FormatException or System.Text.Json.JsonException)
             {
                 response = ApiResponse.Failure("Malformed request.");
             }
 
-            File.WriteAllText(command.FilePath!, ApiJson.Serialize(response));
+            using (var answer = new FileStream(command.FilePath!, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+            using (var writer = new StreamWriter(answer, new System.Text.UTF8Encoding(false)))
+            {
+                writer.Write(ApiJson.Serialize(response));
+            }
+
             return response.Ok ? 0 : 1;
         }
 

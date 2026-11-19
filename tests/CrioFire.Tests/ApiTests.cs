@@ -79,14 +79,15 @@ public class ApiAuthorizationTests
 
     [Theory]
     [InlineData(@"C:\Program Files\CrioFire\criofire-ui.exe", true)]
-    [InlineData(@"C:\PROGRAM FILES\CRIOFIRE\CRIOFIRE.EXE", true)]
+    [InlineData(@"C:\PROGRAM FILES\CRIOFIRE\CRIOFIRE-UI.EXE", true)]
+    [InlineData(@"C:\Program Files\CrioFire\criofire.exe", false)]   // the command line: any program could run it
     [InlineData(@"C:\Program Files\CrioFire\criofire-svc.exe", false)]
     [InlineData(@"C:\Program Files\CrioFire\other.exe", false)]
     [InlineData(@"C:\Users\x\Downloads\criofire.exe", false)]
     [InlineData(@"C:\Program Files\CrioFire\sub\criofire.exe", false)]
     [InlineData(@"C:\Program Files\CrioFire\..\Evil\criofire.exe", false)]
     [InlineData(null, false)]
-    public void OnlyCrioFireProgramsFromTheInstallFolderMayWrite(string? path, bool expected) =>
+    public void OnlyTheAppFromTheInstallFolderMayWrite(string? path, bool expected) =>
         Assert.Equal(expected, ApiAuthorization.CanWrite(clientIsElevatedAdmin: false, path, Install));
 
     [Fact]
@@ -95,5 +96,109 @@ public class ApiAuthorizationTests
 
     [Fact]
     public void TrailingSeparatorOnTheInstallFolderDoesNotMatter() =>
-        Assert.True(ApiAuthorization.CanWrite(false, @"C:\Program Files\CrioFire\criofire.exe", Install + @"\"));
+        Assert.True(ApiAuthorization.CanWrite(false, @"C:\Program Files\CrioFire\criofire-ui.exe", Install + @"\"));
+}
+
+public class RequestReaderTests
+{
+    private static RequestReader Reader(string text, int max = 64) => new(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(text)), max);
+
+    [Fact]
+    public async Task ReadsLineByLine()
+    {
+        var reader = Reader("{\"op\":\"status\"}\n{\"op\":\"list\"}\r\nlast");
+        Assert.Equal("{\"op\":\"status\"}", await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("{\"op\":\"list\"}", await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("last", await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+        Assert.Null(await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ALineLongerThanAnyRequestIsCutOff()
+    {
+        // 100,000 bytes and no line break: refused after the limit, not collected.
+        var reader = Reader(new string('x', 100_000), max: 1000);
+        await Assert.ThrowsAsync<InvalidDataException>(() => reader.ReadLineAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ALineOfExactlyTheLimitIsRead()
+    {
+        var reader = Reader(new string('x', 1000) + "\n", max: 1000);
+        Assert.Equal(1000, (await reader.ReadLineAsync(TestContext.Current.CancellationToken))!.Length);
+    }
+
+    [Fact]
+    public async Task LinesLongerThanTheReadBufferArePutTogether()
+    {
+        var long1 = new string('a', 40_000);
+        var reader = Reader(long1 + "\nb\n", max: 100_000);
+        Assert.Equal(long1, await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("b", await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+    }
+}
+
+public class ApprovalTests
+{
+    [Fact]
+    public void TheChangeIsSaidInPlainWords()
+    {
+        Assert.Equal(@"Allow C:\Tools\a.exe.", ApprovalText.Describe(new ApiRequest { Op = ApiOps.SetRule, App = @"C:\Tools\a.exe", Action = "allow" }));
+        Assert.Equal(@"Block C:\a.exe (incoming) for 60 minutes.", ApprovalText.Describe(new ApiRequest { Op = ApiOps.SetRule, App = @"C:\a.exe", Action = "block", Direction = "in", ExpiresMinutes = 60 }));
+        Assert.Contains("OFF", ApprovalText.Describe(new ApiRequest { Op = ApiOps.SetProtection, Enabled = false }), StringComparison.Ordinal);
+        Assert.Equal("Delete every CrioFire rule.", ApprovalText.Describe(new ApiRequest { Op = ApiOps.Panic, Action = "remove" }));
+        Assert.Equal("Stop the CrioFire service.", ApprovalText.Describe(new ApiRequest { Op = ApiOps.StopService }));
+    }
+
+    [Fact]
+    public void WhatIsShownCannotBeDressedUp()
+    {
+        // A right-to-left mark would show "exe.gpj" as "jpg.exe"; line breaks could push text out of sight.
+        var text = ApprovalText.Describe(new ApiRequest { Op = ApiOps.SetRule, App = "C:\\a\u202Egpj.exe\n\nAllow something harmless", Action = "allow" });
+        Assert.DoesNotContain('\u202E', text);
+        Assert.DoesNotContain('\n', text);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Users\x\AppData\Local\Temp\criofire-approval-0123456789abcdef0123456789abcdef.json", true)]
+    [InlineData(@"C:\Windows\System32\drivers\etc\hosts", false)]
+    [InlineData(@"C:\Temp\criofire-approval-0123456789ABCDEF0123456789abcdef.json", false)]
+    [InlineData(@"C:\Temp\criofire-approval-short.json", false)]
+    [InlineData(null, false)]
+    public void TheAnswerGoesOnlyToTheAppsOwnKindOfFile(string? path, bool expected) =>
+        Assert.Equal(expected, ApprovalPrompt.IsAnswerFile(path));
+}
+
+public class LocalPathTests
+{
+    [Theory]
+    [InlineData(@"\\server\share\tool.exe", true)]
+    [InlineData(@"//server/share/tool.exe", true)]
+    [InlineData(@"\\?\UNC\server\share\tool.exe", true)]
+    [InlineData(@"\\.\pipe\x", true)]
+    [InlineData("\"\\\\server\\share\\tool.exe\"", true)]
+    [InlineData(@"C:\Program Files\App\app.exe", false)]
+    [InlineData("System", false)]
+    [InlineData(null, false)]
+    public void PathsOnOtherComputersAreRecognized(string? path, bool expected) =>
+        Assert.Equal(expected, KnownApps.IsNetworkPath(path));
+
+    [Fact]
+    public void ARulesFileCannotNameAProgramOnAShare()
+    {
+        var set = new RuleSet { Programs = [new AppRuleEntry(@"\\evil\share\x.exe", "allow", "out")] };
+        Assert.NotNull(RuleBackup.Validate(set));
+        Assert.Null(NetRule.Create(RuleAction.Allow, TrafficDirection.Outbound, NetProtocol.Tcp, "443", null, @"\\evil\share\x.exe", out var error));
+        Assert.Contains("network share", error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("https://github.com/blackaivengo/CrioFire/releases/tag/v1.2.0", "https://github.com/blackaivengo/CrioFire/releases/tag/v1.2.0")]
+    [InlineData("https://github.com.evil.example/x", UpdateCheck.ReleasesPage)]
+    [InlineData("https://github.com@evil.example/x", UpdateCheck.ReleasesPage)]
+    [InlineData(@"C:\Windows\System32\calc.exe", UpdateCheck.ReleasesPage)]
+    [InlineData("file:///C:/x.exe", UpdateCheck.ReleasesPage)]
+    [InlineData(null, UpdateCheck.ReleasesPage)]
+    public void OnlyGitHubPagesAreOpened(string? url, string expected) =>
+        Assert.Equal(expected, UpdateCheck.PageToOpen(url));
 }

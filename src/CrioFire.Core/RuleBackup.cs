@@ -190,7 +190,7 @@ public static class RuleBackup
 
         foreach (var p in set.Programs)
         {
-            if (string.IsNullOrWhiteSpace(p.App) || !IsAction(p.Action) || !IsDirection(p.Direction) || !NetworkScope.TryParse(p.Networks, out _))
+            if (string.IsNullOrWhiteSpace(p.App) || KnownApps.IsNetworkPath(p.App) || !IsAction(p.Action) || !IsDirection(p.Direction) || !NetworkScope.TryParse(p.Networks, out _))
             {
                 return $"A program rule in the file is not valid ({p.App}).";
             }
@@ -217,6 +217,11 @@ public static class RuleBackup
             if (ToDomainRule(d, managed: false, out var error) is null)
             {
                 return $"A domain rule in the file is not valid: {error}";
+            }
+
+            if (KnownApps.IsNetworkPath(d.App))
+            {
+                return $"A domain rule in the file names a program on a network share ({d.App}).";
             }
         }
 
