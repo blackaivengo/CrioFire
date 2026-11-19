@@ -15,12 +15,17 @@ more than three computers in total (see [LICENSE](LICENSE) and [LICENSING.md](LI
 Any other business or commercial use needs this license: one subscription for each computer that
 CrioFire protects, renewed every year.
 
-| Computers | Price per computer per year |
-| --- | --- |
-| 1 – 24 | [US$ __] |
-| 25 – 99 | [US$ __] |
-| 100 – 499 | [US$ __] |
-| 500 or more | Contact CrioSoft |
+| Computers | Price per computer per year | Pilot price, first year |
+| --- | --- | --- |
+| 1 – 99 | US$5.50 | US$3.30 |
+| 100 – 499 | US$5.00 | US$3.00 |
+| 500 or more | Contact CrioSoft | Contact CrioSoft |
+
+The price for all of Customer's computers is the one for the tier their total falls in. Prices are
+in US dollars and do not include taxes.
+
+**Pilot discount.** Orders placed on or before June 30, 2027 get 40% off the first Subscription
+Term (the pilot price above). Renewals are at the regular price in effect at the time of renewal.
 
 Buy or ask about licensing: <support@criosoft.com>.
 

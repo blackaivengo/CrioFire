@@ -27,8 +27,10 @@ every organization under common control with it.
 ## What does a business license cost?
 
 A subscription per protected computer per year, cheaper per computer in larger tiers, with every
-update and email support included while it runs. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)
-for prices and terms, or contact <support@criosoft.com>.
+update and email support included while it runs: US$5.50 per computer per year for up to 99
+computers and US$5.00 from 100, with 40% off the first year for orders placed by June 30, 2027.
+See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) for prices and terms, or contact
+<support@criosoft.com>.
 
 ## Can I change the code or share it?
 
