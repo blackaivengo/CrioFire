@@ -161,7 +161,7 @@ td input[type="checkbox"], th input[type="checkbox"] { accent-color: var(--ice);
 /* Chips */
 .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px; white-space: nowrap; }
 .chip.ok { background: var(--ok-soft); color: var(--ok); }
-.chip.attention { background: var(--warn-soft); color: var(--warn); }
+.chip.attention, .chip.waiting { background: var(--warn-soft); color: var(--warn); }
 .chip.offline, .chip.new { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
 .chip.fire { background: var(--fire-soft); color: var(--fire-text); }
 .chip.ice { background: var(--ice-soft); color: var(--ice-text); }

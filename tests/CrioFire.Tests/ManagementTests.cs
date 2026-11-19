@@ -73,6 +73,46 @@ public sealed class ManagementTests : IDisposable
     }
 
     [Fact]
+    public void ACodeCanAskForApprovalOfThePcsItEnrolls()
+    {
+        var store = new ServerStore(_dir);
+        var (open, _) = store.CreateToken(TimeSpan.FromDays(1), uses: 1, null, Now);
+        var (careful, record) = store.CreateToken(TimeSpan.FromDays(1), uses: 1, null, Now, approval: true);
+        Assert.True(record.Approval);
+        Assert.True(Assert.Single(new ServerStore(_dir).Tokens(), t => t.Id == record.Id).Approval);   // kept in the file
+
+        var trusted = store.Enroll(new EnrollRequest(open, "PC-1", null, null), "s", null, Now, out _)!;
+        var unknown = store.Enroll(new EnrollRequest(careful, "PC-2", null, null), "s", null, Now, out _)!;
+
+        Assert.False(store.Authenticate($"Device {trusted.DeviceId}.{trusted.Secret}")!.Waiting);
+        Assert.True(store.Authenticate($"Device {unknown.DeviceId}.{unknown.Secret}")!.Waiting);
+        Assert.True(new ServerStore(_dir).Devices().Single(d => d.DeviceId == unknown.DeviceId).Waiting);
+
+        Assert.False(store.Approve(trusted.DeviceId));   // was not waiting
+        Assert.True(store.Approve(unknown.DeviceId));
+        Assert.False(store.Authenticate($"Device {unknown.DeviceId}.{unknown.Secret}")!.Waiting);
+        Assert.False(store.Approve("dev_nobody"));
+    }
+
+    [Fact]
+    public void TheAuditLogKeepsWhoDidWhatNewestFirst()
+    {
+        var audit = new AuditLog(_dir);
+        audit.Record(Now, "Dana", "Created a policy", "Office", "10.0.0.5");
+        audit.Record(Now.AddMinutes(1), "mallory\nSigned in", "Signed in", null, "203.0.113.9", ok: false);
+        audit.Record(Now.AddMinutes(2), null, "Signed out", null, null);
+
+        var entries = new AuditLog(_dir).Latest(10);
+        Assert.Equal(new[] { "Signed out", "Signed in", "Created a policy" }, entries.Select(e => e.What).ToArray());
+        Assert.Equal("-", entries[0].Who);
+        Assert.False(entries[1].Ok);
+        Assert.DoesNotContain('\n', entries[1].Who);   // a name cannot forge a second line
+        Assert.Equal("Office", entries[2].Detail);
+        Assert.Equal(3, File.ReadAllLines(audit.FilePath).Length);
+        Assert.Single(audit.Latest(1));
+    }
+
+    [Fact]
     public void APcCannotTakeAnotherPcsNameOrSendEndlessTexts()
     {
         var store = new ServerStore(_dir);

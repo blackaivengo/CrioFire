@@ -8,7 +8,8 @@ using CrioFire.Core.Management;
 namespace CrioFire.Server;
 
 /// <summary>A one-time or multi-use code the admin gives out so PCs can enroll. Only its hash is kept.</summary>
-public sealed record EnrollmentToken(string Id, string Hash, DateTime CreatedUtc, DateTime ExpiresUtc, int UsesLeft, string? Note);
+/// <param name="Approval">PCs that enroll with this code wait for an administrator's approval before they get rules or the license.</param>
+public sealed record EnrollmentToken(string Id, string Hash, DateTime CreatedUtc, DateTime ExpiresUtc, int UsesLeft, string? Note, bool Approval = false);
 
 /// <summary>
 /// A policy: the organization's rules for the PCs it is assigned to, and what their users may
@@ -25,6 +26,12 @@ public sealed record DeviceRecord(string DeviceId, string SecretHash, string Com
     public DateTime? LastSeenUtc { get; init; }
 
     public string? Address { get; init; }
+
+    /// <summary>
+    /// Enrolled with a code that asks for approval, and not approved yet. The PC is listed and
+    /// checks in, but gets no policy and no license key: a code that leaked gives nothing away.
+    /// </summary>
+    public bool Waiting { get; init; }
 
     public CheckinReport? LastReport { get; init; }
 
@@ -233,7 +240,7 @@ public sealed class ServerStore
         RuleBackup.Validate(rules ?? throw new ArgumentException("A policy needs rules (they may be empty).")) is { } error ? throw new ArgumentException(error) : rules;
 
     /// <summary>Creates an enrollment token. The token text is returned once and never stored.</summary>
-    public (string Token, EnrollmentToken Record) CreateToken(TimeSpan validFor, int uses, string? note, DateTime nowUtc)
+    public (string Token, EnrollmentToken Record) CreateToken(TimeSpan validFor, int uses, string? note, DateTime nowUtc, bool approval = false)
     {
         if (uses < 1)
         {
@@ -247,7 +254,8 @@ public sealed class ServerStore
             nowUtc,
             nowUtc + validFor,
             uses,
-            note);
+            note,
+            approval);
         SaveToken(record);
         return (token, record);
     }
@@ -324,6 +332,7 @@ public sealed class ServerStore
             {
                 LastSeenUtc = nowUtc,
                 Address = address,
+                Waiting = token.Approval,
             };
 
             // An entry with the same name stays. A name proves nothing: removing it here would let
@@ -381,6 +390,23 @@ public sealed class ServerStore
 
             _devices[i] = _devices[i] with { LastSeenUtc = nowUtc, LastReport = Trimmed(report), Address = address, Computer = name };
             _dirty = true;
+        }
+    }
+
+    /// <summary>Approves a PC that was waiting: from its next check-in it gets its policy and the license. False if it was not waiting.</summary>
+    public bool Approve(string deviceId)
+    {
+        lock (_gate)
+        {
+            var i = _devices.FindIndex(d => d.DeviceId == deviceId);
+            if (i < 0 || !_devices[i].Waiting)
+            {
+                return false;
+            }
+
+            _devices[i] = _devices[i] with { Waiting = false };
+            SaveDevicesLocked();
+            return true;
         }
     }
 

@@ -207,7 +207,7 @@ internal static class Commands
             var state = r is null ? string.Empty : $"{r.Mode}{(r.Panic != "off" ? ", PANIC " + r.Panic : string.Empty)}, {r.ProgramRules + r.NetworkRules + r.ServiceRules} rules"
                 + (r.ChangedPrograms > 0 ? $", {r.ChangedPrograms} changed program(s)" : string.Empty)
                 + (store.PendingActivity(d.DeviceId) is not null ? ", activity requested" : string.Empty);
-            Console.WriteLine($"{d.Computer,-20} {d.DeviceId,-18} last check-in {seen,-20} {state}");
+            Console.WriteLine($"{d.Computer,-20} {d.DeviceId,-18} last check-in {seen,-20} {(d.Waiting ? "WAITING FOR APPROVAL (approve it in the console) " : string.Empty)}{state}");
         }
 
         return 0;

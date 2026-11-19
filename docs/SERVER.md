@@ -153,9 +153,15 @@ The PC sends its connections grouped by program, destination and reason, most fr
   readable by scripts; its keys are protected with Windows DPAPI.
 - In Ask and Allow-list mode CrioFire has a built-in permit for its own service, so it can always
   reach the server.
-- An enrollment code is all it takes to join: whoever has one gets the default policy and, if the
-  server has a license, its key. Make codes for as few uses and days as you need, and revoke the
-  ones you no longer use. Enrollment is limited to 30 attempts a minute per address.
+- Codes made in the console ask for approval unless you untick it: a PC that enrolls with such a
+  code is listed as *Waiting for approval* and gets no rules and no license key until you approve
+  it under Computers. A code without approval is all it takes to join: whoever has one gets the
+  default policy and, if the server has a license, its key. Either way, make codes for as few uses
+  and days as you need, and cancel the ones you no longer use. Enrollment is limited to 30
+  attempts a minute per address.
+- *Changes* in the console lists what administrators did and when: sign-ins (refused ones too),
+  computers, policies, codes, the license. It is kept in `audit.log` in the data folder (two files
+  of 2 MB at most); passwords, license keys and codes are never written to it.
 - A PC's name proves nothing, so a PC that enrolls with a name already in the list is added beside
   it, never in its place; the console marks both. After reinstalling a PC, remove its old entry.
 - Changing an administrator's password, or removing the administrator, ends every console session

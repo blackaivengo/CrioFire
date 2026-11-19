@@ -118,7 +118,7 @@
     return `${Math.round(s / 86400)} days ago`;
   }
 
-  const statusText = { ok: 'OK', attention: 'Needs attention', offline: 'Offline', new: 'Not checked in' };
+  const statusText = { ok: 'OK', attention: 'Needs attention', offline: 'Offline', new: 'Not checked in', waiting: 'Waiting for approval' };
   const modeText = { learning: 'Learning', ask: 'Ask', allowlist: 'Allow-list' };
   const statusChip = (s) => h('span', { class: 'chip ' + s, text: statusText[s] || s });
 
@@ -242,6 +242,7 @@
     ['enroll', 'Add computers'],
     ['license', 'License'],
     ['admins', 'Administrators'],
+    ['changes', 'Changes'],
   ];
 
   function go(view) {
@@ -255,7 +256,7 @@
 
   function renderShell() {
     clearInterval(state.refreshTimer);
-    const attention = state.devices.filter((d) => d.status === 'attention' || d.status === 'offline').length;
+    const attention = state.devices.filter((d) => d.status === 'attention' || d.status === 'offline' || d.status === 'waiting').length;
     const main = h('main', { class: 'main' });
     app.replaceChildren(h('div', { class: 'shell' },
       h('nav', { class: 'side', 'aria-label': 'Sections' },
@@ -272,7 +273,7 @@
         h('button', { class: 'nav', text: 'Sign out', onclick: signOut })),
       main));
     if (state.editing) return renderEditor(main, state.editing);
-    const render = { overview: viewOverview, computers: viewComputers, policies: viewPolicies, enroll: viewEnroll, license: viewLicense, admins: viewAdmins }[state.view];
+    const render = { overview: viewOverview, computers: viewComputers, policies: viewPolicies, enroll: viewEnroll, license: viewLicense, admins: viewAdmins, changes: viewChanges }[state.view];
     render(main);
   }
 
@@ -307,7 +308,7 @@
   function updateCount() {
     const nav = document.querySelector('.nav[data-view=computers]');
     if (!nav) return;
-    const n = state.devices.filter((d) => d.status === 'attention' || d.status === 'offline').length;
+    const n = state.devices.filter((d) => d.status === 'attention' || d.status === 'offline' || d.status === 'waiting').length;
     nav.querySelector('.count')?.remove();
     if (n > 0) nav.append(h('span', { class: 'count', text: n, title: `${n} need attention` }));
   }
@@ -374,6 +375,7 @@
     if (f.status === 'online' && !(d.status === 'ok' || d.status === 'attention')) return false;
     if (f.status === 'attention' && d.status !== 'attention') return false;
     if (f.status === 'offline' && !(d.status === 'offline' || d.status === 'new')) return false;
+    if (f.status === 'waiting' && d.status !== 'waiting') return false;
     if (f.status === 'nopolicy' && d.policyId) return false;
     if (f.policy !== 'all' && (d.policyId || 'none') !== f.policy) return false;
     return true;
@@ -389,7 +391,7 @@
     const search = h('input', { type: 'search', placeholder: 'Search computers', value: state.filter.text, 'aria-label': 'Search computers' });
     search.addEventListener('input', () => { state.filter.text = search.value; rerender().then(() => { const s = main.querySelector('input[type=search]'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); }); });
     const status = h('select', { 'aria-label': 'Status', onchange: (e) => { state.filter.status = e.target.value; rerender(); } },
-      [['all', 'All statuses'], ['online', 'Online'], ['attention', 'Needs attention'], ['offline', 'Offline or new'], ['nopolicy', 'Without a policy']]
+      [['all', 'All statuses'], ['online', 'Online'], ['attention', 'Needs attention'], ['offline', 'Offline or new'], ['waiting', 'Waiting for approval'], ['nopolicy', 'Without a policy']]
         .map(([v, t]) => h('option', { value: v, text: t, selected: state.filter.status === v ? 'selected' : null })));
     const policy = h('select', { 'aria-label': 'Policy', onchange: (e) => { state.filter.policy = e.target.value; rerender(); } },
       h('option', { value: 'all', text: 'All policies' }),
@@ -403,6 +405,7 @@
     const selected = state.devices.filter((d) => state.selected.has(d.id));
     const bulk = selected.length === 0 ? null : h('div', { class: 'bulk' },
       h('b', { text: `${selected.length} selected` }),
+      selected.some((d) => d.status === 'waiting') ? h('button', { class: 'small primary', text: 'Approve', onclick: () => approveComputers(selected.filter((d) => d.status === 'waiting')) }) : null,
       h('button', { class: 'small primary', text: 'Apply a policy...', onclick: () => assignDialog(selected.map((d) => d.id)) }),
       h('button', { class: 'small', text: 'Remove their policy', onclick: () => assign(selected.map((d) => d.id), null) }),
       h('button', { class: 'small danger', text: 'Remove from server', onclick: () => removeComputers(selected) }),
@@ -446,6 +449,12 @@
     const done = await attempt(() => api('POST', '/devices/assign', { deviceIds: ids, policyId }),
       policyId ? `${ids.length} computer(s) get "${name}" at their next check-in.` : `${ids.length} computer(s) have no policy now.`);
     if (done !== undefined) { state.selected.clear(); renderShell(); }
+  }
+
+  async function approveComputers(devices) {
+    if (!(await confirmDialog(`Approve ${devices.length} computer(s)?`, 'Approve only computers you know. From their next check-in they get their policy and, if this server has one, the license.', 'Approve'))) return;
+    const r = await attempt(() => api('POST', '/devices/approve', { deviceIds: devices.map((d) => d.id) }), (x) => `Approved ${x.count} computer(s).`);
+    if (r) { state.selected.clear(); renderShell(); }
   }
 
   async function removeComputers(devices) {
@@ -811,6 +820,7 @@
     const uses = h('input', { type: 'number', min: 1, max: 100000, value: 25 });
     const days = h('input', { type: 'number', min: 1, max: 365, value: 7 });
     const note = h('input', { placeholder: 'For example: Sales laptops', maxlength: 80 });
+    const approval = h('input', { type: 'checkbox', checked: true });
     const result = h('div', {});
     fill(main,
       head('Add computers', 'Install CrioFire on each computer, then run one command there to connect it to this server.'),
@@ -821,9 +831,12 @@
           h('label', { class: 'field' }, h('span', { text: 'Computers it may enroll' }), uses),
           h('label', { class: 'field' }, h('span', { text: 'Valid for (days)' }), days),
           h('label', { class: 'field' }, h('span', { text: 'Note (optional)' }), note)),
+        h('label', { class: 'row', style: 'margin-top:14px;gap:8px;align-items:flex-start' }, approval,
+          h('span', {}, h('b', { text: 'Computers wait for my approval' }),
+            h('span', { class: 'hint', style: 'display:block', text: 'A computer that enrolls with this code is listed under Computers, but gets no rules and no license until you approve it there. Then a code that reaches the wrong hands gives nothing away.' }))),
         h('div', { class: 'row', style: 'margin-top:14px' },
           h('button', { class: 'primary', text: 'Create code', onclick: async () => {
-            const made = await attempt(() => api('POST', '/tokens', { uses: Number(uses.value), days: Number(days.value), note: note.value || null }));
+            const made = await attempt(() => api('POST', '/tokens', { uses: Number(uses.value), days: Number(days.value), note: note.value || null, approval: approval.checked }));
             if (!made) return;
             const copy = h('button', { text: 'Copy', onclick: async () => { await navigator.clipboard.writeText(made.command); toast('Copied.'); } });
             fill(result,
@@ -838,9 +851,9 @@
       const box = main.querySelector('#tokenList');
       if (!list || !box) return;
       fill(box, list.length === 0 ? h('p', { class: 'empty', text: 'No codes.' }) : h('div', { class: 'table-wrap' }, h('table', {},
-        h('thead', {}, h('tr', {}, h('th', { text: 'Code' }), h('th', { text: 'Uses left' }), h('th', { text: 'Until' }), h('th', { text: 'Note' }), h('th', {}))),
+        h('thead', {}, h('tr', {}, h('th', { text: 'Code' }), h('th', { text: 'Uses left' }), h('th', { text: 'Until' }), h('th', { text: 'Approval' }), h('th', { text: 'Note' }), h('th', {}))),
         h('tbody', {}, list.map((t) => h('tr', {},
-          h('td', { class: 'mono', text: t.id }), h('td', { text: t.usesLeft }), h('td', { text: when(t.expiresUtc) }), h('td', { text: t.note || '' }),
+          h('td', { class: 'mono', text: t.id }), h('td', { text: t.usesLeft }), h('td', { text: when(t.expiresUtc) }), h('td', { text: t.approval ? 'Needed' : 'Not needed' }), h('td', { text: t.note || '' }),
           h('td', {}, h('button', { class: 'small danger', text: 'Cancel code', onclick: async () => {
             if (await attempt(() => api('DELETE', `/tokens/${t.id}`), 'Cancelled.') !== undefined) refreshList();
           } }))))))));
@@ -925,6 +938,24 @@
             h('div', {}, h('button', { class: 'primary', text: 'Change', onclick: async () => {
               if (await attempt(() => api('POST', '/password', { current: current.value, new: next.value }), 'Password changed.') !== undefined) { current.value = ''; next.value = ''; }
             } }))))));
+  }
+
+  // ---------- what administrators changed ----------
+
+  async function viewChanges(main) {
+    fill(main, head('Changes', 'Loading...'));
+    const entries = await attempt(() => api('GET', '/audit'));
+    if (!entries) return;
+    fill(main,
+      head('Changes', 'What administrators did in this console, newest first: sign-ins, computers, policies, codes, the license. Kept on the server in audit.log.'),
+      h('div', { class: 'card' }, entries.length === 0 ? h('p', { class: 'empty', text: 'Nothing yet.' }) : h('div', { class: 'table-wrap' }, h('table', {},
+        h('thead', {}, h('tr', {}, h('th', { text: 'When' }), h('th', { text: 'Who' }), h('th', { text: 'What' }), h('th', { text: 'Details' }), h('th', { text: 'From' }))),
+        h('tbody', {}, entries.map((e) => h('tr', {},
+          h('td', { text: when(e.timeUtc) }),
+          h('td', {}, h('b', { text: e.who })),
+          h('td', {}, e.what, e.ok ? null : h('span', { class: 'chip fire', style: 'margin-left:8px', text: 'Refused' })),
+          h('td', { text: e.detail || '' }),
+          h('td', { class: 'mono', text: e.address || '' }))))))));
   }
 
   start();

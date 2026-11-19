@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 namespace CrioFire.Server;
 
 /// <summary>A PC as the console shows it.</summary>
-/// <param name="Status">ok, attention, offline or new (never checked in).</param>
+/// <param name="Status">ok, attention, offline, new (never checked in) or waiting (for an administrator's approval).</param>
 /// <param name="Problems">Plain-language reasons for "attention" or "offline".</param>
 /// <param name="PolicyApplied">The PC runs the current version of its policy.</param>
 public sealed record DeviceView(
@@ -39,12 +39,12 @@ public sealed record DevicesInput(List<string> DeviceIds);
 
 public sealed record ActivityInput(string Kind, int Hours, int Limit);
 
-public sealed record TokenInput(int Uses, int Days, string? Note);
+public sealed record TokenInput(int Uses, int Days, string? Note, bool Approval = false);
 
 /// <summary>An enrollment code as the console shows it: without its hash.</summary>
-public sealed record TokenView(string Id, DateTime CreatedUtc, DateTime ExpiresUtc, int UsesLeft, string? Note)
+public sealed record TokenView(string Id, DateTime CreatedUtc, DateTime ExpiresUtc, int UsesLeft, string? Note, bool Approval)
 {
-    public static TokenView Of(EnrollmentToken t) => new(t.Id, t.CreatedUtc, t.ExpiresUtc, t.UsesLeft, t.Note);
+    public static TokenView Of(EnrollmentToken t) => new(t.Id, t.CreatedUtc, t.ExpiresUtc, t.UsesLeft, t.Note, t.Approval);
 }
 
 public sealed record NewAdmin(string Name, string Password);
@@ -62,7 +62,56 @@ internal static class AdminApi
 {
     public const string CsrfHeader = "X-CrioFire";
 
-    public static void Map(WebApplication app, ServerStore store, AdminAccounts admins, ServerLicense license, ServerSettings settings, string serverName, string enrollHost, string fingerprint)
+    /// <summary>What each change is called in the audit log, by method and route.</summary>
+    private static readonly Dictionary<string, string> AuditWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["POST /api/admin/setup"] = "Created the first administrator",
+        ["POST /api/admin/signin"] = "Signed in",
+        ["POST /api/admin/signout"] = "Signed out",
+        ["PUT /api/admin/license"] = "Entered a license key",
+        ["DELETE /api/admin/license"] = "Removed the license key",
+        ["POST /api/admin/devices/assign"] = "Changed the policy of computers",
+        ["POST /api/admin/devices/remove"] = "Removed computers",
+        ["POST /api/admin/devices/approve"] = "Approved computers",
+        ["POST /api/admin/devices/{id}/activity"] = "Asked a computer for its connections",
+        ["POST /api/admin/policies"] = "Created a policy",
+        ["PUT /api/admin/policies/{id}"] = "Changed a policy",
+        ["DELETE /api/admin/policies/{id}"] = "Deleted a policy",
+        ["POST /api/admin/policies/{id}/default"] = "Chose the policy for new computers",
+        ["POST /api/admin/tokens"] = "Created an enrollment code",
+        ["DELETE /api/admin/tokens/{id}"] = "Cancelled an enrollment code",
+        ["POST /api/admin/admins"] = "Added an administrator",
+        ["DELETE /api/admin/admins/{name}"] = "Removed an administrator",
+        ["POST /api/admin/password"] = "Changed their password",
+    };
+
+    private const string AuditWho = "audit-who";
+    private const string AuditDetail = "audit-detail";
+
+    /// <summary>Notes a change (or a refused one) in the audit log: every request that is not a read.</summary>
+    private static void Audit(AuditLog audit, HttpContext http, object? result)
+    {
+        var route = (http.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? http.Request.Path.Value ?? string.Empty;
+        var key = $"{http.Request.Method} {route}";
+        var status = result is IStatusCodeHttpResult { StatusCode: { } code } ? code : StatusCodes.Status200OK;
+        var detail = http.Items[AuditDetail] as string
+            ?? string.Join(", ", http.Request.RouteValues.Where(v => v.Value is not null).Select(v => v.Value!.ToString()));
+        audit.Record(
+            DateTime.UtcNow,
+            http.User.Identity?.Name ?? http.Items[AuditWho] as string,
+            AuditWords.GetValueOrDefault(key, key),
+            string.IsNullOrEmpty(detail) ? null : detail,
+            http.Connection.RemoteIpAddress?.ToString(),
+            status < 400);
+    }
+
+    private static string Names(ServerStore store, IEnumerable<string> deviceIds)
+    {
+        var names = deviceIds.Select(id => store.Devices().FirstOrDefault(d => d.DeviceId == id)?.Computer ?? id).ToList();
+        return names.Count <= 8 ? string.Join(", ", names) : string.Join(", ", names.Take(8)) + $" and {names.Count - 8} more";
+    }
+
+    public static void Map(WebApplication app, ServerStore store, AdminAccounts admins, ServerLicense license, AuditLog audit, ServerSettings settings, string serverName, string enrollHost, string fingerprint)
     {
         var api = app.MapGroup("/api/admin").AddEndpointFilter(async (context, next) =>
         {
@@ -72,14 +121,22 @@ internal static class AdminApi
                 return Results.Json(new { error = "Missing the console's request header." }, statusCode: StatusCodes.Status400BadRequest);
             }
 
+            object? result;
             try
             {
-                return await next(context).ConfigureAwait(false);
+                result = await next(context).ConfigureAwait(false);
             }
             catch (ArgumentException ex)
             {
-                return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status400BadRequest);
+                result = Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status400BadRequest);
             }
+
+            if (!HttpMethods.IsGet(http.Request.Method))
+            {
+                Audit(audit, http, result);
+            }
+
+            return result;
         });
 
         // Not signed in yet.
@@ -96,6 +153,7 @@ internal static class AdminApi
         // claim a freshly installed server.
         api.MapPost("/setup", async (HttpContext http, NewAdmin input) =>
         {
+            http.Items[AuditWho] = input.Name;
             if (!ServerSetup.IsLocal(http.Connection.RemoteIpAddress))
             {
                 return Results.Json(new { error = "Create the first administrator on the server itself." }, statusCode: StatusCodes.Status403Forbidden);
@@ -111,6 +169,7 @@ internal static class AdminApi
         }).RequireRateLimiting(ServerHost.SignInLimit);
         api.MapPost("/signin", async (HttpContext http, SignIn input) =>
         {
+            http.Items[AuditWho] = input.Name;
             var account = admins.Verify(input.Name, input.Password, DateTime.UtcNow);
             if (account is null)
             {
@@ -137,11 +196,11 @@ internal static class AdminApi
                 serverName,
                 devices.Count,
                 devices.Count(d => d.Status is "ok" or "attention"),
-                devices.Count(d => d.Status == "attention"),
+                devices.Count(d => d.Status is "attention" or "waiting"),
                 devices.Count(d => d.Status is "offline" or "new"),
                 store.Policies().Count,
                 devices.Count(d => d.PolicyId is null),
-                devices.Where(d => d.Status is "attention" or "offline").Take(20).ToList(),
+                devices.Where(d => d.Status is "waiting" or "attention" or "offline").OrderBy(d => d.Status == "waiting" ? 0 : 1).Take(20).ToList(),
                 license.View(devices.Count, DateTime.UtcNow)));
         });
 
@@ -158,8 +217,15 @@ internal static class AdminApi
         });
 
         signedIn.MapGet("/devices", () => Results.Json(Devices(store, settings)));
-        signedIn.MapPost("/devices/assign", (AssignInput input) =>
+        signedIn.MapGet("/audit", () => Results.Json(audit.Latest(500)));
+        signedIn.MapPost("/devices/approve", (HttpContext http, DevicesInput input) =>
         {
+            http.Items[AuditDetail] = Names(store, input.DeviceIds);
+            return Results.Json(new { count = input.DeviceIds.Count(store.Approve) });
+        });
+        signedIn.MapPost("/devices/assign", (HttpContext http, AssignInput input) =>
+        {
+            http.Items[AuditDetail] = Names(store, input.DeviceIds);
             foreach (var id in input.DeviceIds)
             {
                 store.Assign(id, string.IsNullOrEmpty(input.PolicyId) ? null : input.PolicyId);
@@ -167,8 +233,11 @@ internal static class AdminApi
 
             return Results.Json(new { count = input.DeviceIds.Count });
         });
-        signedIn.MapPost("/devices/remove", (DevicesInput input) =>
-            Results.Json(new { count = input.DeviceIds.Count(store.RemoveDevice) }));
+        signedIn.MapPost("/devices/remove", (HttpContext http, DevicesInput input) =>
+        {
+            http.Items[AuditDetail] = Names(store, input.DeviceIds);
+            return Results.Json(new { count = input.DeviceIds.Count(store.RemoveDevice) });
+        });
         signedIn.MapPost("/devices/{id}/activity", (string id, ActivityInput input) =>
             Results.Json(store.RequestActivity(id, input.Kind, input.Hours, input.Limit, DateTime.UtcNow)));
         signedIn.MapGet("/devices/{id}/activity", (string id) =>
@@ -180,8 +249,11 @@ internal static class AdminApi
             var fallback = store.DefaultPolicyId();
             return Results.Json(store.Policies().Select(p => new PolicyView(p, counts.GetValueOrDefault(p.Id), p.Id == fallback)).ToList());
         });
-        signedIn.MapPost("/policies", (PolicyInput input) =>
-            Results.Json(store.CreatePolicy(input.Name, input.Rules, Mode(input.Mode), input.AllowUserRules, input.RequireAdmin, DateTime.UtcNow)));
+        signedIn.MapPost("/policies", (HttpContext http, PolicyInput input) =>
+        {
+            http.Items[AuditDetail] = input.Name;
+            return Results.Json(store.CreatePolicy(input.Name, input.Rules, Mode(input.Mode), input.AllowUserRules, input.RequireAdmin, DateTime.UtcNow));
+        });
         signedIn.MapPut("/policies/{id}", (string id, PolicyInput input) =>
             Results.Json(store.UpdatePolicy(id, p => p with
             {
@@ -211,7 +283,7 @@ internal static class AdminApi
                 throw new ArgumentException("Uses must be 1 to 100000 and days 1 to 365.");
             }
 
-            var (token, record) = store.CreateToken(TimeSpan.FromDays(input.Days), input.Uses, input.Note, DateTime.UtcNow);
+            var (token, record) = store.CreateToken(TimeSpan.FromDays(input.Days), input.Uses, input.Note, DateTime.UtcNow, input.Approval);
             return Results.Json(new
             {
                 token,
@@ -222,8 +294,9 @@ internal static class AdminApi
         signedIn.MapDelete("/tokens/{id}", (string id) => store.RevokeToken(id) ? Results.NoContent() : Results.NotFound());
 
         signedIn.MapGet("/admins", () => Results.Json(admins.List().Select(a => new { a.Name, a.CreatedUtc, a.LastSignInUtc })));
-        signedIn.MapPost("/admins", (NewAdmin input) =>
+        signedIn.MapPost("/admins", (HttpContext http, NewAdmin input) =>
         {
+            http.Items[AuditDetail] = input.Name;
             admins.Add(input.Name, input.Password, DateTime.UtcNow);
             return Results.NoContent();
         });
@@ -278,7 +351,12 @@ internal static class AdminApi
             var applied = policy is null ? r?.PolicyId is null : r?.PolicyId == policy.Id && r.PolicyVersion == policy.Version;
             var problems = new List<string>();
             string status;
-            if (d.LastSeenUtc is null || r is null)
+            if (d.Waiting)
+            {
+                status = "waiting";
+                problems.Add("Waiting for your approval. Until then it gets no rules and no license from this server.");
+            }
+            else if (d.LastSeenUtc is null || r is null)
             {
                 status = "new";
                 problems.Add("Has not checked in yet.");

@@ -125,7 +125,7 @@ internal static class ServerHost
 
         var hostNames = ServerCertificate.HostNames();
         MapAgentApi(app, store, license, Environment.MachineName, settings.CheckinSeconds);
-        AdminApi.Map(app, store, admins, license, settings, Environment.MachineName, hostNames[^2], Fingerprints.Of(certificate));
+        AdminApi.Map(app, store, admins, license, new AuditLog(folder), settings, Environment.MachineName, hostNames[^2], Fingerprints.Of(certificate));
         await app.RunAsync().ConfigureAwait(false);
     }
 
@@ -167,11 +167,12 @@ internal static class ServerHost
 
             // The whole policy goes only when the PC has another one (or another version); otherwise
             // the answer stays a few bytes.
-            var policy = store.AssignedPolicy(device.DeviceId);
+            // A PC still waiting for approval gets neither: it is listed, and that is all.
+            var policy = device.Waiting ? null : store.AssignedPolicy(device.DeviceId);
             var send = policy is not null && (report.PolicyId != policy.Id || report.PolicyVersion != policy.Version);
             return Results.Json(
                 new CheckinResponse(policy?.Version ?? 0, DateTime.UtcNow, checkinSeconds, pending, policy?.Id, send ? policy!.ToManaged() : null,
-                    license.KeyFor(report.LicenseId, DateTime.UtcNow)),
+                    device.Waiting ? null : license.KeyFor(report.LicenseId, DateTime.UtcNow)),
                 ManagementJson.Default.CheckinResponse);
         });
 
