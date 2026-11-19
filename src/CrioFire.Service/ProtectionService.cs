@@ -26,6 +26,13 @@ internal sealed partial class ProtectionService(ILogger<ProtectionService> logge
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Before anything reads CrioFire's settings: the folders are the administrators', whoever made them.
+        if (Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService())
+        {
+            SecureFolder(Path.GetDirectoryName(TamperProtection.DefaultPath)!, FolderAccess.UsersRead);
+            SecureFolder(AppContext.BaseDirectory, FolderAccess.ProgramFolder);
+        }
+
         var settings = new TamperProtection(TamperProtection.DefaultPath);
         // A moment later, so the client that asked still gets its answer.
         self.StopRequested = () => _ = Task.Run(async () =>
@@ -125,6 +132,22 @@ internal sealed partial class ProtectionService(ILogger<ProtectionService> logge
         }
     }
 
+    private void SecureFolder(string folder, FolderAccess access)
+    {
+        try
+        {
+            var repair = FolderGuard.Secure(folder, access, setAsideForeignFiles: false);
+            if (repair.Any)
+            {
+                LogFolderRepaired(logger, folder, repair.OwnersReset, repair.LinksRemoved.Count);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Security.SecurityException)
+        {
+            LogStepFailed(logger, $"Securing {folder}", ex);
+        }
+    }
+
     private void CheckFiles()
     {
         try
@@ -154,6 +177,9 @@ internal sealed partial class ProtectionService(ILogger<ProtectionService> logge
 
     [LoggerMessage(Level = LogLevel.Information, Message = "No {Manifest} in the install folder (a build from source): CrioFire's files are not checked.")]
     private static partial void LogNoManifest(ILogger logger, string manifest);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{Folder} did not belong to the administrators alone: {Owners} files or folders of other accounts were taken over and {Links} links removed. Only administrators and the service can write there now.")]
+    private static partial void LogFolderRepaired(ILogger logger, string folder, int owners, int links);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The criofire service had been set not to start with Windows; it starts automatically again.")]
     private static partial void LogStartRepaired(ILogger logger);

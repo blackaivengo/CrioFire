@@ -19,6 +19,15 @@ internal static class ServerHost
         if (WindowsServiceHelpers.IsWindowsService())
         {
             ServerSetup.SecureFolder(folder);   // also when the server was set up by hand
+            try
+            {
+                // The program folder too: the installer lets it be anywhere, and elsewhere users may write.
+                CrioFire.Core.FolderGuard.Secure(AppContext.BaseDirectory, CrioFire.Core.FolderAccess.ProgramFolder, setAsideForeignFiles: false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                Console.Error.WriteLine($"Could not secure {AppContext.BaseDirectory}: {ex.Message}");
+            }
         }
 
         var certificate = ServerCertificate.LoadOrCreate(folder, DateTime.UtcNow);

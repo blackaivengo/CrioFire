@@ -53,6 +53,29 @@ try
             }
         }
 
+        // setup (a fresh install): the folders become the administrators' alone. An ordinary user
+        // could have made the data folder beforehand, with settings of their own in it: those are
+        // set aside, before the service reads anything.
+        foreach (var (folder, access, setAside) in new[]
+        {
+            (Path.GetDirectoryName(TrafficLog.DefaultPath)!, FolderAccess.UsersRead, true),
+            (AppContext.BaseDirectory, FolderAccess.ProgramFolder, false),
+        })
+        {
+            try
+            {
+                var repair = FolderGuard.Secure(folder, access, setAside);
+                if (repair.Any)
+                {
+                    Console.WriteLine($"{folder}: took over {repair.OwnersReset} files or folders of other accounts, set aside {repair.SetAside.Count}, removed {repair.LinksRemoved.Count} links.");
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Security.SecurityException)
+            {
+                Console.Error.WriteLine($"Could not secure {folder}: {ex.Message}");
+            }
+        }
+
         // setup: also the starting mode chosen in the installer (no confirmation: nobody is at a prompt).
         using var setupApi = Backend.Connect() ?? throw new InvalidOperationException("setup needs an administrator prompt.");
         return SetMode(setupApi, command with { Kind = CommandKind.ModeSet, Yes = true });

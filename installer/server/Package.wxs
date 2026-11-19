@@ -67,6 +67,7 @@
     <Feature Id="Main" Title="CrioFire Server" AllowAbsent="no">
       <ComponentGroupRef Id="ServerFiles" />
       <ComponentRef Id="DataFolder" />
+      <ComponentRef Id="InstallFolderPermissions" />
     </Feature>
 
     <ComponentGroup Id="ServerFiles" Directory="INSTALLFOLDER">
@@ -96,6 +97,13 @@
         <ServiceControl Id="CrioFireServerControl" Name="criofire-server" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
       </Component>
     </ComponentGroup>
+
+    <!-- The install folder can be anywhere; only SYSTEM and Administrators may write to it, wherever it is. -->
+    <Component Id="InstallFolderPermissions" Directory="INSTALLFOLDER" Guid="b3d1e8a2-4c67-4f09-8e25-71a9c0d6f3b4">
+      <CreateFolder>
+        <PermissionEx Sddl="D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)(A;OICI;0x1200a9;;;AC)" />
+      </CreateFolder>
+    </Component>
 
     <!--
       %ProgramData%\criofire-server: SYSTEM and Administrators only (the certificate's private key,

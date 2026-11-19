@@ -102,6 +102,7 @@
     <Feature Id="Main" Title="CrioFire Private Firewall" AllowAbsent="no">
       <ComponentGroupRef Id="AppFiles" />
       <ComponentRef Id="DataFolder" />
+      <ComponentRef Id="InstallFolderPermissions" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="AutostartEntry" />
     </Feature>
@@ -143,6 +144,18 @@
         <File Id="UiExe" Source="$(var.PublishDir)\criofire-ui.exe" KeyPath="yes" />
       </Component>
     </ComponentGroup>
+
+    <!--
+      The install folder can be anywhere (the setup lets you choose), and outside Program Files
+      ordinary users may be allowed to write. The service runs as SYSTEM from here, so only SYSTEM
+      and Administrators may write; Users and app packages read and run. The service checks this
+      again every time it starts (owner included).
+    -->
+    <Component Id="InstallFolderPermissions" Directory="INSTALLFOLDER" Guid="6f0a3c1e-7b52-4d38-9a41-2c8e5d7b9f10">
+      <CreateFolder>
+        <PermissionEx Sddl="D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)(A;OICI;0x1200a9;;;AC)" />
+      </CreateFolder>
+    </Component>
 
     <!-- %ProgramData%\criofire (traffic log, temporary rules): SYSTEM and Administrators full control, Users read-only. -->
     <Component Id="DataFolder" Directory="DATAFOLDER" Guid="d5246856-0501-42b0-9704-d448fe36e3ec">

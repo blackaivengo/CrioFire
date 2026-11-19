@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
-using System.Security.AccessControl;
-using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using CrioFire.Core.Management;
@@ -76,22 +74,14 @@ internal static class ServerSetup
     /// key, administrators' password hashes and the console's cookie keys. %ProgramData% would
     /// otherwise let every user read it.
     /// </summary>
-    public static void SecureFolder(string folder)
+    public static void SecureFolder(string folder, bool setAsideForeignFiles = false)
     {
-        if (!OperatingSystem.IsWindows())
+        // Owner too, not only permissions: whoever made the folder first could otherwise change them back.
+        var repair = CrioFire.Core.FolderGuard.Secure(folder, CrioFire.Core.FolderAccess.AdministratorsOnly, setAsideForeignFiles);
+        if (repair.Any)
         {
-            return;
+            Console.WriteLine($"{folder}: took over {repair.OwnersReset} files or folders of other accounts, set aside {repair.SetAside.Count}, removed {repair.LinksRemoved.Count} links.");
         }
-
-        var security = new DirectorySecurity();
-        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-        foreach (var sid in new[] { WellKnownSidType.LocalSystemSid, WellKnownSidType.BuiltinAdministratorsSid })
-        {
-            security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(sid, null), FileSystemRights.FullControl,
-                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
-        }
-
-        new DirectoryInfo(folder).SetAccessControl(security);
     }
 
     /// <summary>True for a request from this machine itself.</summary>
