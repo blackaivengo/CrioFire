@@ -62,6 +62,21 @@ function Check([bool] $condition, [string] $message) {
     Write-Host "ok   $message"
 }
 
+# Runs the installed command line; when it fails, the run page says why: what it printed, how
+# the service is, and what the service logged.
+function Check-Cli([string[]] $arguments, [string] $message) {
+    $output = (& $cli @arguments 2>&1 | Out-String).Trim()
+    $code = $LASTEXITCODE
+    Write-Host $output
+    if ($code -ne 0) {
+        $state = (sc.exe query criofire | Out-String).Trim() -replace '\s+', ' '
+        $events = @(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 1, 2, 3; StartTime = (Get-Date).AddMinutes(-10) } -MaxEvents 6 -ErrorAction SilentlyContinue |
+            ForEach-Object { $text = $_.Message -replace '\s+', ' '; "[$($_.ProviderName)] " + $text.Substring(0, [Math]::Min(700, $text.Length)) })
+        Write-Annotation "criofire $($arguments -join ' ')" ("exit code $code`n$output`n$state`n" + ($events -join "`n"))
+    }
+    Check ($code -eq 0) $message
+}
+
 trap {
     if ($_.Exception.Message -notlike 'FAILED:*' -and $_.Exception.Message -notlike 'msiexec*') {
         Write-Annotation 'Installer test failed' "$($_.Exception.Message)`n$($_.InvocationInfo.PositionMessage)"
@@ -113,8 +128,7 @@ Remove-Item $planted -Force
 if (-not $Language) {
     # Tamper protection locks the service: Windows refuses to stop or reconfigure it, even for this
     # administrator; CrioFire's own command stops it; and the uninstall below still works.
-    & $cli protection on | Out-Host
-    Check ($LASTEXITCODE -eq 0) 'tamper protection can be turned on'
+    Check-Cli @('protection', 'on') 'tamper protection can be turned on'
     sc.exe stop criofire | Out-Host
     Check ($LASTEXITCODE -eq 5) "with tamper protection on, 'sc stop' is refused to an administrator (exit code $LASTEXITCODE)"
     sc.exe config criofire start= disabled | Out-Host
@@ -128,8 +142,7 @@ if (-not $Language) {
     Check ((Get-Service criofire).Status -eq 'Running') 'after an attempt to end its process, the service is running'
     Check (Test-ProviderRegistered) 'the rules stayed in the Windows Filtering Platform'
 
-    & $cli service stop | Out-Host
-    Check ($LASTEXITCODE -eq 0) "'criofire service stop' is accepted from an administrator"
+    Check-Cli @('service', 'stop') "'criofire service stop' is accepted from an administrator"
     try { (Get-Service criofire).WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) } catch { Write-Host "Service did not stop: $_" }
     Check ((Get-Service criofire).Status -eq 'Stopped') 'the service stopped'
     & $cli service start | Out-Host
