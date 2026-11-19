@@ -48,8 +48,7 @@ covers your PC. Ask your IT department, or have them contact CrioSoft.
 
 Not in the strict sense: open source licenses allow commercial use without paying, and CrioFire's
 license doesn't. The code stays public, so anyone can check what a firewall on their computer does,
-build it themselves, and report problems. Versions published before the license change
-(November 2026) stay under GPL-3.0 for whoever received them.
+build it themselves, and report problems.
 
 ## Contributing
 

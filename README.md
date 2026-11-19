@@ -367,5 +367,4 @@ public safety, health and environmental organizations, and government institutio
 
 Other business or commercial use needs a CrioSoft Commercial License, priced per protected computer
 per year: see [LICENSING.md](LICENSING.md) for who pays and [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)
-for the terms. Versions published before November 2026 remain available under GPL-3.0 to those who
-received them.
+for the terms.

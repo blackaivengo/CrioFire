@@ -30,8 +30,7 @@ projects and no outside contributions, and nothing has been released. So it can 
 ## Consequences
 
 - CrioFire is described as source-available, not open source.
-- Versions already published under GPL-3.0 stay GPL-3.0 for those who received them; the change
-  applies from the commit that adds this ADR.
+- The change applies from the commit that adds this ADR. No version was released before it.
 - Code from GPL-licensed projects can no longer be copied into CrioFire.
 - Licensing is on the honor system for now. A license key in the app, if wanted later, is a
   separate decision.
