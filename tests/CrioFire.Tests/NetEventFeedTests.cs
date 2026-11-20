@@ -68,4 +68,16 @@ public class NetEventFeedTests
         Assert.Empty(feed.TakeAllowed());
         Assert.Equal(1, feed.Received);
     }
+
+    [Fact]
+    public void AllowedConnectionsAreCountedApartFromBlockedOnes()
+    {
+        // The service asks Windows for allowed connections until the first one is delivered.
+        var feed = new NetEventFeed();
+        feed.Add(Blocked(1));
+        Assert.Equal(0, feed.AllowedReceived);
+        feed.Add(Allowed(1));
+        Assert.Equal(1, feed.AllowedReceived);
+        Assert.Equal(2, feed.Received);
+    }
 }

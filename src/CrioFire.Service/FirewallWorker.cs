@@ -87,6 +87,7 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger, Net
             var recent = new RecentEvents(Overlap);
             var recentAllowed = new RecentEvents(Overlap);
             var allowedWorks = true;
+            var allowedAskedUntil = DateTime.MinValue;   // allowed connections up to here were asked for: not taken again from the feed
             var temporaryRules = new TemporaryRuleStore(TemporaryRuleStore.DefaultPath);
             using var licenseKey = LicenseKeys.ProductPublicKey();
             var identities = new IdentityGuard(new ProgramIdentityStore(ProgramIdentityStore.DefaultPath), new AuthenticodeSignatures());
@@ -192,9 +193,21 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger, Net
                     {
                         try
                         {
-                            IReadOnlyList<AllowedConnection> allowed = feed.Active
-                                ? [.. feed.TakeAllowed().Select(a => a with { Rule = AllowReasons.Resolve(filters, a) })]
-                                : recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths, filters), now);
+                            // Some Windows deliver blocked connections but no allowed ones. Until the
+                            // first allowed one arrives that way, ask for them (which leaks, but a
+                            // history with nothing in it would be worse).
+                            IReadOnlyList<AllowedConnection> allowed;
+                            if (feed.Active && feed.AllowedReceived > 0)
+                            {
+                                var asked = allowedAskedUntil;
+                                allowed = [.. feed.TakeAllowed().Where(a => a.TimeUtc > asked).Select(a => a with { Rule = AllowReasons.Resolve(filters, a) })];
+                            }
+                            else
+                            {
+                                allowed = recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths, filters), now);
+                                allowedAskedUntil = now;
+                            }
+
                             if (allowed.Count > 0)
                             {
                                 allowedLog.AppendSummaries(AllowedSummary.Aggregate(NameServices(allowed, filters)));

@@ -102,42 +102,112 @@ public sealed class VisibilityTests : IDisposable
     }
 
     [Fact]
-    public async Task WindowsDeliversConnectionsAsTheyHappen()
+    public async Task WindowsDeliversBlockedConnectionsAsTheyHappen()
     {
         // What the service relies on instead of asking for events every round (which leaks in Windows).
         var engine = Engine();
         Assert.True(engine.SetAllowedEventCollection(true), "Windows refused to record allowed connections.");
         var feed = new NetEventFeed();
         using var listener = new LocalListener(IPAddress.Loopback);
-        engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Outbound);
+        engine.SetAppRule(Peer.ExePath, RuleAction.Block, TrafficDirection.Outbound);
         using (engine.SubscribeNetEvents(feed.Add, feed.Add))
         {
-            var connected = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
-            Assert.True(connected.ExitCode == 0, connected.Output);
+            var refused = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
+            Assert.True(refused.ExitCode != 0, "The blocked program connected. " + refused.Output);
 
-            AllowedConnection? seen = null;
-            var all = new List<AllowedConnection>();
+            BlockedConnection? seen = null;
+            var all = new List<BlockedConnection>();
             for (var attempt = 0; attempt < 40 && seen is null; attempt++)
             {
-                all.AddRange(feed.TakeAllowed());
-                seen = all.LastOrDefault(a => a.Remote?.Port == listener.Port && string.Equals(a.AppPath, Peer.ExePath, StringComparison.OrdinalIgnoreCase));
+                all.AddRange(feed.TakeBlocked());
+                seen = all.LastOrDefault(b => b.Remote?.Port == listener.Port && string.Equals(b.AppPath, Peer.ExePath, StringComparison.OrdinalIgnoreCase));
                 if (seen is null)
                 {
                     await Task.Delay(250, TestContext.Current.CancellationToken);
                 }
             }
 
-            Assert.True(seen is not null, $"The allowed connection to port {listener.Port} was not delivered. Delivered: {all.Count} allowed, e.g. "
-                + string.Join("; ", all.Take(5).Select(a => $"{a.AppPath} {a.Remote}")));
-            Assert.Equal(TrafficDirection.Outbound, seen!.Direction);
-            Assert.True(seen.IsLoopback);
+            Assert.True(seen is not null, $"The blocked connection to port {listener.Port} was not delivered. Delivered: {all.Count} blocked, {feed.AllowedReceived} allowed, e.g. "
+                + string.Join("; ", all.Take(5).Select(b => $"{b.AppPath} {b.Remote}")));
 
             // The rule is looked up afterwards, as the service does.
-            var resolved = seen with { Rule = AllowReasons.Resolve(engine.ListFilters(), seen) };
-            Assert.Equal(AllowReason.Rule, resolved.Reason);
+            var rule = engine.ListFilters().FirstOrDefault(f => f.FilterId == seen!.FilterId);
+            Assert.NotNull(rule);
+            Assert.Equal(Peer.ExePath, rule!.Rule!.AppPath, ignoreCase: true);
         }
 
         Assert.True(feed.Received > 0);
+    }
+
+    /// <summary>
+    /// Not a check of CrioFire: finds out which of Windows' ways of delivering connections work on
+    /// this machine, and writes what it found as notes on the run page. Blocked connections arrive
+    /// through a subscription everywhere; allowed ones did not on the build machines, and this says
+    /// which version of the call, which template or which machine-wide option changes that.
+    /// </summary>
+    [Fact]
+    public async Task WhichWaysWindowsDeliversConnections()
+    {
+        var engine = Engine();
+        var keywordsBefore = NetEventProbe.Keywords();
+        var started = DateTime.UtcNow.AddSeconds(-1);
+        try
+        {
+            var ways = new (string Name, int Version, NetEventProbeTemplate Template, uint Keywords, bool Monitor, bool Toggle)[]
+            {
+                ("1 version 1 - no template", 1, NetEventProbeTemplate.None, NetEventProbe.AllowedKeyword, false, false),
+                ("2 version 2 - no template", 2, NetEventProbeTemplate.None, NetEventProbe.AllowedKeyword, false, false),
+                ("3 version 4 - no template", 4, NetEventProbeTemplate.None, NetEventProbe.AllowedKeyword, false, false),
+                ("4 version 1 - time template", 1, NetEventProbeTemplate.AnyTime, NetEventProbe.AllowedKeyword, false, false),
+                ("5 version 1 - allowed-only template", 1, NetEventProbeTemplate.AllowedOnly, NetEventProbe.AllowedKeyword, false, false),
+                ("6 version 4 - allowed-only template", 4, NetEventProbeTemplate.AllowedOnly, NetEventProbe.AllowedKeyword, false, false),
+                ("7 version 1 - keywords set after subscribing", 1, NetEventProbeTemplate.None, NetEventProbe.AllowedKeyword, false, true),
+                ("8 version 1 - every keyword and connection monitoring", 1, NetEventProbeTemplate.None, NetEventProbe.EveryKeyword, true, false),
+                ("9 version 4 - every keyword and connection monitoring", 4, NetEventProbeTemplate.None, NetEventProbe.EveryKeyword, true, false),
+            };
+
+            foreach (var way in ways)
+            {
+                var options = NetEventProbe.SetOptions(way.Toggle ? 0 : way.Keywords, way.Monitor);
+                using var probe = NetEventProbe.Start(way.Version, way.Template);
+                if (way.Toggle)
+                {
+                    options = NetEventProbe.SetOptions(way.Keywords, way.Monitor);
+                }
+
+                var text = $"subscribe error 0x{probe.Error:X}; options 0x{options.Keywords:X}/0x{options.Monitor:X}; keywords now 0x{NetEventProbe.Keywords():X}";
+                if (probe.Error == 0)
+                {
+                    // Allowed over loopback, allowed to another machine (no answer needed), then blocked.
+                    using var listener = new LocalListener(IPAddress.Loopback);
+                    engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Outbound);
+                    var local = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
+                    var away = await Peer.ConnectAsync(IPAddress.Parse("1.1.1.1"), 443);
+                    engine.SetAppRule(Peer.ExePath, RuleAction.Block, TrafficDirection.Outbound);
+                    var blocked = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
+                    engine.RemoveAppRules(Peer.ExePath);
+                    await Task.Delay(2500, TestContext.Current.CancellationToken);
+                    var counts = probe.Counts();
+                    text += $"; connects {local.ExitCode}/{away.ExitCode}/{blocked.ExitCode}; delivered by type: "
+                        + (counts.Count == 0 ? "nothing" : string.Join(", ", counts.OrderBy(c => c.Key).Select(c => $"{c.Key}={c.Value}")));
+                }
+
+                Notes.Write("Events - " + way.Name, text);
+            }
+
+            static string Show((uint Error, IReadOnlyDictionary<uint, int> Counts) stored) => stored.Error != 0
+                ? $"error 0x{stored.Error:X}"
+                : stored.Counts.Count == 0 ? "nothing" : string.Join(", ", stored.Counts.OrderBy(c => c.Key).Select(c => $"{c.Key}={c.Value}"));
+
+            Notes.Write("Events - stored by Windows meanwhile",
+                $"asked for everything: {Show(NetEventProbe.Stored(started))}; asked for blocked only: {Show(NetEventProbe.Stored(started, 3))}; asked for allowed only: {Show(NetEventProbe.Stored(started, 6))}"
+                + $"; {System.Runtime.InteropServices.RuntimeInformation.OSDescription} {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
+        }
+        finally
+        {
+            _ = NetEventProbe.SetOptions(keywordsBefore ?? 0, false);
+            engine.RemoveAppRules(Peer.ExePath);
+        }
     }
 
     [Fact]

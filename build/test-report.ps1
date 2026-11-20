@@ -74,6 +74,12 @@ function Annotate([string] $level, [string] $title, [string] $text) {
     Write-Host "::$level title=$($title -replace '[:,]', ' ')::$clean"
 }
 
+# Findings the tests wrote down (tests/CrioFire.IntegrationTests/Notes.cs): first line the title, then the text.
+foreach ($note in @(Get-ChildItem (Join-Path $ResultsDir 'notes') -Filter *.txt -ErrorAction SilentlyContinue | Sort-Object Name)) {
+    $lines = @(Get-Content $note.FullName)
+    if ($lines.Count -ge 2) { Annotate 'notice' $lines[0] (($lines | Select-Object -Skip 1) -join ' ') }
+}
+
 $byProject = $rows | Group-Object Project | ForEach-Object {
     $p = @($_.Group | Where-Object Outcome -eq 'Passed').Count
     $f = @($_.Group | Where-Object Outcome -eq 'Failed').Count

@@ -182,6 +182,7 @@ internal enum FWPM_ENGINE_OPTION : uint
 {
     FWPM_ENGINE_COLLECT_NET_EVENTS = 0,
     FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS = 1,
+    FWPM_ENGINE_MONITOR_IPSEC_CONNECTIONS = 3,
 }
 
 internal static class FwpmNetEventKeywords
@@ -404,6 +405,15 @@ internal static unsafe partial class Fwpuclnt
     [LibraryImport(Dll)]
     public static partial uint FwpmNetEventSubscribe1(IntPtr engineHandle, FWPM_NET_EVENT_SUBSCRIPTION0* subscription,
         delegate* unmanaged<void*, FWPM_NET_EVENT2*, void> callback, void* context, IntPtr* eventsHandle);
+
+    /// <summary>Newer versions of the same call (Windows 10 1607, and 1809): the event is a FWPM_NET_EVENT3 / FWPM_NET_EVENT5.</summary>
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventSubscribe2(IntPtr engineHandle, FWPM_NET_EVENT_SUBSCRIPTION0* subscription,
+        delegate* unmanaged<void*, void*, void> callback, void* context, IntPtr* eventsHandle);
+
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventSubscribe4(IntPtr engineHandle, FWPM_NET_EVENT_SUBSCRIPTION0* subscription,
+        delegate* unmanaged<void*, void*, void> callback, void* context, IntPtr* eventsHandle);
 
     [LibraryImport(Dll)]
     public static partial uint FwpmNetEventUnsubscribe0(IntPtr engineHandle, IntPtr eventsHandle);

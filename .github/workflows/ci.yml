@@ -65,6 +65,7 @@ jobs:
       - name: Test (unit tests and real firewall tests)
         env:
           CRIOFIRE_INTEGRATION: '1'   # runners are administrators, so the WFP tests really run
+          CRIOFIRE_TEST_NOTES: ${{ github.workspace }}/TestResults/notes   # findings shown as notices by the test report
         shell: pwsh
         run: |
           $code = 0

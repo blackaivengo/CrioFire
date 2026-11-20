@@ -230,7 +230,7 @@ if (-not $Language) {
     }
 
     # Connections must reach the service as they happen (asking Windows for them every round leaks).
-    $delivered = if ($before.Line -match 'delivered by Windows \((\d+) so far\)') { [int]$Matches[1] } else { -1 }
+    $delivered = if ($before.Line -match 'delivered by Windows \((\d+) so far') { [int]$Matches[1] } else { -1 }
     Check ($delivered -gt 0) "Windows delivers connections to the service as they happen ($delivered so far; $($before.Line -replace '.*connection events', 'connection events'))"
     $allowed = Ask-Service '{"op":"allowed","minutes":10,"includeLoopback":true}'
     $groups = try { @(($allowed | ConvertFrom-Json).allowed).Count } catch { -1 }

@@ -28,6 +28,7 @@ public sealed class NetEventFeed
     private readonly Queue<AllowedConnection> _allowed = new();
     private readonly Queue<BlockedConnection> _recent = new();
     private long _received;
+    private long _allowedReceived;
 
     /// <summary>True while Windows delivers events here. False: the service asks for them each round instead (the old way).</summary>
     public bool Active { get; set; }
@@ -43,6 +44,21 @@ public sealed class NetEventFeed
             lock (_gate)
             {
                 return _received;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Allowed connections received since the service started. Some Windows deliver blocked
+    /// connections but never allowed ones: while this is 0 the service still asks for those.
+    /// </summary>
+    public long AllowedReceived
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _allowedReceived;
             }
         }
     }
@@ -74,6 +90,7 @@ public sealed class NetEventFeed
         lock (_gate)
         {
             _received++;
+            _allowedReceived++;
             if (!KeepAllowed)
             {
                 return;
