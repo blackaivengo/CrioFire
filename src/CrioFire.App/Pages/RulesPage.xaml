@@ -121,6 +121,7 @@
             </GridView>
           </ListView.View>
         </ListView>
+        <ContentControl x:Name="ProgramsPager" Focusable="False" />
       </StackPanel>
     </ContentControl>
 
@@ -160,6 +161,7 @@
             </GridView>
           </ListView.View>
         </ListView>
+        <ContentControl x:Name="NetPager" Focusable="False" />
       </StackPanel>
     </ContentControl>
 
@@ -195,6 +197,7 @@
             </GridView>
           </ListView.View>
         </ListView>
+        <ContentControl x:Name="ServicePager" Focusable="False" />
       </StackPanel>
     </ContentControl>
 

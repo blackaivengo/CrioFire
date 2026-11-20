@@ -409,7 +409,7 @@
   "Program: {0}": "البرنامج: {0}",
   "Only this service": "هذه الخدمة فقط",
   "This version of the CrioFire service does not count data yet.": "هذا الإصدار من خدمة CrioFire لا يحسب البيانات بعد.",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{0} {1} من {2} برنامج. يتحدّث كل 3 ثوانٍ.",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{0} {1} من {2} برنامج. يتحدّث كل 5 ثوانٍ.",
   "sockets": "مقبس",
   "connections": "اتصال",
   "in the last 7 days": "في آخر 7 أيام",
@@ -799,5 +799,8 @@
   "Ask again now": "اسأل من جديد الآن",
   "Allow changes for 10 minutes": "السماح بالتغييرات لمدة 10 دقائق",
   "CrioFire changes rules without asking until {0}.": "يغيّر CrioFire القواعد دون سؤال حتى {0}.",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "لديك تغييرات كثيرة؟ موافقة واحدة تتيح لهذا التطبيق تغيير القواعد دون سؤال لمدة 10 دقائق. وخلال هذه المدة يستطيع برنامج قادر على التحكم في التطبيق تغييرها أيضاً."
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "لديك تغييرات كثيرة؟ موافقة واحدة تتيح لهذا التطبيق تغيير القواعد دون سؤال لمدة 10 دقائق. وخلال هذه المدة يستطيع برنامج قادر على التحكم في التطبيق تغييرها أيضاً.",
+  "Search": "بحث",
+  "Program, service, address, port or PID. Every word must match.": "برنامج أو خدمة أو عنوان أو منفذ أو PID. يجب أن تتطابق كل الكلمات.",
+  "Rows {0}–{1} of {2}": "الصفوف {0}–{1} من {2}"
 }

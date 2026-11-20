@@ -1201,6 +1201,9 @@ internal static class Fmt
 {
     public static string Count(int n) => n.ToString("N0", CultureInfo.CurrentCulture);
 
+    /// <summary>Which rows of a long list are shown: "Rows 51–100 of 312".</summary>
+    public static string Rows(int from, int to, int total) => L.T($"Rows {Count(from)}–{Count(to)} of {Count(total)}");
+
     public static string Time(DateTime utc) => utc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
 
     public static string Ago(DateTime utc)

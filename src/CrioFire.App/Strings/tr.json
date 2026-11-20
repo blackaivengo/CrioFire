@@ -409,7 +409,7 @@
   "Program: {0}": "Program: {0}",
   "Only this service": "Yalnızca bu hizmet",
   "This version of the CrioFire service does not count data yet.": "CrioFire hizmetinin bu sürümü henüz veri saymıyor.",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{2} programdan {0} {1}. Her 3 saniyede güncellenir.",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{2} programdan {0} {1}. Her 5 saniyede güncellenir.",
   "sockets": "soket",
   "connections": "bağlantı",
   "in the last 7 days": "son 7 günde",
@@ -799,5 +799,8 @@
   "Ask again now": "Şimdi yeniden sor",
   "Allow changes for 10 minutes": "10 dakika boyunca değişikliklere izin ver",
   "CrioFire changes rules without asking until {0}.": "CrioFire, saat {0} olana kadar kuralları sormadan değiştirir.",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Yapacak çok değişiklik mi var? Tek bir onayla bu uygulama 10 dakika boyunca kuralları sormadan değiştirebilir. Bu sürede uygulamayı yönlendirebilen bir program da kuralları değiştirebilir."
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Yapacak çok değişiklik mi var? Tek bir onayla bu uygulama 10 dakika boyunca kuralları sormadan değiştirebilir. Bu sürede uygulamayı yönlendirebilen bir program da kuralları değiştirebilir.",
+  "Search": "Ara",
+  "Program, service, address, port or PID. Every word must match.": "Program, hizmet, adres, bağlantı noktası veya PID. Tüm sözcükler eşleşmelidir.",
+  "Rows {0}–{1} of {2}": "Satır {0}–{1} / {2}"
 }

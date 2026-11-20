@@ -15,6 +15,9 @@ public partial class ConnectionsPage : UserControl, IPage
 {
     private readonly AppModel _model;
     private (IReadOnlyList<LiveConnection> Connections, IReadOnlyDictionary<int, string[]> Services)? _loaded;
+    private (IReadOnlyList<LiveConnection> Connections, IReadOnlyDictionary<int, string[]> Services)? _shown;
+    private readonly ColumnSorter<LiveRow> _sorter;
+    private readonly Pager _pager;
     private (UsageInfo? Usage, string? Error)? _usage;
     private string _period = "today";
 
@@ -24,6 +27,20 @@ public partial class ConnectionsPage : UserControl, IPage
         InitializeComponent();
         RowMenu.Attach(Table, model, RowMenu.From);
         RowMenu.Attach(UsageTable, model, RowMenu.From);
+        _pager = new Pager(Refresh);
+        PagerHost.Content = _pager.View;
+        _sorter = new ColumnSorter<LiveRow>(Table, () =>
+            {
+                _pager.First();
+                Refresh();
+            },
+            ("PROGRAM", r => r.Program),
+            ("SERVICES", r => r.Services),
+            ("PID", r => r.ProcessId),
+            ("PROTO", r => r.Protocol),
+            ("STATE", r => r.State),
+            ("LOCAL", r => r.Local),
+            ("REMOTE", r => r.Remote));
     }
 
     private bool ShowingUsage => ShowUsage.IsChecked == true;
@@ -34,7 +51,7 @@ public partial class ConnectionsPage : UserControl, IPage
 
     public FrameworkElement? Actions => null;
 
-    public TimeSpan? AutoRefresh => ShowingUsage ? TimeSpan.FromSeconds(10) : TimeSpan.FromSeconds(3);
+    public TimeSpan? AutoRefresh => ShowingUsage ? TimeSpan.FromSeconds(10) : TimeSpan.FromSeconds(5);
 
     public async Task LoadAsync()
     {
@@ -61,7 +78,7 @@ public partial class ConnectionsPage : UserControl, IPage
     public void Refresh()
     {
         var usage = ShowingUsage;
-        LiveCard.Visibility = LiveActions.Visibility = usage ? Visibility.Collapsed : Visibility.Visible;
+        LiveCard.Visibility = LiveActions.Visibility = SearchBox.Visibility = usage ? Visibility.Collapsed : Visibility.Visible;
         UsageCard.Visibility = UsageActions.Visibility = PeriodGroup.Visibility = usage ? Visibility.Visible : Visibility.Collapsed;
         if (usage)
         {
@@ -71,23 +88,57 @@ public partial class ConnectionsPage : UserControl, IPage
 
         var all = ShowAll.IsChecked == true;
         var selected = Table.SelectedItem as LiveRow;
-        var (connections, services) = _loaded ?? Read();
+        // What was just read; else what is on screen (a new sort, search or page shows the same data again).
+        var data = _loaded ?? _shown ?? Read();
+        _shown = data;
+        var (connections, services) = data;
         _loaded = null;
-        var rows = connections
+        var words = SearchBox.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var found = _sorter.Apply(connections
             .Where(c => all || c.Remote is not null)
             .OrderBy(c => c.ProcessPath is null)
             .ThenBy(c => c.ProcessPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(c => c.Local.Port)
             .Select(c => LiveRow.From(c, services))
-            .ToList();
+            .Where(r => words.Length == 0 || Matches(r, words)));
+        var rows = _pager.Slice(found);
         Table.ItemsSource = rows;
         if (selected is not null)
         {
             Table.SelectedItem = rows.FirstOrDefault(r => r.ProcessId == selected.ProcessId && r.Local == selected.Local && r.Remote == selected.Remote);
         }
 
-        var programs = rows.Select(r => r.ProcessId).Distinct().Count();
-        Subtitle = L.T($"{Fmt.Count(rows.Count)} {(all ? L.T("sockets") : L.T("connections"))} from {programs} programs. Updates every 3 seconds.");
+        var programs = found.Select(r => r.ProcessId).Distinct().Count();
+        Subtitle = L.T($"{Fmt.Count(found.Count)} {(all ? L.T("sockets") : L.T("connections"))} from {programs} programs. Updates every 5 seconds.");
+    }
+
+    /// <summary>Every word is somewhere in the row: program, path, services, PID, protocol, state or an address.</summary>
+    private static bool Matches(LiveRow row, string[] words)
+    {
+        var text = string.Join(' ', row.Program, row.Path, row.Services, row.ProcessId.ToString(CultureInfo.InvariantCulture), row.Protocol, row.State, row.Local, row.Remote);
+        return words.All(w => text.Contains(w, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public bool FocusSearch()
+    {
+        if (ShowingUsage)
+        {
+            return false;
+        }
+
+        SearchBox.SelectAll();
+        return SearchBox.Focus();
+    }
+
+    private void OnSearchChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!IsLoaded || ShowingUsage)
+        {
+            return;
+        }
+
+        _pager.First();
+        Refresh();
     }
 
     private void RefreshUsage()

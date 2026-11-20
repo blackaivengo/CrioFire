@@ -409,7 +409,7 @@
   "Program: {0}": "Programa: {0}",
   "Only this service": "Somente este serviço",
   "This version of the CrioFire service does not count data yet.": "Esta versão do serviço do CrioFire ainda não conta dados.",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{0} {1} de {2} programas. Atualiza a cada 3 segundos.",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{0} {1} de {2} programas. Atualiza a cada 5 segundos.",
   "sockets": "sockets",
   "connections": "conexões",
   "in the last 7 days": "nos últimos 7 dias",
@@ -799,5 +799,8 @@
   "Ask again now": "Voltar a perguntar agora",
   "Allow changes for 10 minutes": "Permitir alterações por 10 minutos",
   "CrioFire changes rules without asking until {0}.": "O CrioFire altera regras sem perguntar até {0}.",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Muitas alterações a fazer? Com uma única aprovação, este aplicativo pode alterar regras sem perguntar por 10 minutos. Nesse período, um programa capaz de conduzir o aplicativo também poderia alterá-las."
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Muitas alterações a fazer? Com uma única aprovação, este aplicativo pode alterar regras sem perguntar por 10 minutos. Nesse período, um programa capaz de conduzir o aplicativo também poderia alterá-las.",
+  "Search": "Pesquisar",
+  "Program, service, address, port or PID. Every word must match.": "Programa, serviço, endereço, porta ou PID. Todas as palavras precisam corresponder.",
+  "Rows {0}–{1} of {2}": "Linhas {0}–{1} de {2}"
 }

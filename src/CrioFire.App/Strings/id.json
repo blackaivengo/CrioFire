@@ -409,7 +409,7 @@
   "Program: {0}": "Program: {0}",
   "Only this service": "Hanya layanan ini",
   "This version of the CrioFire service does not count data yet.": "Versi layanan CrioFire ini belum menghitung data.",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{0} {1} dari {2} program. Diperbarui setiap 3 detik.",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{0} {1} dari {2} program. Diperbarui setiap 5 detik.",
   "sockets": "soket",
   "connections": "koneksi",
   "in the last 7 days": "dalam 7 hari terakhir",
@@ -799,5 +799,8 @@
   "Ask again now": "Tanya lagi sekarang",
   "Allow changes for 10 minutes": "Izinkan perubahan selama 10 menit",
   "CrioFire changes rules without asking until {0}.": "CrioFire mengubah aturan tanpa bertanya hingga {0}.",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Banyak perubahan yang perlu dibuat? Dengan satu persetujuan, aplikasi ini dapat mengubah aturan tanpa bertanya selama 10 menit. Selama waktu itu, program yang dapat mengendalikan aplikasi juga bisa mengubahnya."
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Banyak perubahan yang perlu dibuat? Dengan satu persetujuan, aplikasi ini dapat mengubah aturan tanpa bertanya selama 10 menit. Selama waktu itu, program yang dapat mengendalikan aplikasi juga bisa mengubahnya.",
+  "Search": "Cari",
+  "Program, service, address, port or PID. Every word must match.": "Program, layanan, alamat, port, atau PID. Semua kata harus cocok.",
+  "Rows {0}–{1} of {2}": "Baris {0}–{1} dari {2}"
 }

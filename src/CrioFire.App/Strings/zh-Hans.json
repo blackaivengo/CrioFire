@@ -409,7 +409,7 @@
   "Program: {0}": "程序：{0}",
   "Only this service": "仅此服务",
   "This version of the CrioFire service does not count data yet.": "此版本的 CrioFire 服务尚不统计数据用量。",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "来自 {2} 个程序的 {0} 个{1}。每 3 秒更新一次。",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "来自 {2} 个程序的 {0} 个{1}。每 5 秒更新一次。",
   "sockets": "套接字",
   "connections": "连接",
   "in the last 7 days": "最近 7 天",
@@ -799,5 +799,8 @@
   "Ask again now": "现在恢复询问",
   "Allow changes for 10 minutes": "允许在 10 分钟内更改",
   "CrioFire changes rules without asking until {0}.": "在 {0} 之前，CrioFire 更改规则时不再询问。",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "要做很多更改？只需批准一次，此应用即可在 10 分钟内直接更改规则而不再询问。在这段时间内，能够操纵此应用的程序也可以更改规则。"
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "要做很多更改？只需批准一次，此应用即可在 10 分钟内直接更改规则而不再询问。在这段时间内，能够操纵此应用的程序也可以更改规则。",
+  "Search": "搜索",
+  "Program, service, address, port or PID. Every word must match.": "程序、服务、地址、端口或 PID。所有词都必须匹配。",
+  "Rows {0}–{1} of {2}": "第 {0}–{1} 行，共 {2} 行"
 }

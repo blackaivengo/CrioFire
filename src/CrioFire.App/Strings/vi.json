@@ -409,7 +409,7 @@
   "Program: {0}": "Chương trình: {0}",
   "Only this service": "Chỉ dịch vụ này",
   "This version of the CrioFire service does not count data yet.": "Phiên bản dịch vụ CrioFire này chưa đếm dữ liệu.",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{0} {1} từ {2} chương trình. Cập nhật mỗi 3 giây.",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{0} {1} từ {2} chương trình. Cập nhật mỗi 5 giây.",
   "sockets": "socket",
   "connections": "kết nối",
   "in the last 7 days": "trong 7 ngày qua",
@@ -799,5 +799,8 @@
   "Ask again now": "Hỏi lại ngay",
   "Allow changes for 10 minutes": "Cho phép thay đổi trong 10 phút",
   "CrioFire changes rules without asking until {0}.": "CrioFire thay đổi quy tắc mà không hỏi cho đến {0}.",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Cần thay đổi nhiều thứ? Chỉ một lần chấp thuận, ứng dụng này có thể thay đổi quy tắc mà không hỏi trong 10 phút. Trong thời gian đó, một chương trình điều khiển được ứng dụng cũng có thể thay đổi quy tắc."
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Cần thay đổi nhiều thứ? Chỉ một lần chấp thuận, ứng dụng này có thể thay đổi quy tắc mà không hỏi trong 10 phút. Trong thời gian đó, một chương trình điều khiển được ứng dụng cũng có thể thay đổi quy tắc.",
+  "Search": "Tìm kiếm",
+  "Program, service, address, port or PID. Every word must match.": "Chương trình, dịch vụ, địa chỉ, cổng hoặc PID. Mọi từ đều phải khớp.",
+  "Rows {0}–{1} of {2}": "Hàng {0}–{1} trên {2}"
 }

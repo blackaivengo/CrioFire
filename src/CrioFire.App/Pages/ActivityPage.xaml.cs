@@ -25,12 +25,24 @@ public partial class ActivityPage : UserControl, IPage
     private string? _service;
     private bool _quiet;
     private TrafficRow? _shown;
+    private readonly ColumnSorter<TrafficRow> _sorter;
+    private (ApiRequest Request, TrafficPage? Page, string? Error)? _last;
+    private bool _sorting;
 
     internal ActivityPage(AppModel model)
     {
         _model = model;
         InitializeComponent();
         RowMenu.Attach(Table, model, RowMenu.From, Selected);
+        GridLayout.FillHeight(this, minimum: 640);
+        GridLayout.FillLastColumn(Table, minimum: 220);
+        _sorter = new ColumnSorter<TrafficRow>(Table, Resort,
+            ("LAST", r => r.Item.LastUtc),
+            ("COUNT", r => r.Item.Count),
+            ("WHY", r => r.Why),
+            ("DIR", r => r.Direction),
+            ("REMOTE", r => r.Remote),
+            ("PROGRAM OR SERVICE", r => r.Program));
         _searchDelay.Tick += (_, _) =>
         {
             _searchDelay.Stop();
@@ -88,13 +100,31 @@ public partial class ActivityPage : UserControl, IPage
         return SearchBox.Focus();
     }
 
+    /// <summary>Shows the same rows again in the order just chosen, without asking the service.</summary>
+    private void Resort()
+    {
+        _sorting = true;
+        try
+        {
+            Refresh();
+        }
+        finally
+        {
+            _sorting = false;
+        }
+    }
+
     public void Refresh()
     {
         TakeQuery();
         LocalSwitch.Visibility = Kind == "blocked" ? Visibility.Collapsed : Visibility.Visible;
         var request = BuildRequest();
-        var data = _loaded is { } loaded && loaded.Request == request ? loaded : Read(request);
+        // What was just read; else what is on screen, when only the order changed (a click on a heading).
+        var data = _loaded is { } loaded && loaded.Request == request ? loaded
+            : _sorting && _last is { } last && last.Request == request ? last
+            : Read(request);
         _loaded = null;
+        _last = data;
         var page = data.Page;
         var error = data.Error;
 
@@ -113,7 +143,7 @@ public partial class ActivityPage : UserControl, IPage
 
         _offset = page.Offset;
         var keep = Table.SelectedItems.OfType<TrafficRow>().Select(r => r.Key).ToHashSet();
-        var rows = page.Items.Select(ToRow).ToList();
+        var rows = _sorter.Apply(page.Items.Select(ToRow));   // a heading sorts the rows of this page; "Latest first" and "Most first" order all of them
         _quiet = true;
         Table.ItemsSource = rows;
         foreach (var row in rows.Where(r => keep.Contains(r.Key)))
@@ -126,7 +156,7 @@ public partial class ActivityPage : UserControl, IPage
         Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         Empty.Text = L.T($"Nothing {(Kind == "allowed" ? L.T("allowed") : Kind == "blocked" ? L.T("blocked") : L.T("recorded"))} in the last {WindowText} matches these filters.");
         PageText.Text = page.Total == 0 ? string.Empty
-            : $"Rows {Fmt.Count(page.Offset + 1)}–{Fmt.Count(page.Offset + rows.Count)} of {Fmt.Count(page.Total)}";
+            : Fmt.Rows(page.Offset + 1, page.Offset + rows.Count, page.Total);
         PrevButton.IsEnabled = page.Offset > 0;
         NextButton.IsEnabled = page.Offset + rows.Count < page.Total;
 

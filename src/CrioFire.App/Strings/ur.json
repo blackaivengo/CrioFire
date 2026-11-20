@@ -409,7 +409,7 @@
   "Program: {0}": "پروگرام: {0}",
   "Only this service": "صرف یہ سروس",
   "This version of the CrioFire service does not count data yet.": "CrioFire سروس کا یہ ورژن ابھی ڈیٹا نہیں گنتا۔",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{2} پروگراموں سے {0} {1}۔ ہر 3 سیکنڈ میں اپ ڈیٹ ہوتا ہے۔",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{2} پروگراموں سے {0} {1}۔ ہر 5 سیکنڈ میں اپ ڈیٹ ہوتا ہے۔",
   "sockets": "ساکٹ",
   "connections": "کنکشن",
   "in the last 7 days": "پچھلے 7 دنوں میں",
@@ -799,5 +799,8 @@
   "Ask again now": "ابھی دوبارہ پوچھیں",
   "Allow changes for 10 minutes": "10 منٹ کے لیے تبدیلیوں کی اجازت دیں",
   "CrioFire changes rules without asking until {0}.": "CrioFire ‏{0} تک پوچھے بغیر قواعد بدلتا ہے۔",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "بہت سی تبدیلیاں کرنی ہیں؟ ایک منظوری کے بعد یہ ایپ 10 منٹ تک پوچھے بغیر قواعد بدل سکتی ہے۔ اس دوران ایپ کو چلا سکنے والا کوئی پروگرام بھی انہیں بدل سکتا ہے۔"
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "بہت سی تبدیلیاں کرنی ہیں؟ ایک منظوری کے بعد یہ ایپ 10 منٹ تک پوچھے بغیر قواعد بدل سکتی ہے۔ اس دوران ایپ کو چلا سکنے والا کوئی پروگرام بھی انہیں بدل سکتا ہے۔",
+  "Search": "تلاش",
+  "Program, service, address, port or PID. Every word must match.": "پروگرام، سروس، پتا، پورٹ یا PID۔ ہر لفظ میل کھانا چاہیے۔",
+  "Rows {0}–{1} of {2}": "قطاریں {0}–{1}، کل {2}"
 }

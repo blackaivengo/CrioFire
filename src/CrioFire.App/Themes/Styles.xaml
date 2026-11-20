@@ -455,9 +455,26 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="GridViewColumnHeader">
-          <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="7,9" Background="Transparent">
-            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
-          </Border>
+          <Grid>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="7,9" Background="Transparent">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+            </Border>
+            <!-- Drag the right edge of a heading to resize its column; double-click to fit its content. -->
+            <Thumb x:Name="PART_HeaderGripper" HorizontalAlignment="Right" Width="9" Margin="0,0,-4,0" Cursor="SizeWE">
+              <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                  <Border Background="Transparent">
+                    <Rectangle Width="1" Margin="0,9" HorizontalAlignment="Center" Fill="{DynamicResource LineBrush}" />
+                  </Border>
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Role" Value="Padding">
+              <Setter TargetName="PART_HeaderGripper" Property="Visibility" Value="Collapsed" />
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>

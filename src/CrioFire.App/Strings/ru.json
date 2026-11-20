@@ -413,7 +413,7 @@
   "Program: {0}": "Программа: {0}",
   "Only this service": "Только эта служба",
   "This version of the CrioFire service does not count data yet.": "Эта версия службы CrioFire ещё не считает объём данных.",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{0} {1} от программ: {2}. Обновление каждые 3 секунды.",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{0} {1} от программ: {2}. Обновление каждые 5 секунд.",
   "sockets": "сокетов",
   "connections": "соединений",
   "in the last 7 days": "за последние 7 дней",
@@ -803,5 +803,8 @@
   "Ask again now": "Снова спрашивать",
   "Allow changes for 10 minutes": "Разрешить изменения на 10 минут",
   "CrioFire changes rules without asking until {0}.": "CrioFire меняет правила без запроса до {0}.",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Нужно внести много изменений? После одного одобрения это приложение сможет менять правила без запроса в течение 10 минут. В это время правила могла бы менять и программа, способная управлять приложением."
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Нужно внести много изменений? После одного одобрения это приложение сможет менять правила без запроса в течение 10 минут. В это время правила могла бы менять и программа, способная управлять приложением.",
+  "Search": "Поиск",
+  "Program, service, address, port or PID. Every word must match.": "Программа, служба, адрес, порт или PID. Должны совпасть все слова.",
+  "Rows {0}–{1} of {2}": "Строки {0}–{1} из {2}"
 }

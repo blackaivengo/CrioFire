@@ -409,7 +409,7 @@
   "Program: {0}": "프로그램: {0}",
   "Only this service": "이 서비스만",
   "This version of the CrioFire service does not count data yet.": "이 버전의 CrioFire 서비스는 아직 데이터를 집계하지 않습니다.",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "프로그램 {2}개의 {1} {0}개. 3초마다 업데이트됩니다.",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "프로그램 {2}개의 {1} {0}개. 5초마다 업데이트됩니다.",
   "sockets": "소켓",
   "connections": "연결",
   "in the last 7 days": "최근 7일 동안",
@@ -799,5 +799,8 @@
   "Ask again now": "지금 다시 묻기",
   "Allow changes for 10 minutes": "10분 동안 변경 허용",
   "CrioFire changes rules without asking until {0}.": "CrioFire가 {0}까지 묻지 않고 규칙을 변경합니다.",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "변경할 것이 많은가요? 한 번 승인하면 이 앱이 10분 동안 묻지 않고 규칙을 변경할 수 있습니다. 그동안에는 앱을 조종할 수 있는 프로그램도 규칙을 변경할 수 있습니다."
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "변경할 것이 많은가요? 한 번 승인하면 이 앱이 10분 동안 묻지 않고 규칙을 변경할 수 있습니다. 그동안에는 앱을 조종할 수 있는 프로그램도 규칙을 변경할 수 있습니다.",
+  "Search": "검색",
+  "Program, service, address, port or PID. Every word must match.": "프로그램, 서비스, 주소, 포트 또는 PID. 모든 단어가 일치해야 합니다.",
+  "Rows {0}–{1} of {2}": "{2}개 중 {0}–{1}행"
 }

@@ -18,6 +18,8 @@
           <RadioButton Content="30 days" Tag="30d" GroupName="UsagePeriod" Style="{StaticResource SegItem}" Click="OnPeriod" />
         </StackPanel>
       </Border>
+      <TextBox x:Name="SearchBox" DockPanel.Dock="Left" Style="{StaticResource Field}" Width="260" Margin="12,0,0,0" TextChanged="OnSearchChanged"
+               AutomationProperties.Name="Search" ToolTip="Program, service, address, port or PID. Every word must match." />
       <Grid HorizontalAlignment="Right">
         <StackPanel x:Name="LiveActions" Orientation="Horizontal">
           <Button Content="Allow" Style="{StaticResource OutlineIceButton}" Margin="0,0,10,0" Click="OnAllow"
@@ -32,6 +34,7 @@
       </Grid>
     </DockPanel>
     <ContentControl x:Name="LiveCard" Style="{StaticResource IceCard}">
+      <StackPanel>
       <ListView x:Name="Table" SelectionMode="Single" AutomationProperties.Name="Live connections">
         <ListView.View>
           <GridView>
@@ -63,6 +66,8 @@
           </GridView>
         </ListView.View>
       </ListView>
+      <ContentControl x:Name="PagerHost" Focusable="False" />
+      </StackPanel>
     </ContentControl>
     <ContentControl x:Name="UsageCard" Style="{StaticResource IceCard}" Visibility="Collapsed">
       <StackPanel>

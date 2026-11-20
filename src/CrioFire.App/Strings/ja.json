@@ -409,7 +409,7 @@
   "Program: {0}": "プログラム: {0}",
   "Only this service": "このサービスのみ",
   "This version of the CrioFire service does not count data yet.": "このバージョンの CrioFire サービスは、まだデータ量を計測しません。",
-  "{0} {1} from {2} programs. Updates every 3 seconds.": "{2} 個のプログラムの {1} {0} 件。3 秒ごとに更新。",
+  "{0} {1} from {2} programs. Updates every 5 seconds.": "{2} 個のプログラムの {1} {0} 件。5 秒ごとに更新。",
   "sockets": "ソケット",
   "connections": "接続",
   "in the last 7 days": "過去 7 日間に",
@@ -799,5 +799,8 @@
   "Ask again now": "今すぐ確認を再開",
   "Allow changes for 10 minutes": "10 分間、変更を許可",
   "CrioFire changes rules without asking until {0}.": "CrioFire は {0} まで確認なしでルールを変更します。",
-  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "変更がたくさんありますか？ 1 回の承認で、このアプリは 10 分間、確認なしでルールを変更できます。その間は、アプリを操作できるプログラムもルールを変更できてしまいます。"
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "変更がたくさんありますか？ 1 回の承認で、このアプリは 10 分間、確認なしでルールを変更できます。その間は、アプリを操作できるプログラムもルールを変更できてしまいます。",
+  "Search": "検索",
+  "Program, service, address, port or PID. Every word must match.": "プログラム、サービス、アドレス、ポート、または PID。すべての単語が一致する必要があります。",
+  "Rows {0}–{1} of {2}": "{2} 行中 {0}–{1} 行"
 }

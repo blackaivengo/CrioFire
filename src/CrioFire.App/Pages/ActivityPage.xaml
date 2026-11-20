@@ -1,7 +1,14 @@
 <UserControl x:Class="CrioFire.App.Pages.ActivityPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <StackPanel>
+  <!-- As tall as the window's page area (see GridLayout.FillHeight): the list takes the room the filters leave. -->
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
     <!-- What to show -->
     <WrapPanel Margin="0,0,0,10">
       <Border Style="{StaticResource SegGroup}" Margin="0,0,12,8">
@@ -28,7 +35,7 @@
       </Border>
     </WrapPanel>
 
-    <WrapPanel Margin="0,0,0,14">
+    <WrapPanel Grid.Row="1" Margin="0,0,0,14">
       <Border Style="{StaticResource SegGroup}" Margin="0,0,12,8">
         <StackPanel Orientation="Horizontal">
           <RadioButton x:Name="WhyAll" Content="Any reason" GroupName="Why" Style="{StaticResource SegItem}" IsChecked="True" Click="OnFilterChanged" />
@@ -60,7 +67,7 @@
     </WrapPanel>
 
     <!-- What to do with the selection -->
-    <DockPanel Margin="0,0,0,14">
+    <DockPanel Grid.Row="2" Margin="0,0,0,14">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
         <Button Content="Allow" Style="{StaticResource IceButton}" Margin="0,0,10,0" Click="OnAllow"
                 ToolTip="Allow the selected programs and services (for blocked rows: unblock them)" />
@@ -74,16 +81,21 @@
       </StackPanel>
     </DockPanel>
 
-    <Grid>
+    <Grid Grid.Row="3">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="360" />
       </Grid.ColumnDefinitions>
 
-      <ContentControl Style="{StaticResource Card}" Margin="0,0,10,0" VerticalAlignment="Top">
-        <StackPanel>
+      <ContentControl Style="{StaticResource Card}" Margin="0,0,10,0">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
           <TextBlock x:Name="Empty" Style="{StaticResource Muted}" Visibility="Collapsed" TextWrapping="Wrap" />
-          <ListView x:Name="Table" SelectionMode="Extended" SelectionChanged="OnSelectionChanged" MaxHeight="620" AutomationProperties.Name="Connections">
+          <ListView x:Name="Table" Grid.Row="1" SelectionMode="Extended" SelectionChanged="OnSelectionChanged" AutomationProperties.Name="Connections">
             <ListView.View>
               <GridView>
                 <GridViewColumn Header="LAST" Width="92" DisplayMemberBinding="{Binding Time}" />
@@ -121,14 +133,14 @@
               </GridView>
             </ListView.View>
           </ListView>
-          <DockPanel Margin="0,14,0,0">
+          <DockPanel Grid.Row="2" Margin="0,14,0,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
               <Button x:Name="PrevButton" Content="‹ Previous" Style="{StaticResource OutlineIceButton}" MinHeight="34" Margin="0,0,8,0" Click="OnPrev" />
               <Button x:Name="NextButton" Content="Next ›" Style="{StaticResource OutlineIceButton}" MinHeight="34" Click="OnNext" />
             </StackPanel>
             <TextBlock x:Name="PageText" Style="{StaticResource Muted}" VerticalAlignment="Center" />
           </DockPanel>
-        </StackPanel>
+        </Grid>
       </ContentControl>
 
       <!-- Everything known about the selected row -->
@@ -161,5 +173,5 @@
         </StackPanel>
       </ContentControl>
     </Grid>
-  </StackPanel>
+  </Grid>
 </UserControl>

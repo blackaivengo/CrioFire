@@ -18,7 +18,12 @@ namespace CrioFire.App.Pages;
 public partial class RulesPage : UserControl, IPage
 {
     private readonly AppModel _model;
-    private readonly Dictionary<ListView, (string Property, ListSortDirection Direction)> _sort = [];
+    private readonly ColumnSorter<RuleRow> _programSort;
+    private readonly ColumnSorter<NetRuleRow> _netSort;
+    private readonly ColumnSorter<ServiceRuleRow> _serviceSort;
+    private readonly Pager _programPager;
+    private readonly Pager _netPager;
+    private readonly Pager _servicePager;
 
     internal RulesPage(AppModel model)
     {
@@ -26,11 +31,21 @@ public partial class RulesPage : UserControl, IPage
         InitializeComponent();
         foreach (var list in Lists)
         {
-            list.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(OnHeaderClick));
             var menu = new ContextMenu();
             list.ContextMenu = menu;
             list.ContextMenuOpening += (_, e) => OnMenuOpening(menu, e);
         }
+
+        // Long lists show 50 rules at a time; a click on a heading sorts all of them, not just the page.
+        ProgramsPager.Content = (_programPager = new Pager(Refresh)).View;
+        NetPager.Content = (_netPager = new Pager(Refresh)).View;
+        ServicePager.Content = (_servicePager = new Pager(Refresh)).View;
+        _programSort = new ColumnSorter<RuleRow>(Table, () => Resorted(_programPager),
+            ("ACTION", r => r.Action), ("DIRECTION", r => r.Direction), ("PROGRAM", r => r.Program), ("UNTIL", r => r.Info.ExpiresUtc ?? DateTime.MaxValue));
+        _netSort = new ColumnSorter<NetRuleRow>(NetTable, () => Resorted(_netPager),
+            ("ACTION", r => r.Action), ("DIRECTION", r => r.Direction), ("RULE", r => r.Rule), ("PROGRAM", r => r.Program));
+        _serviceSort = new ColumnSorter<ServiceRuleRow>(ServiceTable, () => Resorted(_servicePager),
+            ("ACTION", r => r.Action), ("DIRECTION", r => r.Direction), ("SERVICE", r => r.DisplayName));
     }
 
     public string Title => L.T("Rules");
@@ -54,6 +69,12 @@ public partial class RulesPage : UserControl, IPage
     {
         SearchBox.SelectAll();
         return SearchBox.Focus();
+    }
+
+    private void Resorted(Pager pager)
+    {
+        pager.First();
+        Refresh();
     }
 
     public void Refresh()
@@ -83,7 +104,7 @@ public partial class RulesPage : UserControl, IPage
                     allow ? chipIceText : chipFireText);
             })
             .ToList();
-        Table.ItemsSource = rows;
+        Table.ItemsSource = _programPager.Slice(_programSort.Apply(rows));
         Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         Empty.Text = allPrograms.Count == 0
             ? L.T("No rules yet. Allow or block a program above, or answer an alert in Ask mode.")
@@ -115,7 +136,7 @@ public partial class RulesPage : UserControl, IPage
                     allow ? chipIceText : chipFireText);
             })
             .ToList();
-        NetTable.ItemsSource = netRows;
+        NetTable.ItemsSource = _netPager.Slice(_netSort.Apply(netRows));
         NetEmpty.Visibility = netRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         NetEmpty.Text = allNet.Count == 0
             ? L.T("No network rules. Add one to block a port like 445 inbound, keep a program to port 443, or block an address range.")
@@ -143,7 +164,7 @@ public partial class RulesPage : UserControl, IPage
                     allow ? chipIceText : chipFireText);
             })
             .ToList();
-        ServiceTable.ItemsSource = serviceRows;
+        ServiceTable.ItemsSource = _servicePager.Slice(_serviceSort.Apply(serviceRows));
         ServiceEmpty.Visibility = serviceRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ServiceEmpty.Text = allServices.Count == 0
             ? L.T("No service rules. Block or allow one with 'Service rule...', or from Activity.")
@@ -175,11 +196,6 @@ public partial class RulesPage : UserControl, IPage
         DomainEmpty.Text = _model.DomainRules.Count == 0 ? L.T("No domain rules. Add one with 'Domain rule...'.") : L.T("No domain rule matches the filters.");
         DomainTitle.Text = Count(L.T("Domains"), domainRows.Count, _model.DomainRules.Count);
         DomainCard.Visibility = ShowAll.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-
-        foreach (var list in Lists)
-        {
-            ApplySort(list);
-        }
 
         UpdateGlance(allPrograms, allServices);
         UpdateSelection();
@@ -221,68 +237,6 @@ public partial class RulesPage : UserControl, IPage
             + $"{blockedServices} service{(blockedServices == 1 ? string.Empty : "s")}, {ports.Count} port{(ports.Count == 1 ? string.Empty : "s")} "
             + L.T($"and {addresses.Count} address{(addresses.Count == 1 ? string.Empty : "es")} blocked.");
     }
-
-    // ---- sorting ----
-
-    private void OnHeaderClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is not ListView list || e.OriginalSource is not GridViewColumnHeader { Column: { } column })
-        {
-            return;
-        }
-
-        var header = Plain(column.Header as string);
-        var property = SortColumns.FirstOrDefault(c => c.Header == header || L.T(c.Header) == header).Property;
-        if (property is null)
-        {
-            return;
-        }
-
-        var direction = _sort.TryGetValue(list, out var current) && current.Property == property && current.Direction == ListSortDirection.Ascending
-            ? ListSortDirection.Descending
-            : ListSortDirection.Ascending;
-        _sort[list] = (property, direction);
-        ApplySort(list);
-    }
-
-    private void ApplySort(ListView list)
-    {
-        if (list.View is GridView grid)
-        {
-            foreach (var column in grid.Columns)
-            {
-                var plain = Plain(column.Header as string);
-                var sorted = _sort.TryGetValue(list, out var s) && HeaderFor(s.Property) == plain;
-                column.Header = sorted ? $"{plain} {(s.Direction == ListSortDirection.Ascending ? "▲" : "▼")}" : plain;
-            }
-        }
-
-        if (list.ItemsSource is null || !_sort.TryGetValue(list, out var sort))
-        {
-            return;
-        }
-
-        var view = CollectionViewSource.GetDefaultView(list.ItemsSource);
-        view.SortDescriptions.Clear();
-        view.SortDescriptions.Add(new SortDescription(sort.Property, sort.Direction));
-    }
-
-    private static string Plain(string? header) => (header ?? string.Empty).Replace(" ▲", string.Empty, StringComparison.Ordinal).Replace(" ▼", string.Empty, StringComparison.Ordinal);
-
-    /// <summary>The sortable columns: their English heading (shown translated) and the row property they sort by.</summary>
-    private static readonly (string Header, string Property)[] SortColumns =
-    [
-        ("ACTION", "Action"),
-        ("DIRECTION", "Direction"),
-        ("PROGRAM", "Program"),
-        ("UNTIL", "Until"),
-        ("RULE", "Rule"),
-        ("SERVICE", "DisplayName"),
-    ];
-
-    /// <summary>The heading as shown (translated) for a sort property.</summary>
-    private static string HeaderFor(string property) =>
-        SortColumns.FirstOrDefault(c => c.Property == property).Header is { } header ? L.T(header) : string.Empty;
 
     // ---- selection, switching, removing ----
 
@@ -426,6 +380,9 @@ public partial class RulesPage : UserControl, IPage
     {
         if (IsLoaded)
         {
+            _programPager.First();
+            _netPager.First();
+            _servicePager.First();
             _model.NotifyChanged();
         }
     }
