@@ -32,7 +32,10 @@ public sealed record LoggedEvent(
 /// <summary>Reads blocked.log and blocked.1.log back. Tolerates partial and malformed lines.</summary>
 public static class TrafficHistory
 {
-    public static LoggedEvent? Parse(string line)
+    public static LoggedEvent? Parse(string line) => Parse(line, null);
+
+    /// <summary>With a <paramref name="pool"/>, equal texts (a program's path, "TCP") are one string for all lines.</summary>
+    private static LoggedEvent? Parse(string line, Dictionary<string, string>? pool)
     {
         if (string.IsNullOrWhiteSpace(line))
         {
@@ -55,12 +58,12 @@ public static class TrafficHistory
                 var count = r.TryGetProperty("count", out var c) && c.TryGetInt32(out var n) && n > 0 ? n : 1;
                 var port = r.TryGetProperty("port", out var p) && p.TryGetInt32(out var portNumber) ? portNumber : 0;
                 return new LoggedEvent(
-                    timeUtc, Text(r, "app"), Text(r, "protocol"), Text(r, "remote"), Text(r, "direction"), null,
-                    Allowed: true, Count: count, Reason: Text(r, "reason"), Service: Text(r, "service"), Port: port);
+                    timeUtc, Shared(Text(r, "app"), pool), Shared(Text(r, "protocol"), pool), Text(r, "remote"), Shared(Text(r, "direction"), pool), null,
+                    Allowed: true, Count: count, Reason: Shared(Text(r, "reason"), pool), Service: Shared(Text(r, "service"), pool), Port: port);
             }
 
             var filterId = r.TryGetProperty("filterId", out var f) && f.TryGetUInt64(out var id) ? id : 0;
-            return new LoggedEvent(timeUtc, Text(r, "app"), Text(r, "protocol"), Text(r, "remote"), Text(r, "direction"), Text(r, "kind"),
+            return new LoggedEvent(timeUtc, Shared(Text(r, "app"), pool), Shared(Text(r, "protocol"), pool), Text(r, "remote"), Shared(Text(r, "direction"), pool), Shared(Text(r, "kind"), pool),
                 Local: Text(r, "local"), FilterId: filterId);
         }
         catch (JsonException)
@@ -87,10 +90,27 @@ public static class TrafficHistory
         }
     }
 
-    /// <summary>Events at or after <paramref name="fromUtc"/>, oldest file first. Safe while the service appends.</summary>
+    // Every line starts with {"time":"2026-11-20T14:46:54.1234567Z": 9 characters, then 28 that sort as text.
+    private const string TimePrefix = "{\"time\":\"";
+    private const int TimeLength = 28;
+
+    /// <summary>Lines are written in order of time, give or take the minute a summary covers and the seconds between rounds.</summary>
+    private static readonly TimeSpan OrderSlack = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Events at or after <paramref name="fromUtc"/>, oldest file first. Safe while the service appends.
+    /// The history can hold weeks and the app asks every few seconds, mostly for the last hour:
+    /// reading starts where that time begins in the file (found by halving, as the lines are in
+    /// order of time), older lines are skipped by their first characters without being parsed,
+    /// and equal texts (a program's path, "TCP") are one string, not one per line.
+    /// </summary>
     public static IEnumerable<LoggedEvent> Read(TrafficLog log, DateTime fromUtc)
     {
         ArgumentNullException.ThrowIfNull(log);
+        var from = fromUtc.Kind == DateTimeKind.Local ? fromUtc.ToUniversalTime() : DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
+        var fromText = from.ToString("O", CultureInfo.InvariantCulture);
+        var seekText = from - DateTime.MinValue > OrderSlack ? (from - OrderSlack).ToString("O", CultureInfo.InvariantCulture) : null;
+        var pool = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var path in new[] { log.RotatedPath, log.Path })
         {
             if (!File.Exists(path))
@@ -99,15 +119,127 @@ public static class TrafficHistory
             }
 
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (seekText is not null)
+            {
+                stream.Position = FindStart(stream, seekText);
+            }
+
             using var reader = new StreamReader(stream, Encoding.UTF8);
             while (reader.ReadLine() is { } line)
             {
-                if (Parse(line) is { } e && e.TimeUtc >= fromUtc)
+                if (line.Length > TimePrefix.Length + TimeLength
+                    && line[TimePrefix.Length + TimeLength - 1] == 'Z'
+                    && line.StartsWith(TimePrefix, StringComparison.Ordinal)
+                    && string.CompareOrdinal(line, TimePrefix.Length, fromText, 0, TimeLength) < 0)
+                {
+                    continue;   // older than asked for: not worth parsing
+                }
+
+                if (Parse(line, pool) is { } e && e.TimeUtc >= fromUtc)
                 {
                     yield return e;
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// A place in the file where a line starts and every line before it is older than
+    /// <paramref name="timeText"/>: 0 unless the file is large. Never past the first line wanted,
+    /// as long as lines are in order of time within <see cref="OrderSlack"/>.
+    /// </summary>
+    private static long FindStart(FileStream stream, string timeText)
+    {
+        const int near = 64 * 1024;   // the rest is read line by line
+        long low = 0, high = stream.Length;
+        var buffer = new byte[4096];
+        while (high - low > near)
+        {
+            var middle = low + ((high - low) / 2);
+            var time = TimeOfLineAfter(stream, middle, high, buffer, out var lineStart);
+            if (time is not null && string.CompareOrdinal(time, timeText) < 0)
+            {
+                low = lineStart;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
+    }
+
+    /// <summary>The time text of the first whole, well-formed line starting after <paramref name="position"/> and before <paramref name="limit"/>; null when there is none.</summary>
+    private static string? TimeOfLineAfter(FileStream stream, long position, long limit, byte[] buffer, out long lineStart)
+    {
+        lineStart = 0;
+        var needed = TimePrefix.Length + TimeLength;
+        var afterNewline = false;
+        var held = new List<byte>(needed);
+        stream.Position = position;
+        var at = position;
+        while (at < limit)
+        {
+            var read = stream.Read(buffer, 0, (int)Math.Min(buffer.Length, limit - at));
+            if (read <= 0)
+            {
+                break;
+            }
+
+            for (var i = 0; i < read; i++)
+            {
+                var value = buffer[i];
+                if (value == (byte)'\n')
+                {
+                    afterNewline = true;
+                    held.Clear();
+                    lineStart = at + i + 1;
+                    continue;
+                }
+
+                if (!afterNewline)
+                {
+                    continue;
+                }
+
+                held.Add(value);
+                if (held.Count == needed)
+                {
+                    var text = Encoding.ASCII.GetString(held.ToArray());
+                    if (text.StartsWith(TimePrefix, StringComparison.Ordinal) && text[^1] == 'Z')
+                    {
+                        return text[TimePrefix.Length..];
+                    }
+
+                    afterNewline = false;   // not a line of ours: try the next one
+                }
+            }
+
+            at += read;
+        }
+
+        return null;
+    }
+
+    private static string? Shared(string? text, Dictionary<string, string>? pool)
+    {
+        if (text is null || pool is null)
+        {
+            return text;
+        }
+
+        if (pool.TryGetValue(text, out var same))
+        {
+            return same;
+        }
+
+        if (pool.Count < 4096)
+        {
+            pool[text] = text;
+        }
+
+        return text;
     }
 
     private static string? Text(JsonElement r, string name) =>

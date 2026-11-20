@@ -247,11 +247,11 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             {
                 return request.Op switch
                 {
-                    ApiOps.Report => Report(request),
-                    ApiOps.Allowed => Allowed(request),
+                    ApiOps.Report => Remembered(request, () => Report(request)),
+                    ApiOps.Allowed => Remembered(request, () => Allowed(request)),
                     ApiOps.Usage => Usage(request, DateOnly.FromDateTime(DateTime.Now)),
                     ApiOps.ResetUsage => ResetUsage(),
-                    _ => Traffic(request),
+                    _ => Remembered(request, () => Traffic(request)),
                 };
             }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException or UnauthorizedAccessException)
@@ -401,6 +401,54 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         }
 
         return new ApiResponse { Ok = true, Count = ids.Count };
+    }
+
+    // The last answers about the history, while the history files are as they were. The app asks
+    // the same question every few seconds; on a quiet PC nothing was written in between, and
+    // reading days of history again would only make garbage.
+    private readonly Dictionary<string, (string State, ApiResponse Response)> _answers = new(StringComparer.Ordinal);
+
+    private ApiResponse Remembered(ApiRequest request, Func<ApiResponse> build)
+    {
+        var state = HistoryState();
+        var key = ApiJson.Serialize(request);
+        lock (_answers)
+        {
+            if (_answers.TryGetValue(key, out var kept) && kept.State == state)
+            {
+                return kept.Response;
+            }
+        }
+
+        var response = build();
+        lock (_answers)
+        {
+            if (_answers.Count >= 24)
+            {
+                _answers.Clear();
+            }
+
+            _answers[key] = (state, response);
+        }
+
+        return response;
+    }
+
+    /// <summary>Changes whenever a history file does, and every half minute (a question about "the last hour" moves with the clock).</summary>
+    private string HistoryState()
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append(DateTime.UtcNow.Ticks / TimeSpan.FromSeconds(30).Ticks);
+        foreach (var log in new[] { trafficLog, allowedLog })
+        {
+            foreach (var path in log is null ? [] : new[] { log.Path, log.RotatedPath })
+            {
+                var file = new FileInfo(path);
+                text.Append('|').Append(file.Exists ? file.Length : -1).Append(':').Append(file.Exists ? file.LastWriteTimeUtc.Ticks : 0);
+            }
+        }
+
+        return text.ToString();
     }
 
     private ApiResponse Report(ApiRequest request)
