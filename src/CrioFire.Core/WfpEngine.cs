@@ -417,9 +417,21 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
             _allowed = allowed;
             _self = System.Runtime.InteropServices.GCHandle.Alloc(this);
             var subscription = default(FWPM_NET_EVENT_SUBSCRIPTION0);
+            var context = (void*)System.Runtime.InteropServices.GCHandle.ToIntPtr(_self);
             IntPtr events;
-            var result = Fwpuclnt.FwpmNetEventSubscribe1(
-                engine, &subscription, &OnEvent, (void*)System.Runtime.InteropServices.GCHandle.ToIntPtr(_self), &events);
+            uint result;
+            try
+            {
+                // The newest version of the call (Windows 10 1809 and later). Measured on Windows 11
+                // and Server 2025: only this one delivers allowed connections; version 1 delivers
+                // the blocked ones alone.
+                result = Fwpuclnt.FwpmNetEventSubscribe4(engine, &subscription, &OnEvent5, context, &events);
+            }
+            catch (EntryPointNotFoundException)
+            {
+                result = Fwpuclnt.FwpmNetEventSubscribe1(engine, &subscription, &OnEvent, context, &events);
+            }
+
             if (result != FwpErrors.ERROR_SUCCESS)
             {
                 _self.Free();
@@ -458,27 +470,51 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
             }
         }
 
+        /// <summary>Version 1 of the call: a FWPM_NET_EVENT2.</summary>
         [System.Runtime.InteropServices.UnmanagedCallersOnly]
         private static void OnEvent(void* context, FWPM_NET_EVENT2* e)
         {
+            if (e != null)
+            {
+                Deliver(context, &e->header.common, e->type, e->details);
+            }
+        }
+
+        /// <summary>
+        /// Version 4 of the call: a FWPM_NET_EVENT5. Its header (FWPM_NET_EVENT_HEADER3) starts like
+        /// HEADER2 and adds an enterprise id, policy flags and an effective name: 32 bytes. The type
+        /// and the pointer to the details follow, as in every version.
+        /// </summary>
+        [System.Runtime.InteropServices.UnmanagedCallersOnly]
+        private static void OnEvent5(void* context, void* e)
+        {
+            if (e != null)
+            {
+                var afterHeader = (byte*)e + sizeof(FWPM_NET_EVENT_HEADER2) + 32;
+                Deliver(context, (FWPM_NET_EVENT_HEADER0*)e, *(uint*)afterHeader, *(void**)(afterHeader + 8));
+            }
+        }
+
+        private static void Deliver(void* context, FWPM_NET_EVENT_HEADER0* header, uint type, void* details)
+        {
             try
             {
-                if (context == null || e == null || e->details == null
+                if (context == null || details == null
                     || System.Runtime.InteropServices.GCHandle.FromIntPtr((IntPtr)context).Target is not NetEventSubscription self)
                 {
                     return;
                 }
 
-                if (e->type == FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_DROP)
+                if (type == FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_DROP)
                 {
                     // FWPM_NET_EVENT_CLASSIFY_DROP2 starts like DROP0: filterId first.
-                    var drop = (FWPM_NET_EVENT_CLASSIFY_DROP0*)e->details;
-                    self._blocked(Decode(&e->header.common, drop->filterId, null, self.Paths()));
+                    var drop = (FWPM_NET_EVENT_CLASSIFY_DROP0*)details;
+                    self._blocked(Decode(header, drop->filterId, null, self.Paths()));
                 }
-                else if (e->type == FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_ALLOW)
+                else if (type == FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_ALLOW)
                 {
-                    var allow = (FWPM_NET_EVENT_CLASSIFY_ALLOW0*)e->details;
-                    var decoded = Decode(&e->header.common, allow->filterId, null, self.Paths());
+                    var allow = (FWPM_NET_EVENT_CLASSIFY_ALLOW0*)details;
+                    var decoded = Decode(header, allow->filterId, null, self.Paths());
                     var direction = allow->msFwpDirection == FwpDirection.FWP_DIRECTION_IN ? TrafficDirection.Inbound : TrafficDirection.Outbound;
                     self._allowed(new AllowedConnection(
                         decoded.TimeUtc, decoded.AppPath, decoded.Protocol, decoded.Local, decoded.Remote, direction,

@@ -102,6 +102,45 @@ public sealed class VisibilityTests : IDisposable
     }
 
     [Fact]
+    public async Task WindowsDeliversAllowedConnectionsAsTheyHappen()
+    {
+        // Needs the newest version of the subscription (Windows 10 1809 and later): the first one delivers blocked connections only.
+        var engine = Engine();
+        Assert.True(engine.SetAllowedEventCollection(true), "Windows refused to record allowed connections.");
+        var feed = new NetEventFeed();
+        using var listener = new LocalListener(IPAddress.Loopback);
+        engine.SetAppRule(Peer.ExePath, RuleAction.Allow, TrafficDirection.Outbound);
+        using (engine.SubscribeNetEvents(feed.Add, feed.Add))
+        {
+            var connected = await Peer.ConnectAsync(IPAddress.Loopback, listener.Port);
+            Assert.True(connected.ExitCode == 0, connected.Output);
+
+            AllowedConnection? seen = null;
+            var all = new List<AllowedConnection>();
+            for (var attempt = 0; attempt < 40 && seen is null; attempt++)
+            {
+                all.AddRange(feed.TakeAllowed());
+                seen = all.LastOrDefault(a => a.Remote?.Port == listener.Port && string.Equals(a.AppPath, Peer.ExePath, StringComparison.OrdinalIgnoreCase));
+                if (seen is null)
+                {
+                    await Task.Delay(250, TestContext.Current.CancellationToken);
+                }
+            }
+
+            Assert.True(seen is not null, $"The allowed connection to port {listener.Port} was not delivered. Delivered: {all.Count} allowed, e.g. "
+                + string.Join("; ", all.Take(5).Select(a => $"{a.AppPath} {a.Remote}")));
+            Assert.Equal(TrafficDirection.Outbound, seen!.Direction);
+            Assert.True(seen.IsLoopback);
+
+            // The rule is looked up afterwards, as the service does.
+            var resolved = seen with { Rule = AllowReasons.Resolve(engine.ListFilters(), seen) };
+            Assert.Equal(AllowReason.Rule, resolved.Reason);
+        }
+
+        Assert.True(feed.AllowedReceived > 0);
+    }
+
+    [Fact]
     public async Task WindowsDeliversBlockedConnectionsAsTheyHappen()
     {
         // What the service relies on instead of asking for events every round (which leaks in Windows).

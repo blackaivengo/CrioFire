@@ -232,6 +232,8 @@ if (-not $Language) {
     # Connections must reach the service as they happen (asking Windows for them every round leaks).
     $delivered = if ($before.Line -match 'delivered by Windows \((\d+) so far') { [int]$Matches[1] } else { -1 }
     Check ($delivered -gt 0) "Windows delivers connections to the service as they happen ($delivered so far; $($before.Line -replace '.*connection events', 'connection events'))"
+    $deliveredAllowed = if ($before.Line -match '(\d+) of them allowed') { [int]$Matches[1] } else { 0 }
+    Check ($deliveredAllowed -gt 0) "Windows delivers allowed connections too, so nothing is asked for and nothing leaks ($deliveredAllowed so far)"
     $allowed = Ask-Service '{"op":"allowed","minutes":10,"includeLoopback":true}'
     $groups = try { @(($allowed | ConvertFrom-Json).allowed).Count } catch { -1 }
     Check ($groups -gt 0) "the connections made during the test are in the history ($groups programs or services allowed)"
