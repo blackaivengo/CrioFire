@@ -229,6 +229,13 @@ if (-not $Language) {
         $before = $after
     }
 
+    # Connections must reach the service as they happen (asking Windows for them every round leaks).
+    $delivered = if ($before.Line -match 'delivered by Windows \((\d+) so far\)') { [int]$Matches[1] } else { -1 }
+    Check ($delivered -gt 0) "Windows delivers connections to the service as they happen ($delivered so far; $($before.Line -replace '.*connection events', 'connection events'))"
+    $allowed = Ask-Service '{"op":"allowed","minutes":10,"includeLoopback":true}'
+    $groups = try { @(($allowed | ConvertFrom-Json).allowed).Count } catch { -1 }
+    Check ($groups -gt 0) "the connections made during the test are in the history ($groups programs or services allowed)"
+
     $grew = [Math]::Round($before.Private - $first.Private, 1)
     Check ($first.Private -gt 0 -and $grew -lt 400) "the service's memory does not run away under load (grew $grew MB over all kinds of work)"
 }

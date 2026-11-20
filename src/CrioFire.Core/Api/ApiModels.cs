@@ -93,6 +93,9 @@ public sealed record MemoryInfo(
     int Gen2Collections,
     bool Collected)
 {
+    /// <summary>How the service learns of connections: delivered by Windows, or asked for every round.</summary>
+    public string? Events { get; init; }
+
     /// <summary>Reads the numbers of this process; <paramref name="collect"/> runs a full, compacting collection first.</summary>
     public static MemoryInfo OfThisProcess(bool collect)
     {
@@ -127,7 +130,8 @@ public sealed record MemoryInfo(
         static string Mb(long bytes) => (bytes / 1048576.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
         return $"up {UptimeSeconds / 60} min; private {Mb(PrivateBytes)} MB; working set {Mb(WorkingSetBytes)} MB; .NET objects {Mb(ManagedBytes)} MB; "
             + $".NET holds {Mb(CommittedBytes)} MB ({Mb(FragmentedBytes)} MB of it free); outside .NET {Mb(Math.Max(0, PrivateBytes - CommittedBytes))} MB; "
-            + $"handles {Handles}; threads {Threads}; collections {Gen0Collections}/{Gen1Collections}/{Gen2Collections}" + (Collected ? " (after a full collection)" : string.Empty);
+            + $"handles {Handles}; threads {Threads}; collections {Gen0Collections}/{Gen1Collections}/{Gen2Collections}" + (Collected ? " (after a full collection)" : string.Empty)
+            + (Events is null ? string.Empty : $"; connection events {Events}");
     }
 }
 

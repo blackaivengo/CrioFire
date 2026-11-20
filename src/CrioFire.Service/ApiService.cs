@@ -7,7 +7,7 @@ namespace CrioFire.Service;
 /// Hosts the local API (\\.\pipe\criofire) so criofire-ui.exe and criofire.exe can work without
 /// administrator rights. Uses its own filtering-engine session.
 /// </summary>
-internal sealed partial class ApiService(ILogger<ApiService> logger, SelfProtection selfProtection) : BackgroundService
+internal sealed partial class ApiService(ILogger<ApiService> logger, SelfProtection selfProtection, NetEventFeed feed) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -29,7 +29,10 @@ internal sealed partial class ApiService(ILogger<ApiService> logger, SelfProtect
                 new DataUsageStore(DataUsageStore.DefaultPath),
                 new LogSettingsStore(LogSettingsStore.DefaultPath),
                 new UpdateStore(UpdateStore.DefaultFolder),
-                selfProtection));
+                selfProtection)
+            {
+                Feed = feed,
+            });
             // Another program may hold the pipe's name (it took it while the service was not
             // running, to pose as the service). Keep trying: the name is ours the moment it lets go,
             // and CrioFire's own programs refuse a pipe that is not the service's.

@@ -382,6 +382,117 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
         return result;
     }
 
+    /// <summary>
+    /// Has Windows deliver blocked and allowed connections as they happen, until the result is
+    /// disposed. The connections come without their rule (<see cref="BlockedConnection.Rule"/> is
+    /// null): look it up by FilterId. The callbacks run on Windows' own threads, several at a time.
+    /// Unlike <see cref="ReadBlockedConnections"/> and <see cref="ReadAllowedConnections"/>, this
+    /// leaks nothing: see <see cref="NetEventFeed"/>.
+    /// </summary>
+    public IDisposable SubscribeNetEvents(Action<BlockedConnection> blocked, Action<AllowedConnection> allowed)
+    {
+        ArgumentNullException.ThrowIfNull(blocked);
+        ArgumentNullException.ThrowIfNull(allowed);
+        ThrowIfDisposed();
+        return new NetEventSubscription(_handle, blocked, allowed);
+    }
+
+    private sealed class NetEventSubscription : IDisposable
+    {
+        private static readonly TimeSpan PathsFor = TimeSpan.FromMinutes(2);
+
+        private readonly IntPtr _engine;
+        private readonly Action<BlockedConnection> _blocked;
+        private readonly Action<AllowedConnection> _allowed;
+        private readonly Lock _gate = new();
+        private System.Runtime.InteropServices.GCHandle _self;
+        private IntPtr _events;
+        private NtPathMapper _paths = NtPathMapper.FromSystem();
+        private DateTime _pathsReadUtc = DateTime.UtcNow;
+
+        public NetEventSubscription(IntPtr engine, Action<BlockedConnection> blocked, Action<AllowedConnection> allowed)
+        {
+            _engine = engine;
+            _blocked = blocked;
+            _allowed = allowed;
+            _self = System.Runtime.InteropServices.GCHandle.Alloc(this);
+            var subscription = default(FWPM_NET_EVENT_SUBSCRIPTION0);
+            IntPtr events;
+            var result = Fwpuclnt.FwpmNetEventSubscribe1(
+                engine, &subscription, &OnEvent, (void*)System.Runtime.InteropServices.GCHandle.ToIntPtr(_self), &events);
+            if (result != FwpErrors.ERROR_SUCCESS)
+            {
+                _self.Free();
+                Check("FwpmNetEventSubscribe1", result);
+            }
+
+            _events = events;
+        }
+
+        public void Dispose()
+        {
+            if (_events != IntPtr.Zero)
+            {
+                _ = Fwpuclnt.FwpmNetEventUnsubscribe0(_engine, _events);   // returns when no callback is running any more
+                _events = IntPtr.Zero;
+            }
+
+            if (_self.IsAllocated)
+            {
+                _self.Free();
+            }
+        }
+
+        /// <summary>Drive letters for the paths Windows reports; read again now and then (a drive can be added).</summary>
+        private NtPathMapper Paths()
+        {
+            lock (_gate)
+            {
+                if (DateTime.UtcNow - _pathsReadUtc > PathsFor)
+                {
+                    _paths = NtPathMapper.FromSystem();
+                    _pathsReadUtc = DateTime.UtcNow;
+                }
+
+                return _paths;
+            }
+        }
+
+        [System.Runtime.InteropServices.UnmanagedCallersOnly]
+        private static void OnEvent(void* context, FWPM_NET_EVENT2* e)
+        {
+            try
+            {
+                if (context == null || e == null || e->details == null
+                    || System.Runtime.InteropServices.GCHandle.FromIntPtr((IntPtr)context).Target is not NetEventSubscription self)
+                {
+                    return;
+                }
+
+                if (e->type == FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_DROP)
+                {
+                    // FWPM_NET_EVENT_CLASSIFY_DROP2 starts like DROP0: filterId first.
+                    var drop = (FWPM_NET_EVENT_CLASSIFY_DROP0*)e->details;
+                    self._blocked(Decode(&e->header.common, drop->filterId, null, self.Paths()));
+                }
+                else if (e->type == FwpmNetEventTypes.FWPM_NET_EVENT_TYPE_CLASSIFY_ALLOW)
+                {
+                    var allow = (FWPM_NET_EVENT_CLASSIFY_ALLOW0*)e->details;
+                    var decoded = Decode(&e->header.common, allow->filterId, null, self.Paths());
+                    var direction = allow->msFwpDirection == FwpDirection.FWP_DIRECTION_IN ? TrafficDirection.Inbound : TrafficDirection.Outbound;
+                    self._allowed(new AllowedConnection(
+                        decoded.TimeUtc, decoded.AppPath, decoded.Protocol, decoded.Local, decoded.Remote, direction,
+                        AllowReasons.IsLoopback(allow->isLoopback != 0, decoded.Local, decoded.Remote), allow->filterId, null));
+                }
+            }
+#pragma warning disable CA1031 // Nothing may cross back into Windows' own thread: it would end the service.
+            catch (Exception)
+            {
+            }
+#pragma warning restore CA1031
+        }
+    }
+
     private static BlockedConnection Decode(FWPM_NET_EVENT_HEADER0* h, ulong filterId, CrioFireFilter? rule, NtPathMapper paths)
     {
         string? app = null;

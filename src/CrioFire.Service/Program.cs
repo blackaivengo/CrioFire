@@ -10,6 +10,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddWindowsService(options => options.ServiceName = "criofire");
 builder.Services.AddSingleton(new SelfProtection(
     AppContext.BaseDirectory, AuthenticodeSignatures.Describe, SelfProtection.DefaultMarkerPath));
+builder.Services.AddSingleton<NetEventFeed>();
 builder.Services.AddHostedService<ProtectionService>();
 builder.Services.AddHostedService<FirewallWorker>();
 builder.Services.AddHostedService<ApiService>();

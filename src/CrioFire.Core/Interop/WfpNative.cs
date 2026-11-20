@@ -310,6 +310,15 @@ internal unsafe struct FWPM_NET_EVENT_ENUM_TEMPLATE0
     public FWPM_FILTER_CONDITION0* filterCondition;
 }
 
+/// <summary>FWPM_NET_EVENT_SUBSCRIPTION0: which events to deliver (no template: all of them).</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FWPM_NET_EVENT_SUBSCRIPTION0
+{
+    public FWPM_NET_EVENT_ENUM_TEMPLATE0* enumTemplate;
+    public uint flags;
+    public Guid sessionKey;
+}
+
 internal static unsafe partial class Advapi32
 {
     public const uint SDDL_REVISION_1 = 1;
@@ -390,6 +399,14 @@ internal static unsafe partial class Fwpuclnt
 
     [LibraryImport(Dll)]
     public static partial uint FwpmNetEventEnum2(IntPtr engineHandle, IntPtr enumHandle, uint numEntriesRequested, FWPM_NET_EVENT2*** entries, uint* numEntriesReturned);
+
+    /// <summary>Delivers events as they happen to <paramref name="callback"/> (FWPM_NET_EVENT_CALLBACK1: context, then the event, valid only during the call).</summary>
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventSubscribe1(IntPtr engineHandle, FWPM_NET_EVENT_SUBSCRIPTION0* subscription,
+        delegate* unmanaged<void*, FWPM_NET_EVENT2*, void> callback, void* context, IntPtr* eventsHandle);
+
+    [LibraryImport(Dll)]
+    public static partial uint FwpmNetEventUnsubscribe0(IntPtr engineHandle, IntPtr eventsHandle);
 
     [LibraryImport(Dll)]
     public static partial uint FwpmEngineGetOption0(IntPtr engineHandle, FWPM_ENGINE_OPTION option, FWP_VALUE0** value);

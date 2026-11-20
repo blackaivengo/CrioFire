@@ -10,7 +10,7 @@ namespace CrioFire.Service;
 /// the reason, summed per minute to allowed.log. WFP filters are persistent, so blocking keeps
 /// working even while this service is stopped.
 /// </summary>
-internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : BackgroundService
+internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger, NetEventFeed feed) : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan Overlap = TimeSpan.FromSeconds(10);
@@ -54,6 +54,32 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
         using (engine)
         {
+            // Windows delivers blocked and allowed connections as they happen. Asking for them
+            // every round instead leaks each event (a defect in Windows' own library): kept only
+            // as the fallback for a Windows that refuses the subscription.
+            WfpEngine? eventsEngine = null;
+            IDisposable? subscription = null;
+            try
+            {
+                eventsEngine = WfpEngine.Open();
+                subscription = eventsEngine.SubscribeNetEvents(feed.Add, feed.Add);
+                feed.Active = true;
+                LogSubscribed(logger);
+            }
+            catch (Exception ex) when (ex is WfpException or EntryPointNotFoundException)
+            {
+                eventsEngine?.Dispose();
+                eventsEngine = null;
+                LogNotSubscribed(logger, ex);
+            }
+
+            using var endSubscription = new AtEnd(() =>
+            {
+                feed.Active = false;
+                subscription?.Dispose();
+                eventsEngine?.Dispose();
+            });
+
             var log = new TrafficLog(TrafficLog.DefaultPath);
             var allowedLog = new TrafficLog(TrafficLog.AllowedPath);
             var paths = NtPathMapper.FromSystem();
@@ -116,7 +142,17 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     // One listing of the filters per round, shared by everything below: it reads every
                     // filter on the PC (thousands), which is the costliest thing this loop does.
                     var filters = engine.ListFilters();
-                    var blocked = recent.KeepNew(engine.ReadBlockedConnections(from, now, crioFireOnly: true, paths, filters), now);
+                    IReadOnlyList<BlockedConnection> blocked;
+                    if (feed.Active)
+                    {
+                        var ours = filters.ToDictionary(f => f.FilterId);
+                        blocked = [.. feed.TakeBlocked().Select(b => b with { Rule = ours.GetValueOrDefault(b.FilterId) }).Where(b => b.Rule is not null)];
+                    }
+                    else
+                    {
+                        blocked = recent.KeepNew(engine.ReadBlockedConnections(from, now, crioFireOnly: true, paths, filters), now);
+                    }
+
                     if (blocked.Count > 0)
                     {
                         log.Append(blocked);
@@ -151,11 +187,14 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         }
                     }
 
+                    feed.KeepAllowed = logSettings?.RecordAllowed != false;
                     if (allowedWorks && logSettings?.RecordAllowed != false)
                     {
                         try
                         {
-                            var allowed = recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths, filters), now);
+                            IReadOnlyList<AllowedConnection> allowed = feed.Active
+                                ? [.. feed.TakeAllowed().Select(a => a with { Rule = AllowReasons.Resolve(filters, a) })]
+                                : recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths, filters), now);
                             if (allowed.Count > 0)
                             {
                                 allowedLog.AppendSummaries(AllowedSummary.Aggregate(NameServices(allowed, filters)));
@@ -360,6 +399,18 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "This Windows version cannot report allowed connections; only blocked ones will be shown.")]
     private static partial void LogAllowedUnavailable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Windows delivers blocked and allowed connections as they happen.")]
+    private static partial void LogSubscribed(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Windows refused to deliver connections as they happen; asking for them every round instead. This way of asking leaks memory in Windows' own library: the service will grow until it is restarted.")]
+    private static partial void LogNotSubscribed(ILogger logger, Exception exception);
+
+    /// <summary>Runs something when the worker ends, however it ends.</summary>
+    private sealed class AtEnd(Action action) : IDisposable
+    {
+        public void Dispose() => action();
+    }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered CrioFire with the Windows Filtering Platform.")]
     private static partial void LogInstalled(ILogger logger);

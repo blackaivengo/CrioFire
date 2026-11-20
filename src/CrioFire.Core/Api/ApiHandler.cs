@@ -20,6 +20,9 @@ namespace CrioFire.Core.Api;
 /// <param name="selfProtection">The check of CrioFire's own files and the way to stop the service; null where not used (tests).</param>
 public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRules = null, TrafficLog? trafficLog = null, TrafficLog? allowedLog = null, IdentityGuard? identities = null, RuleBackupStore? backups = null, TamperProtection? protection = null, LicenseStore? license = null, global::CrioFire.Core.Management.ServerLinkStore? serverLink = null, ManagedPolicyStore? policy = null, DomainRuleStore? domainRules = null, DataUsageStore? usage = null, LogSettingsStore? logSettings = null, UpdateStore? updates = null, SelfProtection? selfProtection = null)
 {
+    /// <summary>The connections Windows delivers to the service as they happen; null outside the service.</summary>
+    public NetEventFeed? Feed { get; init; }
+
     private static readonly string Version =
         typeof(ApiHandler).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
 
@@ -182,7 +185,14 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
         if (request.Op == ApiOps.Diagnostics)
         {
             // Numbers for anyone who may ask the service anything; collecting first stops the world for a moment: administrators only.
-            return new ApiResponse { Ok = true, Memory = MemoryInfo.OfThisProcess(collect: request.All == true && rights == ClientRights.Administrator) };
+            return new ApiResponse
+            {
+                Ok = true,
+                Memory = MemoryInfo.OfThisProcess(collect: request.All == true && rights == ClientRights.Administrator) with
+                {
+                    Events = Feed is null ? null : Feed.Active ? $"delivered by Windows ({Feed.Received} so far)" : "asked for every round (the old way, which leaks)",
+                },
+            };
         }
 
         if (request.Op == ApiOps.Integrity)
@@ -359,7 +369,22 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
     private ApiResponse Events(ApiRequest request)
     {
         var minutes = request.Minutes is > 0 and <= 10080 ? request.Minutes.Value : 10;
-        var events = engine.ReadBlockedConnections(DateTime.UtcNow.AddMinutes(-minutes), crioFireOnly: request.All != true);
+        var from = DateTime.UtcNow.AddMinutes(-minutes);
+        IEnumerable<BlockedConnection> events;
+        if (Feed is { Active: true } feed)
+        {
+            // What the service was told as it happened (the last hour of it). Asking Windows for
+            // "the events since" instead leaks every event it returns; the app asks every two seconds.
+            var ours = engine.ListFilters().ToDictionary(f => f.FilterId);
+            events = feed.Recent(from)
+                .Select(e => e with { Rule = ours.GetValueOrDefault(e.FilterId) })
+                .Where(e => request.All == true || e.Rule is not null);
+        }
+        else
+        {
+            events = engine.ReadBlockedConnections(from, crioFireOnly: request.All != true);
+        }
+
         return new ApiResponse { Ok = true, Events = events.Select(EventInfo.From).ToList() };
     }
 
