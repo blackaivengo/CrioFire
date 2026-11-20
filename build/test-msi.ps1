@@ -239,7 +239,9 @@ if (-not $Language) {
     Check ($groups -gt 0) "the connections made during the test are in the history ($groups programs or services allowed)"
 
     $grew = [Math]::Round($before.Private - $first.Private, 1)
-    Check ($first.Private -gt 0 -and $grew -lt 400) "the service's memory does not run away under load (grew $grew MB over all kinds of work)"
+    # Measured after the leak fix: about 25 MB, nearly all of it .NET starting up under the first load.
+    # The leak added 60 MB and more in the same four minutes.
+    Check ($first.Private -gt 0 -and $grew -lt 60) "the service's memory does not run away under load (grew $grew MB over all kinds of work; the limit is 60)"
 }
 
 Write-Host "Uninstalling"
