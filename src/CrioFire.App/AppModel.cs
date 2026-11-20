@@ -705,6 +705,42 @@ internal sealed class AppModel
         return status;
     }
 
+    /// <summary>What the app says while it may change rules without asking.</summary>
+    public static string UnlockedText(DateTime untilUtc)
+    {
+        var time = untilUtc.ToLocalTime().ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+        return L.T($"CrioFire changes rules without asking until {time}.");
+    }
+
+    /// <summary>One approval, then this app changes rules without asking for 10 minutes.</summary>
+    public bool Unlock()
+    {
+        var response = Call(new ApiRequest { Op = ApiOps.Unlock, ExpiresMinutes = ApiHandler.DefaultUnlockMinutes });
+        if (response is null)
+        {
+            return false;
+        }
+
+        if (response.UnlockedUntilUtc is { } until)
+        {
+            Message?.Invoke(this, UnlockedText(until));
+        }
+
+        RefreshCore();
+        NotifyChanged();
+        return true;
+    }
+
+    /// <summary>Ends <see cref="Unlock"/> early: changes ask for approval again.</summary>
+    public void LockAgain()
+    {
+        if (Call(new ApiRequest { Op = ApiOps.Lock }) is not null)
+        {
+            RefreshCore();
+            NotifyChanged();
+        }
+    }
+
     /// <summary>Turns tamper protection on or off (Windows asks for administrator approval).</summary>
     public bool SetProtection(bool on)
     {

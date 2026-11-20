@@ -90,7 +90,11 @@ administrator prompt, because any program could run `criofire.exe` to allow itse
 running as you could try to steer it. With tamper protection on, every change needs approval: the
 app asks Windows (UAC) for each change, then CrioFire shows what is about to change and asks once
 more, in a window other programs cannot click. That is two confirmations for every rule change,
-answers to Ask-mode alerts included. If you would rather not have them, turn it off in Settings or
+answers to Ask-mode alerts included. For a batch of changes, *Allow changes for 10 minutes* in
+Settings takes one approval and then lets the app change rules without asking; a banner shows
+until when, and *Ask again now* ends it early. It applies to your Windows session only, never to
+tamper protection itself, and is forgotten when the service restarts. During those minutes a
+program that can steer the app could change rules too. If you would rather have no prompts at all, turn it off in Settings or
 with `criofire protection off` from an administrator prompt (that needs approval too); the app
 then changes rules without asking. The service's data folder and the install folder are writable
 only by administrators and the service; CrioFire resets their permissions when it starts.

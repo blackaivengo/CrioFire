@@ -795,5 +795,9 @@
   "…and {0} more (criofire verify lists them all).": "…还有 {0} 个（criofire verify 会全部列出）。",
   "The last check found no problems.": "上次检查未发现问题。",
   "To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.": "要恢复原始文件：设置 → 应用 → 已安装的应用 → CrioFire Private Firewall → 修改 → 修复，或重新安装 CrioFire。你的规则和设置会保留。如果这些文件不是你自己更改的，还请扫描电脑中的恶意软件。",
-  "CrioFire's own files": "CrioFire 自身的文件"
+  "CrioFire's own files": "CrioFire 自身的文件",
+  "Ask again now": "现在恢复询问",
+  "Allow changes for 10 minutes": "允许在 10 分钟内更改",
+  "CrioFire changes rules without asking until {0}.": "在 {0} 之前，CrioFire 更改规则时不再询问。",
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "要做很多更改？只需批准一次，此应用即可在 10 分钟内直接更改规则而不再询问。在这段时间内，能够操纵此应用的程序也可以更改规则。"
 }

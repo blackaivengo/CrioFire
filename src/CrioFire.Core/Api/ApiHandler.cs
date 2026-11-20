@@ -30,9 +30,114 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
     public ApiResponse Handle(ApiRequest request, bool canWrite) =>
         Handle(request, canWrite ? ClientRights.Administrator : ClientRights.ReadOnly);
 
+    /// <summary>The longest the app may be left to change rules without asking.</summary>
+    public const int MaxUnlockMinutes = 60;
+
+    /// <summary>What an unlock lasts when no time is given.</summary>
+    public const int DefaultUnlockMinutes = 10;
+
+    // Windows session -> until when its app may change rules without asking. In memory only:
+    // a restart of the service, or any change to tamper protection, ends every one.
+    private readonly Dictionary<uint, DateTime> _unlocked = [];
+
+    [ThreadStatic]
+    private static uint? _session;
+
+    /// <summary>For the service: <paramref name="session"/> is the Windows session the client runs in.</summary>
+    public ApiResponse Handle(ApiRequest request, ClientRights rights, uint? session)
+    {
+        var before = _session;
+        _session = session;
+        try
+        {
+            return Handle(request, rights);
+        }
+        finally
+        {
+            _session = before;
+        }
+    }
+
+    /// <summary>Until when the app in this session may change rules without asking; null when it must ask.</summary>
+    private DateTime? UnlockedUntil(uint? session, DateTime nowUtc)
+    {
+        if (session is not { } id)
+        {
+            return null;
+        }
+
+        lock (_unlocked)
+        {
+            if (_unlocked.TryGetValue(id, out var until))
+            {
+                if (until > nowUtc)
+                {
+                    return until;
+                }
+
+                _unlocked.Remove(id);
+            }
+
+            return null;
+        }
+    }
+
+    private ApiResponse Unlock(ApiRequest request, ClientRights rights)
+    {
+        if (rights != ClientRights.Administrator)
+        {
+            return ApiResponse.Failure("Letting the app change rules without asking needs administrator approval.", ApiOps.ApprovalRequired);
+        }
+
+        if (_session is not { } session)
+        {
+            return ApiResponse.Failure("This needs the criofire service to be running.");
+        }
+
+        if (protection?.RequireAdmin != true)
+        {
+            return ApiResponse.Failure("Tamper protection is off: the app already changes rules without asking.");
+        }
+
+        var minutes = Math.Clamp(request.ExpiresMinutes ?? DefaultUnlockMinutes, 1, MaxUnlockMinutes);
+        var until = DateTime.UtcNow.AddMinutes(minutes);
+        lock (_unlocked)
+        {
+            _unlocked[session] = until;
+        }
+
+        return new ApiResponse { Ok = true, UnlockedUntilUtc = until };
+    }
+
+    private ApiResponse LockAgain()
+    {
+        lock (_unlocked)
+        {
+            if (_session is { } session)
+            {
+                _unlocked.Remove(session);
+            }
+        }
+
+        return new ApiResponse { Ok = true };
+    }
+
     public ApiResponse Handle(ApiRequest request, ClientRights rights)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (request.Op == ApiOps.Lock)
+        {
+            // Asking again is always safe, so the app may do it; other programs have no say in it.
+            return rights == ClientRights.ReadOnly ? ApiResponse.Failure("Not allowed.") : LockAgain();
+        }
+
+        if (request.Op == ApiOps.Unlock)
+        {
+            return rights == ClientRights.ReadOnly
+                ? ApiResponse.Failure("Not allowed: changing CrioFire needs the CrioFire app or an administrator prompt (right-click Terminal or Command Prompt, Run as administrator).")
+                : Unlock(request, rights);
+        }
+
         if (ApiOps.IsWrite(request.Op))
         {
             if (rights == ClientRights.ReadOnly)
@@ -40,7 +145,9 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 return ApiResponse.Failure("Not allowed: changing CrioFire needs the CrioFire app or an administrator prompt (right-click Terminal or Command Prompt, Run as administrator).");
             }
 
-            if (rights == ClientRights.CrioFireApp && (request.Op == ApiOps.SetProtection || protection?.RequireAdmin == true))
+            // The setting itself always needs approval; other changes do unless this session was unlocked for a while.
+            if (rights == ClientRights.CrioFireApp
+                && (request.Op == ApiOps.SetProtection || (protection?.RequireAdmin == true && UnlockedUntil(_session, DateTime.UtcNow) is null)))
             {
                 return ApiResponse.Failure(
                     request.Op == ApiOps.SetProtection
@@ -207,7 +314,8 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 NewVersion(out var url),
                 url,
                 selfProtection?.Latest?.Findings.Count ?? 0,
-                selfProtection?.UnexpectedStopUtc),
+                selfProtection?.UnexpectedStopUtc,
+                protection?.RequireAdmin == true ? UnlockedUntil(_session, DateTime.UtcNow) : null),
         };
     }
 
@@ -601,6 +709,11 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
 
         var on = request.Enabled ?? throw new ArgumentException("enabled is required.");
         protection.SetRequireAdmin(on);
+        lock (_unlocked)
+        {
+            _unlocked.Clear();   // whatever was allowed for a while ends with the setting
+        }
+
         selfProtection?.ProtectionChanged?.Invoke(on);   // the service locks or unlocks itself right away
         return new ApiResponse { Ok = true };
     }

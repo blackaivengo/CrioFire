@@ -71,6 +71,13 @@ public partial class SettingsPage : UserControl, IPage
         _license = null;
         ProtectionSwitch.IsChecked = _model.Status?.RequireAdmin == true;
         ProtectionSwitch.IsEnabled = _model.Status is not null;
+        var unlockedUntil = _model.Status?.UnlockedUntilUtc;
+        UnlockPanel.Visibility = _model.Status?.RequireAdmin == true ? Visibility.Visible : Visibility.Collapsed;
+        UnlockButton.Visibility = unlockedUntil is null ? Visibility.Visible : Visibility.Collapsed;
+        LockButton.Visibility = unlockedUntil is null ? Visibility.Collapsed : Visibility.Visible;
+        UnlockText.Text = unlockedUntil is { } until
+            ? AppModel.UnlockedText(until)
+            : L.T("Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.");
         ShowBackups(_backups ?? AppModel.Backups());
         _backups = null;
         LanguageText.Text = Prefs.Current.Language == Languages.System
@@ -388,6 +395,10 @@ public partial class SettingsPage : UserControl, IPage
             ProtectionSwitch.IsChecked = !on;   // not approved, or it failed: show what is really in force
         }
     }
+
+    private void OnUnlock(object sender, RoutedEventArgs e) => _model.Unlock();
+
+    private void OnLockAgain(object sender, RoutedEventArgs e) => _model.LockAgain();
 
     private void OnResume(object sender, RoutedEventArgs e) => _model.Resume();
 

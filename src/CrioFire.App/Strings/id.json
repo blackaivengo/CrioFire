@@ -795,5 +795,9 @@
   "…and {0} more (criofire verify lists them all).": "…dan {0} lainnya (criofire verify menampilkan semuanya).",
   "The last check found no problems.": "Pemeriksaan terakhir tidak menemukan masalah.",
   "To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.": "Untuk mengembalikan file asli: Pengaturan → Aplikasi → Aplikasi terinstal → CrioFire Private Firewall → Ubah → Perbaiki, atau pasang CrioFire lagi. Aturan dan pengaturan Anda tetap disimpan. Jika Anda tidak mengubah file ini sendiri, pindai juga PC dari malware.",
-  "CrioFire's own files": "File milik CrioFire"
+  "CrioFire's own files": "File milik CrioFire",
+  "Ask again now": "Tanya lagi sekarang",
+  "Allow changes for 10 minutes": "Izinkan perubahan selama 10 menit",
+  "CrioFire changes rules without asking until {0}.": "CrioFire mengubah aturan tanpa bertanya hingga {0}.",
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Banyak perubahan yang perlu dibuat? Dengan satu persetujuan, aplikasi ini dapat mengubah aturan tanpa bertanya selama 10 menit. Selama waktu itu, program yang dapat mengendalikan aplikasi juga bisa mengubahnya."
 }

@@ -721,7 +721,16 @@ public partial class MainWindow : Window
         }
 
         _stopSeen = stop;
+
+        var unlockedUntil = status?.UnlockedUntilUtc;
+        UnlockBanner.Visibility = unlockedUntil is null ? Visibility.Collapsed : Visibility.Visible;
+        if (unlockedUntil is { } until)
+        {
+            UnlockBannerText.Text = AppModel.UnlockedText(until);
+        }
     }
+
+    private void OnLockAgain(object sender, RoutedEventArgs e) => _model.LockAgain();
 
     private void OnIntegrityDetails(object sender, RoutedEventArgs e)
     {

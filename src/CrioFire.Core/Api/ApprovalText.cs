@@ -52,6 +52,7 @@ public static class ApprovalText
             ApiOps.ResetUsage => "Clear the data counts.",
             ApiOps.SetUpdateCheck => request.Enabled == true ? "Turn the daily update check on." : "Turn the daily update check off.",
             ApiOps.StopService => "Stop the CrioFire service.",
+            ApiOps.Unlock => $"Let the CrioFire app change rules WITHOUT asking for {Math.Clamp(request.ExpiresMinutes ?? ApiHandler.DefaultUnlockMinutes, 1, ApiHandler.MaxUnlockMinutes)} minutes. During that time a program that steers the app could change them too.",
             _ => $"Carry out '{Clip(request.Op)}'.",
         };
     }

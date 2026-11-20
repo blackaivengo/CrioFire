@@ -52,10 +52,20 @@ public static class ApiOps
     /// <summary>Stops the criofire service cleanly. Elevated administrators only.</summary>
     public const string StopService = "stopService";
 
+    /// <summary>
+    /// With tamper protection on: lets the app change rules without asking, for expiresMinutes
+    /// (10 unless given, 60 at most), in the Windows session of whoever asks. Elevated
+    /// administrators only, so it takes one approval; the service forgets it when it restarts.
+    /// </summary>
+    public const string Unlock = "unlock";
+
+    /// <summary>Ends <see cref="Unlock"/> early for the asking session: changes need approval again.</summary>
+    public const string Lock = "lock";
+
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
         op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense
-            or SetDomainRule or RemoveDomainRule or SetLogs or ClearLogs or SetUpdateCheck;
+            or SetDomainRule or RemoveDomainRule or SetLogs or ClearLogs or SetUpdateCheck or Unlock;
 
     /// <summary>The error code when a change needs administrator approval (tamper protection, or the setting itself).</summary>
     public const string ApprovalRequired = "approval-required";
@@ -240,6 +250,9 @@ public sealed record ApiResponse
     /// <summary>changed: programs whose file changed since they were allowed.</summary>
     public List<ChangedProgram>? Changed { get; init; }
 
+    /// <summary>unlock: until when the app may change rules without asking.</summary>
+    public DateTime? UnlockedUntilUtc { get; init; }
+
     /// <summary>A machine-readable reason for a failure, e.g. <see cref="ApiOps.ApprovalRequired"/>.</summary>
     public string? Code { get; init; }
 
@@ -252,9 +265,10 @@ public sealed record ApiResponse
 /// <param name="NewVersion">A newer CrioFire release the daily check found; null when there is none (or the check is off).</param>
 /// <param name="NewVersionUrl">Its release page.</param>
 /// <param name="IntegrityProblems">CrioFire's own files that are not the installed ones (see the integrity operation).</param>
+/// <param name="UnlockedUntilUtc">Until when the app may change rules without asking, for the session that asks; null when every change needs approval (or tamper protection is off).</param>
 /// <param name="UnexpectedStopUtc">When the service last ran before it ended without a clean stop; null if it stopped cleanly.</param>
 public sealed record StatusInfo(bool Installed, string Mode, int FilterCount, string Version, string Panic = "off", int ChangedPrograms = 0, bool RequireAdmin = false,
-    string? NewVersion = null, string? NewVersionUrl = null, int IntegrityProblems = 0, DateTime? UnexpectedStopUtc = null);
+    string? NewVersion = null, string? NewVersionUrl = null, int IntegrityProblems = 0, DateTime? UnexpectedStopUtc = null, DateTime? UnlockedUntilUtc = null);
 
 /// <param name="Kind">changed, missing, unexpected or signature (<see cref="IntegrityKinds"/>).</param>
 /// <param name="Path">The file, relative to CrioFire's folder.</param>

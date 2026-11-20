@@ -795,5 +795,9 @@
   "…and {0} more (criofire verify lists them all).": "…و{0} أخرى (يعرضها criofire verify كلها).",
   "The last check found no problems.": "لم يعثر الفحص الأخير على مشكلات.",
   "To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.": "لاستعادة الملفات الأصلية: الإعدادات ← التطبيقات ← التطبيقات المثبتة ← CrioFire Private Firewall ← تعديل ← إصلاح، أو ثبّت CrioFire من جديد. ستبقى قواعدك وإعداداتك محفوظة. إذا لم تغيّر هذه الملفات بنفسك، فافحص الكمبيوتر أيضًا بحثًا عن برامج ضارة.",
-  "CrioFire's own files": "ملفات CrioFire نفسه"
+  "CrioFire's own files": "ملفات CrioFire نفسه",
+  "Ask again now": "اسأل من جديد الآن",
+  "Allow changes for 10 minutes": "السماح بالتغييرات لمدة 10 دقائق",
+  "CrioFire changes rules without asking until {0}.": "يغيّر CrioFire القواعد دون سؤال حتى {0}.",
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "لديك تغييرات كثيرة؟ موافقة واحدة تتيح لهذا التطبيق تغيير القواعد دون سؤال لمدة 10 دقائق. وخلال هذه المدة يستطيع برنامج قادر على التحكم في التطبيق تغييرها أيضاً."
 }

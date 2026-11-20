@@ -481,9 +481,11 @@ static int Run(Backend api, Command command)
                     ?? throw new ArgumentException("Malformed request.");
                 response = !ApiOps.IsWrite(request.Op) && request.Op is not (ApiOps.StopService or ApiOps.ResetUsage)
                     ? ApiResponse.Failure("Nothing to approve.")
-                    : ApprovalPrompt.Confirm(ApprovalText.Describe(request))
-                        ? api.Handle(request)
-                        : ApiResponse.Failure("The change was not made: it was not approved.");
+                    : !ApprovalPrompt.Confirm(ApprovalText.Describe(request))
+                        ? ApiResponse.Failure("The change was not made: it was not approved.")
+                        : request.Op == ApiOps.Unlock
+                            ? ThroughService(api, request)   // the service is what remembers it
+                            : api.Handle(request);
             }
             catch (Exception ex) when (ex is FormatException or System.Text.Json.JsonException)
             {
@@ -770,6 +772,18 @@ static int Unenroll()
 
     Console.WriteLine("This PC no longer reports to the CrioFire Server. Your own rules stay as they are.");
     return 0;
+}
+
+static ApiResponse ThroughService(Backend api, ApiRequest request)
+{
+    try
+    {
+        return api.CallPreferService(request);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return ApiResponse.Failure(ex.Message);
+    }
 }
 
 static void RemoveDataFolder()

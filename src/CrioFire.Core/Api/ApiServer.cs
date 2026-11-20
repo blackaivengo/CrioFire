@@ -197,6 +197,7 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
                 counted = true;
 
                 var rights = ApiAuthorization.Rights(elevated, ClientPath(pipe), _trustedDirectory);
+                uint? session = GetNamedPipeClientSessionId(pipe.SafePipeHandle, out var sessionId) ? sessionId : null;
                 var reader = new RequestReader(pipe, MaxRequestBytes);
                 await using var writer = new StreamWriter(pipe, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true, NewLine = "\n" };
 
@@ -228,7 +229,7 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
                     {
                     }
 
-                    var response = request is null ? ApiResponse.Failure("Malformed request.") : handler.Handle(request, rights);
+                    var response = request is null ? ApiResponse.Failure("Malformed request.") : handler.Handle(request, rights, session);
                     await writer.WriteLineAsync(ApiJson.Serialize(response).AsMemory(), cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -367,6 +368,10 @@ public sealed partial class ApiServer(ApiHandler handler, string pipeName = ApiS
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetNamedPipeClientProcessId(SafePipeHandle pipe, out uint clientProcessId);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetNamedPipeClientSessionId(SafePipeHandle pipe, out uint clientSessionId);
 
     private const uint TokenDuplicate = 0x0002;
     private const uint TokenQuery = 0x0008;

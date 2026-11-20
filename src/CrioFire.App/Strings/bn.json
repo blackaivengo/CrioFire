@@ -795,5 +795,9 @@
   "…and {0} more (criofire verify lists them all).": "…এবং আরও {0}টি (criofire verify সবগুলো দেখায়)।",
   "The last check found no problems.": "শেষ পরীক্ষায় কোনো সমস্যা পাওয়া যায়নি।",
   "To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.": "মূল ফাইল ফিরিয়ে আনতে: সেটিংস → অ্যাপ → ইনস্টল করা অ্যাপ → CrioFire Private Firewall → পরিবর্তন → মেরামত, অথবা CrioFire আবার ইনস্টল করুন। আপনার নিয়ম ও সেটিংস থেকে যায়। আপনি নিজে এই ফাইলগুলো না বদলে থাকলে পিসিতে ম্যালওয়্যারও স্ক্যান করুন।",
-  "CrioFire's own files": "CrioFire-এর নিজস্ব ফাইল"
+  "CrioFire's own files": "CrioFire-এর নিজস্ব ফাইল",
+  "Ask again now": "এখনই আবার জিজ্ঞাসা করুন",
+  "Allow changes for 10 minutes": "১০ মিনিটের জন্য পরিবর্তনের অনুমতি দিন",
+  "CrioFire changes rules without asking until {0}.": "CrioFire {0} পর্যন্ত জিজ্ঞাসা না করেই নিয়ম বদলায়।",
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "অনেক পরিবর্তন করতে হবে? একবার অনুমোদন দিলে এই অ্যাপ ১০ মিনিট জিজ্ঞাসা না করেই নিয়ম বদলাতে পারে। এই সময়ে অ্যাপটিকে চালাতে পারে এমন কোনো প্রোগ্রামও নিয়ম বদলাতে পারে।"
 }

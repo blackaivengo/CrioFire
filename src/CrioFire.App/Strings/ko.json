@@ -795,5 +795,9 @@
   "…and {0} more (criofire verify lists them all).": "…외 {0}개(criofire verify로 모두 볼 수 있습니다).",
   "The last check found no problems.": "마지막 검사에서 문제가 발견되지 않았습니다.",
   "To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.": "원래 파일로 되돌리려면: 설정 → 앱 → 설치된 앱 → CrioFire Private Firewall → 수정 → 복구를 선택하거나 CrioFire를 다시 설치하세요. 규칙과 설정은 유지됩니다. 이 파일을 직접 변경하지 않았다면 PC의 맬웨어 검사도 실행하세요.",
-  "CrioFire's own files": "CrioFire 자체 파일"
+  "CrioFire's own files": "CrioFire 자체 파일",
+  "Ask again now": "지금 다시 묻기",
+  "Allow changes for 10 minutes": "10분 동안 변경 허용",
+  "CrioFire changes rules without asking until {0}.": "CrioFire가 {0}까지 묻지 않고 규칙을 변경합니다.",
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "변경할 것이 많은가요? 한 번 승인하면 이 앱이 10분 동안 묻지 않고 규칙을 변경할 수 있습니다. 그동안에는 앱을 조종할 수 있는 프로그램도 규칙을 변경할 수 있습니다."
 }

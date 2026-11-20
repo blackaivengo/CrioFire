@@ -799,5 +799,9 @@
   "…and {0} more (criofire verify lists them all).": "…et {0} de plus (criofire verify les liste tous).",
   "The last check found no problems.": "La dernière vérification n’a trouvé aucun problème.",
   "To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.": "Pour remettre les fichiers d’origine : Paramètres → Applications → Applications installées → CrioFire Private Firewall → Modifier → Réparer, ou réinstallez CrioFire. Vos règles et paramètres sont conservés. Si vous n’avez pas modifié ces fichiers vous-même, analysez aussi le PC à la recherche de logiciels malveillants.",
-  "CrioFire's own files": "Fichiers de CrioFire"
+  "CrioFire's own files": "Fichiers de CrioFire",
+  "Ask again now": "Redemander dès maintenant",
+  "Allow changes for 10 minutes": "Autoriser les modifications pendant 10 minutes",
+  "CrioFire changes rules without asking until {0}.": "CrioFire modifie les règles sans demander jusqu'à {0}.",
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Beaucoup de modifications à faire ? Une seule approbation permet à cette application de modifier les règles sans demander pendant 10 minutes. Pendant ce temps, un programme capable de piloter l'application pourrait aussi les modifier."
 }

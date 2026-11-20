@@ -95,6 +95,14 @@
             <TextBlock Text="It also locks the CrioFire service: Windows then refuses to stop, disable or remove it, also for programs running as administrator." Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" />
           </StackPanel>
         </CheckBox>
+        <!-- One approval for a batch of changes: the app may change rules without asking for 10 minutes. -->
+        <StackPanel x:Name="UnlockPanel" Margin="0,18,0,0" Visibility="Collapsed">
+          <TextBlock x:Name="UnlockText" Style="{StaticResource Muted}" FontSize="13" LineHeight="20" TextWrapping="Wrap" Margin="0,0,0,10" />
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="UnlockButton" Content="Allow changes for 10 minutes" Style="{StaticResource OutlineIceButton}" MinHeight="36" Padding="14,0" Click="OnUnlock" />
+            <Button x:Name="LockButton" Content="Ask again now" Style="{StaticResource OutlineIceButton}" MinHeight="36" Padding="14,0" Click="OnLockAgain" Visibility="Collapsed" />
+          </StackPanel>
+        </StackPanel>
       </StackPanel>
     </ContentControl>
 

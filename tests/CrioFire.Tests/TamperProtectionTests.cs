@@ -43,6 +43,61 @@ public sealed class TamperProtectionTests : IDisposable
         Assert.Equal(ApiOps.ApprovalRequired, response.Code);
     }
 
+    private static string? CodeOfAChange(ApiHandler handler, uint? session) =>
+        handler.Handle(new ApiRequest { Op = ApiOps.SetUpdateCheck, Enabled = true }, ClientRights.CrioFireApp, session).Code;
+
+    [Fact]
+    public void OneApprovalCanLetTheAppChangeRulesForAWhile()
+    {
+        var handler = new ApiHandler(null!, protection: new TamperProtection(_path));
+        Assert.Equal(ApiOps.ApprovalRequired, CodeOfAChange(handler, 3));
+
+        // The app cannot unlock itself, and neither can another program.
+        Assert.Equal(ApiOps.ApprovalRequired, handler.Handle(new ApiRequest { Op = ApiOps.Unlock }, ClientRights.CrioFireApp, 3).Code);
+        Assert.False(handler.Handle(new ApiRequest { Op = ApiOps.Unlock }, ClientRights.ReadOnly, 3).Ok);
+        Assert.Equal(ApiOps.ApprovalRequired, CodeOfAChange(handler, 3));
+
+        // An approved (elevated) request from the same Windows session does.
+        var unlocked = handler.Handle(new ApiRequest { Op = ApiOps.Unlock }, ClientRights.Administrator, 3);
+        Assert.True(unlocked.Ok);
+        Assert.InRange(unlocked.UnlockedUntilUtc!.Value, DateTime.UtcNow.AddMinutes(9), DateTime.UtcNow.AddMinutes(11));
+        Assert.Null(CodeOfAChange(handler, 3));                                // no longer asks for approval
+        Assert.Equal(ApiOps.ApprovalRequired, CodeOfAChange(handler, 4));      // another person's session still does
+        Assert.Equal(ApiOps.ApprovalRequired, CodeOfAChange(handler, null));
+
+        // Tamper protection itself always needs approval.
+        Assert.Equal(ApiOps.ApprovalRequired, handler.Handle(new ApiRequest { Op = ApiOps.SetProtection, Enabled = false }, ClientRights.CrioFireApp, 3).Code);
+
+        // The app can ask again at any time; another program cannot end it for the app.
+        Assert.False(handler.Handle(new ApiRequest { Op = ApiOps.Lock }, ClientRights.ReadOnly, 3).Ok);
+        Assert.Null(CodeOfAChange(handler, 3));
+        Assert.True(handler.Handle(new ApiRequest { Op = ApiOps.Lock }, ClientRights.CrioFireApp, 3).Ok);
+        Assert.Equal(ApiOps.ApprovalRequired, CodeOfAChange(handler, 3));
+    }
+
+    [Fact]
+    public void AnUnlockIsShortAndEndsWithTheSetting()
+    {
+        var handler = new ApiHandler(null!, protection: new TamperProtection(_path));
+
+        // Never longer than an hour, whatever is asked.
+        var long1 = handler.Handle(new ApiRequest { Op = ApiOps.Unlock, ExpiresMinutes = 100_000 }, ClientRights.Administrator, 3);
+        Assert.InRange(long1.UnlockedUntilUtc!.Value, DateTime.UtcNow.AddMinutes(59), DateTime.UtcNow.AddMinutes(61));
+
+        // Not without a session (the command line working on its own, without the service).
+        Assert.False(handler.Handle(new ApiRequest { Op = ApiOps.Unlock }, ClientRights.Administrator).Ok);
+
+        // Turning protection on again (or off) ends whatever was allowed for a while.
+        Assert.True(handler.Handle(new ApiRequest { Op = ApiOps.SetProtection, Enabled = true }, ClientRights.Administrator, 3).Ok);
+        Assert.Equal(ApiOps.ApprovalRequired, CodeOfAChange(handler, 3));
+
+        // With protection off there is nothing to unlock.
+        handler.Handle(new ApiRequest { Op = ApiOps.SetProtection, Enabled = false }, ClientRights.Administrator, 3);
+        Assert.False(handler.Handle(new ApiRequest { Op = ApiOps.Unlock }, ClientRights.Administrator, 3).Ok);
+
+        Assert.Contains("10 minutes", ApprovalText.Describe(new ApiRequest { Op = ApiOps.Unlock }), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ChangingProtectionAlwaysNeedsAnAdministrator()
     {

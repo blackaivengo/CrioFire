@@ -795,5 +795,9 @@
   "…and {0} more (criofire verify lists them all).": "…và {0} tệp nữa (criofire verify liệt kê tất cả).",
   "The last check found no problems.": "Lần kiểm tra gần nhất không thấy vấn đề nào.",
   "To put the original files back: Settings → Apps → Installed apps → CrioFire Private Firewall → Modify → Repair, or install CrioFire again. Your rules and settings are kept. If you did not change these files yourself, also scan the PC for malware.": "Để khôi phục các tệp gốc: Cài đặt → Ứng dụng → Ứng dụng đã cài đặt → CrioFire Private Firewall → Sửa đổi → Sửa chữa, hoặc cài lại CrioFire. Quy tắc và cài đặt của bạn được giữ nguyên. Nếu bạn không tự thay đổi các tệp này, hãy quét phần mềm độc hại trên máy tính.",
-  "CrioFire's own files": "Tệp của chính CrioFire"
+  "CrioFire's own files": "Tệp của chính CrioFire",
+  "Ask again now": "Hỏi lại ngay",
+  "Allow changes for 10 minutes": "Cho phép thay đổi trong 10 phút",
+  "CrioFire changes rules without asking until {0}.": "CrioFire thay đổi quy tắc mà không hỏi cho đến {0}.",
+  "Many changes to make? One approval lets this app change rules without asking for 10 minutes. During that time, a program that can steer the app could change them too.": "Cần thay đổi nhiều thứ? Chỉ một lần chấp thuận, ứng dụng này có thể thay đổi quy tắc mà không hỏi trong 10 phút. Trong thời gian đó, một chương trình điều khiển được ứng dụng cũng có thể thay đổi quy tắc."
 }
