@@ -212,6 +212,58 @@ public static partial class ServiceGuard
         return true;
     }
 
+    /// <summary>
+    /// Tells Windows to start the service again at once whenever its process ends without the
+    /// service having been stopped (ended from Task Manager, crashed). The installer sets this
+    /// too; the service sets it again each time it starts, so it also holds for a service that
+    /// was registered by hand or whose recovery settings somebody changed.
+    /// </summary>
+    public static unsafe void EnsureRestartOnFailure(string service = ServiceName)
+    {
+        const uint failureActions = 2, failureActionsFlag = 4, restart = 1;
+        WithService(service, ServiceChangeConfig | ServiceStart, handle =>
+        {
+            var actions = stackalloc ScAction[3];
+            for (var i = 0; i < 3; i++)
+            {
+                actions[i] = new ScAction { Type = restart, DelayMilliseconds = 0 };
+            }
+
+            var settings = new ServiceFailureActions { ResetPeriodSeconds = 24 * 60 * 60, ActionCount = 3, Actions = actions };
+            if (!ChangeServiceConfig2W(handle, failureActions, &settings))
+            {
+                throw new Win32Exception(Marshal.GetLastPInvokeError());
+            }
+
+            // Also when the service ends by itself with an error, not only when its process is ended.
+            var also = 1;
+            _ = ChangeServiceConfig2W(handle, failureActionsFlag, &also);
+        });
+    }
+
+    private const uint ServiceStart = 0x0010;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ScAction
+    {
+        public uint Type;
+        public uint DelayMilliseconds;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private unsafe struct ServiceFailureActions
+    {
+        public uint ResetPeriodSeconds;
+        public IntPtr RebootMessage;
+        public IntPtr Command;
+        public uint ActionCount;
+        public ScAction* Actions;
+    }
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static unsafe partial bool ChangeServiceConfig2W(IntPtr service, uint level, void* info);
+
     private static void WithService(string service, uint access, Action<IntPtr> action)
     {
         var manager = OpenSCManagerW(null, null, ScManagerConnect);

@@ -142,9 +142,19 @@ if (-not $Language) {
     Check ((Get-Service criofire).Status -eq 'Running') 'the service is still running'
 
     # Ending the process by force: either Windows refuses, or the service is started again.
+    $before = (Get-Process criofire-svc -ErrorAction SilentlyContinue | Select-Object -First 1).Id
     taskkill.exe /F /IM criofire-svc.exe | Out-Host
-    Start-Sleep -Seconds 6
-    try { (Get-Service criofire).WaitForStatus('Running', [TimeSpan]::FromSeconds(30)) } catch { Write-Host "Service did not reach Running: $_" }
+    $refused = $LASTEXITCODE -ne 0   # Windows did not let the process be ended: nothing to restart
+    $killed = Get-Date
+    $back = if ($refused) { 0 } else { $null }
+    while (((Get-Date) - $killed).TotalSeconds -lt 60 -and $null -eq $back) {
+        $now = (Get-Process criofire-svc -ErrorAction SilentlyContinue | Select-Object -First 1).Id
+        if ($now -and $now -ne $before -and (Get-Service criofire).Status -eq 'Running') { $back = ((Get-Date) - $killed).TotalSeconds } else { Start-Sleep -Milliseconds 200 }
+    }
+
+    $took = if ($refused) { 'no time: Windows refused to end it' } elseif ($null -ne $back) { "$([Math]::Round($back, 1)) seconds" } else { 'more than 60 seconds' }
+    if ($env:GITHUB_ACTIONS -eq 'true') { Write-Host "::notice title=Service restart after its process was ended::running again after $took (process $before, then $now)" }
+    Check ($null -ne $back -and $back -lt 20) "after its process is ended, the service is running again within 20 seconds (took $took)"
     Check ((Get-Service criofire).Status -eq 'Running') 'after an attempt to end its process, the service is running'
     Check (Test-ProviderRegistered) 'the rules stayed in the Windows Filtering Platform'
 

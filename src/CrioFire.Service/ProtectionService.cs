@@ -51,6 +51,18 @@ internal sealed partial class ProtectionService(ILogger<ProtectionService> logge
             LogStepFailed(logger, "Protecting the service process", ex);
         }
 
+        if (Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService())
+        {
+            try
+            {
+                ServiceGuard.EnsureRestartOnFailure();
+            }
+            catch (Exception ex) when (ex is Win32Exception or EntryPointNotFoundException)
+            {
+                LogStepFailed(logger, "Setting the service to restart when its process is ended", ex);
+            }
+        }
+
         if (self.NoteStart(DateTime.UtcNow) is { } lastAlive)
         {
             LogUnexpectedStop(logger, lastAlive.ToLocalTime());
