@@ -39,6 +39,7 @@ public enum CommandKind
     Logs,
     Updates,
     Verify,
+    Diagnostics,
     ServiceStop,
     ServiceStart,
 }
@@ -438,6 +439,8 @@ internal static class CommandLine
                 return new Command(CommandKind.Help);
             case "verify" when rest.Length == 0:
                 return new Command(CommandKind.Verify);
+            case "diagnostics" when rest.Length == 0 || (rest.Length == 1 && rest[0] == "--gc"):
+                return new Command(CommandKind.Diagnostics, All: rest.Length == 1);
             case "service":
                 if (rest.Length == 1 && rest[0].ToLowerInvariant() is "stop" or "start")
                 {

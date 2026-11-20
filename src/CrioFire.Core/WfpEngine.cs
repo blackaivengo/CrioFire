@@ -243,11 +243,11 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
     /// <paramref name="toUtc"/>, with the reason: a CrioFire rule, an automatic permit, loopback,
     /// or no CrioFire rule at all. Needs <see cref="SetAllowedEventCollection"/> on.
     /// </summary>
-    public IReadOnlyList<AllowedConnection> ReadAllowedConnections(DateTime fromUtc, DateTime? toUtc = null, NtPathMapper? paths = null)
+    public IReadOnlyList<AllowedConnection> ReadAllowedConnections(DateTime fromUtc, DateTime? toUtc = null, NtPathMapper? paths = null, IReadOnlyList<CrioFireFilter>? filters = null)
     {
         ThrowIfDisposed();
         paths ??= NtPathMapper.FromSystem();
-        var filters = ListFilters();
+        filters ??= ListFilters();   // listing reads every filter on the PC: callers that poll pass the list they already have
         var result = new List<AllowedConnection>();
 
         var template = new FWPM_NET_EVENT_ENUM_TEMPLATE0
@@ -314,11 +314,11 @@ public sealed unsafe class WfpEngine : IDisposable, IDomainFilters
     /// <paramref name="toUtc"/> (default: now). The engine keeps a limited in-memory history, so poll
     /// regularly. With <paramref name="crioFireOnly"/>, drops caused by other firewalls are left out.
     /// </summary>
-    public IReadOnlyList<BlockedConnection> ReadBlockedConnections(DateTime fromUtc, DateTime? toUtc = null, bool crioFireOnly = true, NtPathMapper? paths = null)
+    public IReadOnlyList<BlockedConnection> ReadBlockedConnections(DateTime fromUtc, DateTime? toUtc = null, bool crioFireOnly = true, NtPathMapper? paths = null, IReadOnlyList<CrioFireFilter>? filters = null)
     {
         ThrowIfDisposed();
         paths ??= NtPathMapper.FromSystem();
-        var ours = ListFilters().ToDictionary(f => f.FilterId);
+        var ours = (filters ?? ListFilters()).ToDictionary(f => f.FilterId);
         var result = new List<BlockedConnection>();
 
         var template = new FWPM_NET_EVENT_ENUM_TEMPLATE0

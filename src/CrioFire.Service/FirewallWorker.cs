@@ -113,7 +113,10 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                         }
                     }
 
-                    var blocked = recent.KeepNew(engine.ReadBlockedConnections(from, now, crioFireOnly: true, paths), now);
+                    // One listing of the filters per round, shared by everything below: it reads every
+                    // filter on the PC (thousands), which is the costliest thing this loop does.
+                    var filters = engine.ListFilters();
+                    var blocked = recent.KeepNew(engine.ReadBlockedConnections(from, now, crioFireOnly: true, paths, filters), now);
                     if (blocked.Count > 0)
                     {
                         log.Append(blocked);
@@ -152,10 +155,10 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger) : B
                     {
                         try
                         {
-                            var allowed = recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths), now);
+                            var allowed = recentAllowed.KeepNew(engine.ReadAllowedConnections(from, now, paths, filters), now);
                             if (allowed.Count > 0)
                             {
-                                allowedLog.AppendSummaries(AllowedSummary.Aggregate(NameServices(allowed, engine.ListFilters())));
+                                allowedLog.AppendSummaries(AllowedSummary.Aggregate(NameServices(allowed, filters)));
                             }
                         }
                         catch (EntryPointNotFoundException ex)

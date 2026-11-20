@@ -155,6 +155,21 @@ static int Run(Backend api, Command command)
             return 0;
         }
 
+        case CommandKind.Diagnostics:
+        {
+            // The service's memory, not this command's: only the service can say.
+            using var service = CrioFireClient.TryConnect();
+            if (service is null)
+            {
+                Console.Error.WriteLine("The criofire service is not running.");
+                return 1;
+            }
+
+            var response = service.Send(new ApiRequest { Op = ApiOps.Diagnostics, All = command.All });
+            Console.WriteLine(response.Memory?.Describe() ?? response.Error ?? "The service gave no answer.");
+            return response.Ok ? 0 : 1;
+        }
+
         case CommandKind.Verify:
         {
             var result = api.Call(new ApiRequest { Op = ApiOps.Integrity, All = true }).Integrity!;

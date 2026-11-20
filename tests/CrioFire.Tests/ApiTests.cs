@@ -99,6 +99,26 @@ public class ApiAuthorizationTests
         Assert.True(ApiAuthorization.CanWrite(false, @"C:\Program Files\CrioFire\criofire-ui.exe", Install + @"\"));
 }
 
+public class DiagnosticsTests
+{
+    [Fact]
+    public void TheServiceSaysHowMuchMemoryItUsesAndOfWhatKind()
+    {
+        var handler = new ApiHandler(null!);
+
+        var memory = handler.Handle(new ApiRequest { Op = ApiOps.Diagnostics }, ClientRights.ReadOnly).Memory!;
+        Assert.True(memory.PrivateBytes > 0 && memory.ManagedBytes > 0 && memory.Threads > 0);
+        Assert.False(memory.Collected);
+
+        // Collecting first stops everything for a moment: only for administrators.
+        Assert.False(handler.Handle(new ApiRequest { Op = ApiOps.Diagnostics, All = true }, ClientRights.CrioFireApp).Memory!.Collected);
+        var collected = handler.Handle(new ApiRequest { Op = ApiOps.Diagnostics, All = true }, ClientRights.Administrator).Memory!;
+        Assert.True(collected.Collected);
+        Assert.Contains("private ", collected.Describe(), StringComparison.Ordinal);
+        Assert.Contains("after a full collection", collected.Describe(), StringComparison.Ordinal);
+    }
+}
+
 public class RequestReaderTests
 {
     private static RequestReader Reader(string text, int max = 64) => new(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(text)), max);

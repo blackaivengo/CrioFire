@@ -62,6 +62,9 @@ public static class ApiOps
     /// <summary>Ends <see cref="Unlock"/> early for the asking session: changes need approval again.</summary>
     public const string Lock = "lock";
 
+    /// <summary>How much memory the service uses, and of what kind (all: true collects garbage first; administrators only).</summary>
+    public const string Diagnostics = "diagnostics";
+
     /// <summary>Operations that change the firewall and need an authorized client.</summary>
     public static bool IsWrite(string op) =>
         op is SetRule or RemoveRules or RemoveFilter or SetMode or Panic or AddNetRule or SetServiceRule or RemoveServiceRules or SetAutoRule or Trust or ImportRules or RestoreBackup or SetProtection or SetLicense
@@ -69,6 +72,63 @@ public static class ApiOps
 
     /// <summary>The error code when a change needs administrator approval (tamper protection, or the setting itself).</summary>
     public const string ApprovalRequired = "approval-required";
+}
+
+/// <summary>
+/// What the service process uses, to tell what kind of memory grows when it grows: .NET objects
+/// (ManagedBytes, after a collection when one was asked for), memory .NET holds from Windows
+/// (CommittedBytes), or memory outside .NET altogether (PrivateBytes minus CommittedBytes).
+/// </summary>
+public sealed record MemoryInfo(
+    long UptimeSeconds,
+    long PrivateBytes,
+    long WorkingSetBytes,
+    long ManagedBytes,
+    long CommittedBytes,
+    long FragmentedBytes,
+    int Handles,
+    int Threads,
+    int Gen0Collections,
+    int Gen1Collections,
+    int Gen2Collections,
+    bool Collected)
+{
+    /// <summary>Reads the numbers of this process; <paramref name="collect"/> runs a full, compacting collection first.</summary>
+    public static MemoryInfo OfThisProcess(bool collect)
+    {
+        if (collect)
+        {
+            System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+            GC.WaitForPendingFinalizers();
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        }
+
+        using var process = System.Diagnostics.Process.GetCurrentProcess();
+        var gc = GC.GetGCMemoryInfo();
+        return new MemoryInfo(
+            (long)(DateTime.Now - process.StartTime).TotalSeconds,
+            process.PrivateMemorySize64,
+            process.WorkingSet64,
+            GC.GetTotalMemory(forceFullCollection: false),
+            gc.TotalCommittedBytes,
+            gc.FragmentedBytes,
+            process.HandleCount,
+            process.Threads.Count,
+            GC.CollectionCount(0),
+            GC.CollectionCount(1),
+            GC.CollectionCount(2),
+            collect);
+    }
+
+    /// <summary>One line, in megabytes.</summary>
+    public string Describe()
+    {
+        static string Mb(long bytes) => (bytes / 1048576.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        return $"up {UptimeSeconds / 60} min; private {Mb(PrivateBytes)} MB; working set {Mb(WorkingSetBytes)} MB; .NET objects {Mb(ManagedBytes)} MB; "
+            + $".NET holds {Mb(CommittedBytes)} MB ({Mb(FragmentedBytes)} MB of it free); outside .NET {Mb(Math.Max(0, PrivateBytes - CommittedBytes))} MB; "
+            + $"handles {Handles}; threads {Threads}; collections {Gen0Collections}/{Gen1Collections}/{Gen2Collections}" + (Collected ? " (after a full collection)" : string.Empty);
+    }
 }
 
 public sealed record ApiRequest
@@ -238,6 +298,9 @@ public sealed record ApiResponse
     /// <summary>update, checkUpdate, setUpdateCheck: the update check's setting and what it found.</summary>
     public UpdateState? Update { get; init; }
 
+    /// <summary>diagnostics: the service's memory.</summary>
+    public MemoryInfo? Memory { get; init; }
+
     /// <summary>integrity: the check of CrioFire's own files.</summary>
     public IntegrityInfo? Integrity { get; init; }
 
@@ -387,6 +450,7 @@ public static class ApiJson
 }
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(MemoryInfo))]
 [JsonSerializable(typeof(ApiRequest))]
 [JsonSerializable(typeof(ApiResponse))]
 [JsonSerializable(typeof(DomainRuleInfo))]

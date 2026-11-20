@@ -6,12 +6,20 @@
     <RootNamespace>CrioFire.Service</RootNamespace>
     <AssemblyName>criofire-svc</AssemblyName>
     <UserSecretsId>criofire-svc</UserSecretsId>
+    <!-- A service that runs for months on every PC: memory matters more than throughput. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>false</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Give memory back to Windows instead of keeping it for later (0 = never compacts for this, 9 = most eager). -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CrioFire.Core\CrioFire.Core.csproj" />
   </ItemGroup>

@@ -179,6 +179,12 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
             return new ApiResponse { Ok = true };
         }
 
+        if (request.Op == ApiOps.Diagnostics)
+        {
+            // Numbers for anyone who may ask the service anything; collecting first stops the world for a moment: administrators only.
+            return new ApiResponse { Ok = true, Memory = MemoryInfo.OfThisProcess(collect: request.All == true && rights == ClientRights.Administrator) };
+        }
+
         if (request.Op == ApiOps.Integrity)
         {
             if (selfProtection is null)

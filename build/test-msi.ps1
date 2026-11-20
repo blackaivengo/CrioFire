@@ -156,6 +156,53 @@ if (-not $Language) {
     Check ((Get-Service criofire).Status -eq 'Running') "'criofire service start' started it again"
 }
 
+if (-not $Language) {
+    # Does the service's memory grow while it works? Four rounds of what the app asks all day
+    # (each on a new connection), with name lookups and connections in between, and the memory
+    # after a full collection each time. The numbers go to the run page; steady growth fails.
+    function Ask-Service([string] $json) {
+        $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'criofire', [System.IO.Pipes.PipeDirection]::InOut)
+        try {
+            $pipe.Connect(5000)
+            $writer = New-Object System.IO.StreamWriter($pipe, (New-Object System.Text.UTF8Encoding($false)))
+            $writer.NewLine = "`n"
+            $writer.AutoFlush = $true
+            $reader = New-Object System.IO.StreamReader($pipe)
+            $writer.WriteLine($json)
+            return $reader.ReadLine()
+        } catch {
+            return $null
+        } finally {
+            $pipe.Dispose()
+        }
+    }
+
+    function Read-Memory([string] $label) {
+        $line = (& $cli diagnostics --gc 2>&1 | Out-String).Trim()
+        Write-Host "Service memory, ${label}: $line"
+        if ($env:GITHUB_ACTIONS -eq 'true') { Write-Host "::notice title=Service memory, $label::$line" }
+        if ($line -match 'private ([\d.]+) MB') { return [double]$Matches[1] }
+        return -1
+    }
+
+    $ops = 'status', 'list', 'events', 'traffic', 'allowed', 'usage', 'changed', 'logs', 'domains', 'license', 'management', 'update'
+    $readings = @(Read-Memory 'at the start')
+    $asked = 0
+    foreach ($round in 1..4) {
+        $until = (Get-Date).AddSeconds(70)
+        while ((Get-Date) -lt $until) {
+            foreach ($op in $ops) { [void](Ask-Service "{`"op`":`"$op`"}"); $asked++ }
+            try { [void][System.Net.Dns]::GetHostAddresses("criofire-test-$asked.example.com") } catch { }
+            try { $tcp = New-Object System.Net.Sockets.TcpClient; [void]$tcp.ConnectAsync('127.0.0.1', 445).Wait(200); $tcp.Dispose() } catch { }
+        }
+
+        $readings += Read-Memory "after round $round ($asked requests)"
+    }
+
+    $grew = [Math]::Round($readings[4] - $readings[1], 1)
+    Check ($readings[1] -gt 0 -and $grew -lt 60) "the service's memory stays level under load (rounds 1 to 4: $grew MB; readings $($readings -join ', ') MB)"
+}
+
 Write-Host "Uninstalling"
 Invoke-Msi "/x `"$Msi`"" (Join-Path $logDir "uninstall$suffix.log")
 
