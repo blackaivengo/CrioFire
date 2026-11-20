@@ -61,10 +61,17 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger, Net
             IDisposable? subscription = null;
             try
             {
-                eventsEngine = WfpEngine.Open();
-                subscription = eventsEngine.SubscribeNetEvents(feed.Add, feed.Add);
-                feed.Active = true;
-                LogSubscribed(logger);
+                if (DiagnosticSwitches.Has(DiagnosticSwitches.NoSubscription))
+                {
+                    LogSwitchedOff(logger, DiagnosticSwitches.NoSubscription);
+                }
+                else
+                {
+                    eventsEngine = WfpEngine.Open();
+                    subscription = eventsEngine.SubscribeNetEvents(feed.Add, feed.Add);
+                    feed.Active = true;
+                    LogSubscribed(logger);
+                }
             }
             catch (Exception ex) when (ex is WfpException or EntryPointNotFoundException)
             {
@@ -412,6 +419,9 @@ internal sealed partial class FirewallWorker(ILogger<FirewallWorker> logger, Net
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "This Windows version cannot report allowed connections; only blocked ones will be shown.")]
     private static partial void LogAllowedUnavailable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Left out because diagnostics.txt says '{Word}'.")]
+    private static partial void LogSwitchedOff(ILogger logger, string word);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Windows delivers blocked and allowed connections as they happen.")]
     private static partial void LogSubscribed(ILogger logger);

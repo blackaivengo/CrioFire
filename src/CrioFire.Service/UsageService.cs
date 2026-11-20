@@ -15,6 +15,12 @@ internal sealed partial class UsageService(ILogger<UsageService> logger) : Backg
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (DiagnosticSwitches.Has(DiagnosticSwitches.NoUsage))
+        {
+            LogSwitchedOff(logger, DiagnosticSwitches.NoUsage);
+            return;
+        }
+
         var store = new DataUsageStore(DataUsageStore.DefaultPath);
         var counter = new DataCounter(ProcessPaths.Of);
         using var events = new NetworkUsageEvents(counter.Add);
@@ -97,6 +103,9 @@ internal sealed partial class UsageService(ILogger<UsageService> logger) : Backg
 
         return store.Load();
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Left out because diagnostics.txt says '{Word}'.")]
+    private static partial void LogSwitchedOff(ILogger logger, string word);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Counting data used per program.")]
     private static partial void LogCounting(ILogger logger);

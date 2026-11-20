@@ -21,6 +21,12 @@ internal sealed partial class DomainService(ILogger<DomainService> logger) : Bac
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (DiagnosticSwitches.Has(DiagnosticSwitches.NoNames))
+        {
+            LogSwitchedOff(logger, DiagnosticSwitches.NoNames);
+            return;
+        }
+
         try
         {
             using var engine = WfpEngine.Open();
@@ -172,6 +178,9 @@ internal sealed partial class DomainService(ILogger<DomainService> logger) : Bac
             return [];
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Left out because diagnostics.txt says '{Word}'.")]
+    private static partial void LogSwitchedOff(ILogger logger, string word);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Following name lookups for domain rules.")]
     private static partial void LogWatching(ILogger logger);

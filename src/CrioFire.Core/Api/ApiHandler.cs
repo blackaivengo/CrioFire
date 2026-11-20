@@ -190,10 +190,10 @@ public sealed class ApiHandler(WfpEngine engine, TemporaryRuleStore? temporaryRu
                 Ok = true,
                 Memory = MemoryInfo.OfThisProcess(collect: request.All == true && rights == ClientRights.Administrator) with
                 {
-                    Events = Feed is null ? null
+                    Events = (DiagnosticSwitches.Load() is { Count: > 0 } off ? $"[diagnostics.txt: {string.Join(", ", off.Order())}] " : string.Empty) + (Feed is null ? null
                         : !Feed.Active ? "asked for every round (the old way, which leaks)"
                         : Feed.AllowedReceived > 0 ? $"delivered by Windows ({Feed.Received} so far, {Feed.AllowedReceived} of them allowed)"
-                        : $"delivered by Windows ({Feed.Received} so far, none of them allowed - allowed ones are still asked for every round, which leaks)",
+                        : $"delivered by Windows ({Feed.Received} so far, none of them allowed - allowed ones are still asked for every round, which leaks)"),
                 },
             };
         }
