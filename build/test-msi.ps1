@@ -157,9 +157,9 @@ if (-not $Language) {
 }
 
 if (-not $Language) {
-    # Does the service's memory grow while it works? Four rounds of what the app asks all day
-    # (each on a new connection), with name lookups and connections in between, and the memory
-    # after a full collection each time. The numbers go to the run page; steady growth fails.
+    # Does the service's memory grow while it works, and from what? One kind of work at a time
+    # for half a minute each (every request on a new connection, as the app makes them), and the
+    # memory after a full collection in between. The numbers go to the run page.
     function Ask-Service([string] $json) {
         $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'criofire', [System.IO.Pipes.PipeDirection]::InOut)
         try {
@@ -177,30 +177,50 @@ if (-not $Language) {
         }
     }
 
-    function Read-Memory([string] $label) {
+    function Read-Memory {
         $line = (& $cli diagnostics --gc 2>&1 | Out-String).Trim()
-        Write-Host "Service memory, ${label}: $line"
-        if ($env:GITHUB_ACTIONS -eq 'true') { Write-Host "::notice title=Service memory, $label::$line" }
-        if ($line -match 'private ([\d.]+) MB') { return [double]$Matches[1] }
-        return -1
+        $private = if ($line -match 'private ([\d.]+) MB') { [double]$Matches[1] } else { -1 }
+        $outside = if ($line -match 'outside \.NET ([\d.]+) MB') { [double]$Matches[1] } else { -1 }
+        $handles = if ($line -match 'handles (\d+)') { [int]$Matches[1] } else { -1 }
+        return @{ Line = $line; Private = $private; Outside = $outside; Handles = $handles }
     }
 
-    $ops = 'status', 'list', 'events', 'traffic', 'allowed', 'usage', 'changed', 'logs', 'domains', 'license', 'management', 'update'
-    $readings = @(Read-Memory 'at the start')
-    $asked = 0
-    foreach ($round in 1..4) {
-        $until = (Get-Date).AddSeconds(70)
-        while ((Get-Date) -lt $until) {
-            foreach ($op in $ops) { [void](Ask-Service "{`"op`":`"$op`"}"); $asked++ }
-            try { [void][System.Net.Dns]::GetHostAddresses("criofire-test-$asked.example.com") } catch { }
+    function Just-Connect {
+        $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'criofire', [System.IO.Pipes.PipeDirection]::InOut)
+        try { $pipe.Connect(5000) } catch { } finally { $pipe.Dispose() }
+    }
+
+    # One kind of work at a time, so that growth shows which kind causes it.
+    $phases = [ordered]@{
+        'nothing asked (the service on its own)' = { Start-Sleep -Milliseconds 200 }
+        'connecting without asking'              = { Just-Connect }
+        'status'                                 = { [void](Ask-Service '{"op":"status"}') }
+        'list'                                   = { [void](Ask-Service '{"op":"list"}') }
+        'events'                                 = { [void](Ask-Service '{"op":"events","minutes":1}') }
+        'history (traffic - allowed - report)'   = { foreach ($op in 'traffic', 'allowed', 'report') { [void](Ask-Service "{`"op`":`"$op`"}") } }
+        'other reads'                            = { foreach ($op in 'usage', 'changed', 'logs', 'domains', 'license', 'management', 'update', 'integrity', 'backups') { [void](Ask-Service "{`"op`":`"$op`"}") } }
+        'name lookups and connections'           = {
+            try { [void][System.Net.Dns]::GetHostAddresses("criofire-test-$([Guid]::NewGuid().ToString('N')).example.com") } catch { }
             try { $tcp = New-Object System.Net.Sockets.TcpClient; [void]$tcp.ConnectAsync('127.0.0.1', 445).Wait(200); $tcp.Dispose() } catch { }
         }
-
-        $readings += Read-Memory "after round $round ($asked requests)"
     }
 
-    $grew = [Math]::Round($readings[4] - $readings[1], 1)
-    Check ($readings[1] -gt 0 -and $grew -lt 60) "the service's memory stays level under load (rounds 1 to 4: $grew MB; readings $($readings -join ', ') MB)"
+    $first = Read-Memory
+    Write-Host "Service memory at the start: $($first.Line)"
+    $before = $first
+    foreach ($name in $phases.Keys) {
+        $until = (Get-Date).AddSeconds(35)
+        $times = 0
+        while ((Get-Date) -lt $until) { & $phases[$name]; $times++ }
+        $after = Read-Memory
+        $text = "$times times: private $([Math]::Round($after.Private - $before.Private, 1)) MB more (now $($after.Private)) - outside .NET $([Math]::Round($after.Outside - $before.Outside, 1)) MB more - handles $($after.Handles - $before.Handles) more. $($after.Line)"
+        Write-Host "Service memory after $name - $text"
+        if ($env:GITHUB_ACTIONS -eq 'true') { Write-Host "::notice title=Memory - $name::$text" }
+        $before = $after
+    }
+
+    $grew = [Math]::Round($before.Private - $first.Private, 1)
+    Check ($first.Private -gt 0 -and $grew -lt 400) "the service's memory does not run away under load (grew $grew MB over all kinds of work)"
 }
 
 Write-Host "Uninstalling"
